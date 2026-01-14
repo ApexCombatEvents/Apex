@@ -50,9 +50,9 @@ export default function ModerationDashboard() {
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     title: string;
-    message: string;
+    description: string;
     onConfirm: () => void;
-  }>({ open: false, title: "", message: "", onConfirm: () => {} });
+  }>({ open: false, title: "", description: "", onConfirm: () => {} });
 
   useEffect(() => {
     checkAdmin();
@@ -283,7 +283,7 @@ export default function ModerationDashboard() {
                           setConfirmDialog({
                             open: true,
                             title: "Hide Content",
-                            message: "This will hide the content from public view.",
+                            description: "This will hide the content from public view.",
                             onConfirm: () => {
                               handleReportAction(report.id, "resolved", "hide");
                               setConfirmDialog({ ...confirmDialog, open: false });
@@ -300,7 +300,7 @@ export default function ModerationDashboard() {
                           setConfirmDialog({
                             open: true,
                             title: "Delete Content",
-                            message: "This will permanently delete the content. This action cannot be undone.",
+                            description: "This will permanently delete the content. This action cannot be undone.",
                             onConfirm: () => {
                               handleReportAction(report.id, "resolved", "delete");
                               setConfirmDialog({ ...confirmDialog, open: false });
@@ -333,9 +333,9 @@ export default function ModerationDashboard() {
       <ConfirmDialog
         open={confirmDialog.open}
         title={confirmDialog.title}
-        message={confirmDialog.message}
+        description={confirmDialog.description}
         onConfirm={confirmDialog.onConfirm}
-        onCancel={() => setConfirmDialog({ ...confirmDialog, open: false })}
+        onClose={() => setConfirmDialog({ ...confirmDialog, open: false })}
       />
     </div>
   );
