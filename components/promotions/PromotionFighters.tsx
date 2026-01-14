@@ -443,7 +443,7 @@ function AddFighterModal({
               <div className="border-t pt-4 space-y-3">
                 <div>
                   <label className="text-xs text-slate-600 space-y-1 block">
-                    Rank (numbers only, e.g., "1", "2", "3")
+                    Rank (numbers only, e.g., &quot;1&quot;, &quot;2&quot;, &quot;3&quot;)
                     <input
                       type="text"
                       className="w-full rounded-xl border px-3 py-2 text-sm"
