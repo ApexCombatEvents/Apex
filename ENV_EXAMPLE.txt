@@ -1,0 +1,31 @@
+# Supabase Configuration
+# Get these from your Supabase Dashboard → Settings → API
+
+# Public URL and Anon Key (safe to expose in browser)
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Service Role Key (KEEP SECRET - server-side only, never expose to client)
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+
+# Stripe Configuration
+# Get these from your Stripe Dashboard → Developers → API keys
+
+# Stripe Secret Key (use test key for development, live key for production)
+STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key
+
+# Stripe Webhook Secret (get from Stripe Dashboard → Developers → Webhooks)
+# This is different for test mode and live mode
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
+
+# Optional: For Upstash Redis Rate Limiting (if you want distributed rate limiting)
+# UPSTASH_REDIS_REST_URL=your_upstash_redis_url
+# UPSTASH_REDIS_REST_TOKEN=your_upstash_redis_token
+
+# Notes:
+# - Rename this file to .env.example (or copy to .env.local for local development)
+# - Never commit actual values to git
+# - Use test keys for development
+# - Use live keys for production
+# - Keep service role key and webhook secret secure
+# - Rotate keys periodically for security

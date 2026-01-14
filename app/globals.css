@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* App background + typography (purple-tinted neutrals) */
+  html,
+  body {
+    /* Default copy text: neutral grey */
+    @apply text-slate-700;
+  }
+
+  body {
+    @apply bg-gradient-to-br from-purple-50/50 via-white to-slate-50/30;
+    @apply bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))];
+    background-attachment: fixed;
+  }
+
+  /* Headings/titles: true black */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply text-black;
+  }
+
+  /* Slightly nicer text rendering on desktop */
+  html {
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    @apply bg-purple-200 text-slate-900;
+  }
+}
+
+/* Safe area support for mobile devices */
+@supports (padding: max(0px)) {
+  .safe-area-inset-bottom {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+}
+
+@layer components {
+  /* Enhanced Cards - Modern sports website inspired */
+  .card {
+    @apply rounded-2xl p-6 border bg-white border-slate-200/60;
+    @apply shadow-[0_1px_3px_0_rgb(0_0_0_/_0.1),0_1px_2px_-1px_rgb(0_0_0_/_0.1)];
+    @apply transition-all duration-200;
+    @apply hover:shadow-[0_4px_6px_-1px_rgb(0_0_0_/_0.1),0_2px_4px_-2px_rgb(0_0_0_/_0.1)];
+    @apply hover:border-purple-200/80;
+  }
+
+  .card-compact {
+    @apply rounded-xl p-4 border bg-white border-slate-200/60;
+    @apply shadow-[0_1px_2px_0_rgb(0_0_0_/_0.05)];
+    @apply transition-all duration-200;
+    @apply hover:shadow-[0_2px_4px_0_rgb(0_0_0_/_0.1)];
+  }
+
+  .card-elevated {
+    @apply rounded-2xl p-6 border bg-white border-purple-100/50;
+    @apply shadow-[0_4px_6px_-1px_rgb(0_0_0_/_0.1),0_2px_4px_-2px_rgb(0_0_0_/_0.1)];
+    @apply transition-all duration-200;
+  }
+
+  /* Enhanced Buttons - Modern, bold sports style */
+  .btn {
+    @apply px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white;
+  }
+
+  .btn-primary {
+    @apply text-white;
+    @apply bg-gradient-to-r from-purple-600 via-purple-700 to-indigo-700;
+    @apply shadow-[0_4px_6px_-1px_rgb(139_92_246_/_0.3)];
+    @apply hover:from-purple-700 hover:via-purple-800 hover:to-indigo-800;
+    @apply hover:shadow-[0_6px_8px_-1px_rgb(139_92_246_/_0.4)];
+    @apply hover:-translate-y-0.5;
+    @apply active:translate-y-0 active:shadow-[0_2px_4px_-1px_rgb(139_92_246_/_0.3)];
+  }
+
+  .btn-outline {
+    @apply border-2 border-purple-300 text-purple-700 bg-white;
+    @apply hover:bg-purple-50 hover:border-purple-400;
+    @apply active:bg-purple-100;
+  }
+
+  .btn-secondary {
+    @apply border border-slate-300 text-slate-700 bg-white;
+    @apply hover:bg-slate-50 hover:border-slate-400;
+    @apply shadow-sm hover:shadow;
+  }
+
+  /* Sports-inspired badge styles */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold;
+  }
+
+  .badge-primary {
+    @apply bg-purple-100 text-purple-700 border border-purple-200;
+  }
+
+  .badge-live {
+    @apply bg-red-500 text-white animate-pulse;
+    @apply shadow-[0_0_8px_rgb(239_68_68_/_0.5)];
+  }
+
+  .badge-featured {
+    @apply bg-gradient-to-r from-purple-600 to-indigo-600 text-white;
+    @apply shadow-[0_2px_4px_rgb(139_92_246_/_0.3)];
+  }
+
+  /* Section headers */
+  .section-header {
+    @apply mb-6 pb-3 border-b border-slate-200;
+  }
+
+  .section-title {
+    @apply text-lg font-normal text-slate-900 tracking-tight;
+  }
+
+  .section-subtitle {
+    @apply text-sm text-slate-600 mt-2;
+  }
+}
+
+
