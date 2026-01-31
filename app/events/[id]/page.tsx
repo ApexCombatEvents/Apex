@@ -699,7 +699,7 @@ export default async function EventPage({
                         return (
                           <div
                             key={offer.id}
-                            className="py-1.5 flex items-center justify-between gap-3"
+                            className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                           >
                             <div className="flex flex-col">
                               <span className="font-medium text-slate-900">
@@ -725,14 +725,14 @@ export default async function EventPage({
                               </span>
                             </div>
 
-                            <div className="flex items-center gap-3">
-                              <span className="text-[11px] uppercase tracking-wide text-slate-500">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto mt-2 sm:mt-0">
+                              <span className="text-[11px] uppercase tracking-wide text-slate-500 hidden sm:inline-block">
                                 {offer.status || "pending"}
                               </span>
 
                               {(!offer.status ||
                                 offer.status === "pending") && (
-                                <>
+                                <div className="flex flex-wrap items-center gap-2">
                                   <OfferMessageButton
                                     targetProfileId={offer.from_profile_id}
                                     targetUsername={coach?.username}
@@ -758,7 +758,7 @@ export default async function EventPage({
                                       offeredFighterGymUsername
                                     }
                                   />
-                                </>
+                                </div>
                               )}
                             </div>
                           </div>

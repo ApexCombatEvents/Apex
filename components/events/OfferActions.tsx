@@ -443,7 +443,7 @@ export default function OfferActions({
   const acceptDisabled = disabled || !fighterProfileId || sameGymConflict;
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <button
         type="button"
         disabled={acceptDisabled}
@@ -455,7 +455,7 @@ export default function OfferActions({
             ? "Opponent gym is unknown; allowing acceptance."
             : undefined
         }
-        className="rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700 hover:bg-green-100 disabled:opacity-60"
+        className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-100 disabled:opacity-60 transition-colors"
       >
         {busy === "accept" ? "Accepting..." : "Accept"}
       </button>
@@ -464,13 +464,13 @@ export default function OfferActions({
         type="button"
         disabled={disabled}
         onClick={() => handleDecision("declined")}
-        className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-slate-600 hover:bg-slate-100 disabled:opacity-60"
+        className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-60 transition-colors"
       >
         {busy === "decline" ? "Declining..." : "Decline"}
       </button>
 
       {error && (
-        <span className="text-[10px] text-red-600 max-w-xs">{error}</span>
+        <span className="text-[10px] text-red-600 max-w-xs w-full">{error}</span>
       )}
 
       {!error && sameGymConflict && (
