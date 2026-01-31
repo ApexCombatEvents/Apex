@@ -9,11 +9,11 @@ import de from '../messages/de.json';
 import { ALL_LANGUAGES } from '@/lib/languages';
 
 const translations: Record<string, any> = { 
-  en: en.default || en, 
-  es: es.default || es, 
-  pt: pt.default || pt, 
-  fr: fr.default || fr, 
-  de: de.default || de 
+  en, 
+  es, 
+  pt, 
+  fr, 
+  de 
 };
 
 export type Language = string;
