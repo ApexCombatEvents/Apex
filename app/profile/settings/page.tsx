@@ -12,7 +12,8 @@ import FighterBeltsManager from "@/components/fighters/FighterBeltsManager";
 type Role = "fighter" | "coach" | "gym" | "promotion" | "";
 
 import { COUNTRIES } from "@/lib/countries";
-import { useTranslation, SUPPORTED_LANGUAGES, type Language } from "@/hooks/useTranslation";
+import { useTranslation, type Language } from "@/hooks/useTranslation";
+import { ALL_LANGUAGES as SUPPORTED_LANGUAGES } from "@/lib/languages";
 
 export default function ProfileSettingsPage() {
   const supabase = createSupabaseBrowser();
