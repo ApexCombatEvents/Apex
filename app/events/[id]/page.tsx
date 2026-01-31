@@ -441,21 +441,21 @@ export default async function EventPage({
 
           {/* Organiser card */}
           {organiser && (
-            <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 px-5 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-slate-200 overflow-hidden">
+            <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 md:px-5 md:py-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
+                <div className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-slate-200 overflow-hidden flex-shrink-0">
                   {organiser.avatar_url && (
                     <Image
                       src={organiser.avatar_url}
                       alt={organiser.full_name || "Organiser"}
-                      width={40}
-                      height={40}
+                      width={48}
+                      height={48}
                       className="h-full w-full object-cover"
                     />
                   )}
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-base font-medium text-slate-900">
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm md:text-base font-medium text-slate-900 truncate">
                     Hosted by{" "}
                     <Link
                       href={`/profile/${organiser.username}`}
@@ -465,7 +465,7 @@ export default async function EventPage({
                     </Link>
                   </span>
                   {organiser.country && (
-                    <span className="text-sm text-slate-500">
+                    <span className="text-xs md:text-sm text-slate-500 truncate">
                       {organiser.country}
                     </span>
                   )}
@@ -474,7 +474,7 @@ export default async function EventPage({
               {organiser.username && (
                 <Link
                   href={`/profile/${organiser.username}`}
-                  className="text-sm text-purple-700 hover:underline"
+                  className="text-xs md:text-sm text-purple-700 hover:underline whitespace-nowrap flex-shrink-0"
                 >
                   View profile
                 </Link>
