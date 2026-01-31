@@ -1,4 +1,4 @@
-# Legacy-MVP — Combat Sports Social & Matchmaking (Next.js + Supabase)
+# Legacy — Combat Sports Social & Matchmaking (Next.js + Supabase)
 
 Purple-themed app with profiles, posts, events, bouts, offers, and streams.
 
