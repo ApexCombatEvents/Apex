@@ -118,13 +118,15 @@ export async function POST(req: Request) {
         
         const supabaseAdmin = createClient(supabaseUrlAdmin, serviceRoleKeyAdmin);
 
+      // Look up username case-insensitively
       const { data: profile, error: profileError } = await supabaseAdmin
         .from("profiles")
         .select("id")
-        .eq("username", sanitizedIdentifier)
+        .ilike("username", sanitizedIdentifier)
         .single();
 
       if (profileError || !profile) {
+        console.error("Username lookup failed:", profileError?.message || "No profile found");
         return NextResponse.json(
           { error: "Invalid login credentials" },
           { status: 400 }
