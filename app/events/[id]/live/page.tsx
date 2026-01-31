@@ -942,7 +942,7 @@ function BoutCard({
 
       <div className="grid grid-cols-1 sm:grid-cols-[1fr,auto,1fr] gap-5 sm:gap-6 items-center">
         {/* RED CORNER */}
-        <div className="flex justify-center">
+        <div className="flex justify-center order-1">
           {(redFighter || bout.red_name) ? (
             <div className="flex items-center gap-3">
               <div className="flex flex-col items-center gap-0.5">
@@ -993,8 +993,8 @@ function BoutCard({
           )}
         </div>
 
-        {/* MIDDLE */}
-        <div className="flex flex-col items-center text-center text-sm text-slate-600 px-3 sm:px-5 order-first sm:order-none mb-3 sm:mb-0">
+        {/* MIDDLE - Bout Info */}
+        <div className="flex flex-col items-center text-center text-sm text-slate-600 px-3 sm:px-5 order-2 sm:order-2 my-2 sm:my-0">
           <div className="font-medium">{bout.weight || "Weight TBC"}</div>
           <div className="mt-1">{bout.bout_details || "Details TBC"}</div>
           {bout.winner_side && (
@@ -1012,7 +1012,7 @@ function BoutCard({
         </div>
 
         {/* BLUE CORNER */}
-        <div className="flex justify-center">
+        <div className="flex justify-center order-3">
           {(blueFighter || bout.blue_name) ? (
             <div className="flex items-center gap-3">
               <div className="flex flex-col items-center gap-0.5">

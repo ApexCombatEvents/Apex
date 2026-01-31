@@ -309,104 +309,8 @@ export default function CoachGymBoutOfferButton({ boutId, side }: Props) {
     (r) => !linkedFighters.some((f) => f.id === r.id)
   )];
 
-  if (showChooser) {
-    return (
-      <div className="flex flex-col items-center gap-2">
-        <div className="bg-white border border-purple-200 rounded-lg p-3 shadow-sm min-w-[280px] max-w-sm">
-          <p className="text-[10px] text-slate-600 mb-2 text-center font-medium">
-            Send bout offer to:
-          </p>
-          
-          {/* Search input */}
-          <div className="mb-3">
-            <input
-              type="text"
-              placeholder="Search fighters..."
-              value={searchQuery}
-              onChange={(e) => {
-                const query = e.target.value;
-                setSearchQuery(query);
-                searchFighters(query);
-              }}
-              className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-[11px] focus:outline-none focus:ring-1 focus:ring-purple-500"
-            />
-          </div>
-
-          {/* Options list */}
-          <div className="flex flex-col gap-1 max-h-[200px] overflow-y-auto">
-            {allFighters.length === 0 && !searching && (
-              <p className="text-[10px] text-slate-500 text-center py-2">
-                {searchQuery ? "No results found" : "No fighters available"}
-              </p>
-            )}
-            {searching && (
-              <p className="text-[10px] text-slate-500 text-center py-2">Searching...</p>
-            )}
-            {allFighters.map((fighter) => (
-              <button
-                key={fighter.id}
-                type="button"
-                onClick={() => {
-                  setSelectedFighterId(fighter.id);
-                }}
-                className={`text-[11px] px-3 py-1.5 rounded border text-left ${
-                  selectedFighterId === fighter.id
-                    ? "bg-purple-50 border-purple-300 text-purple-700"
-                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                <div className="font-medium">
-                  {fighter.full_name || fighter.username || "Fighter"}
-                </div>
-                {fighter.username && (
-                  <div className="text-[10px] text-slate-500">@{fighter.username}</div>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-        
-        {selectedFighterId && (
-          <div className="flex flex-col items-center gap-2">
-            <button
-              type="button"
-              disabled={sending || sent}
-              onClick={handleSend}
-              className={`rounded-full px-3 py-1 text-[11px] font-medium ${
-                sent
-                  ? "bg-slate-100 text-slate-500 border border-slate-200"
-                  : "bg-white text-purple-700 border border-purple-200 hover:bg-purple-50"
-              } disabled:opacity-70`}
-            >
-              {sent
-                ? "Sent"
-                : sending
-                ? "Sending…"
-                : "Send Offer"}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setShowChooser(false);
-                setSearchQuery("");
-                setSearchResults([]);
-                setSelectedFighterId(null);
-              }}
-              className="text-[10px] text-slate-500 hover:text-slate-700 hover:underline"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
-        {error && (
-          <span className="text-[10px] text-red-500 text-center max-w-xs">{error}</span>
-        )}
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-1 relative">
       <button
         type="button"
         disabled={sending || sent}
@@ -425,8 +329,119 @@ export default function CoachGymBoutOfferButton({ boutId, side }: Props) {
           ? "Sending…"
           : "Send via message"}
       </button>
-      {error && (
+
+      {error && !showChooser && (
         <span className="text-[10px] text-red-500 text-center">{error}</span>
+      )}
+
+      {showChooser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col max-h-[80vh]">
+            {/* Header */}
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <h3 className="font-semibold text-sm text-slate-800">Send bout offer to:</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowChooser(false);
+                  setSearchQuery("");
+                  setSearchResults([]);
+                  setSelectedFighterId(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-4 flex flex-col gap-3 overflow-y-auto">
+              {/* Search input */}
+              <div>
+                <input
+                  type="text"
+                  placeholder="Search fighters..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    const query = e.target.value;
+                    setSearchQuery(query);
+                    searchFighters(query);
+                  }}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  autoFocus
+                />
+              </div>
+
+              {/* Options list */}
+              <div className="flex flex-col gap-1 min-h-[100px]">
+                {allFighters.length === 0 && !searching && (
+                  <div className="flex flex-col items-center justify-center py-6 text-slate-500">
+                    <p className="text-sm">{searchQuery ? "No results found" : "No linked fighters"}</p>
+                    {!searchQuery && <p className="text-xs mt-1">Search to find a fighter</p>}
+                  </div>
+                )}
+                {searching && (
+                  <div className="flex items-center justify-center py-6">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600"></div>
+                  </div>
+                )}
+                {allFighters.map((fighter) => (
+                  <button
+                    key={fighter.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedFighterId(fighter.id);
+                    }}
+                    className={`text-left px-3 py-2.5 rounded-lg border transition-colors ${
+                      selectedFighterId === fighter.id
+                        ? "bg-purple-50 border-purple-300 text-purple-700"
+                        : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="font-medium text-sm">
+                      {fighter.full_name || fighter.username || "Fighter"}
+                    </div>
+                    {fighter.username && (
+                      <div className="text-xs text-slate-500">@{fighter.username}</div>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {error && (
+                <div className="p-2 bg-red-50 border border-red-100 rounded text-xs text-red-600 text-center">
+                  {error}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowChooser(false);
+                  setSearchQuery("");
+                  setSearchResults([]);
+                  setSelectedFighterId(null);
+                }}
+                className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={sending || sent || !selectedFighterId}
+                onClick={handleSend}
+                className="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sent ? "Sent!" : sending ? "Sending..." : "Send Offer"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

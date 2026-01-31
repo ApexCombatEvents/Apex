@@ -356,14 +356,13 @@ export default function EditProfileForm() {
               {/* Banner */}
               <div className="flex flex-col gap-2">
                 <span className="text-xs text-slate-600">Banner image</span>
-                <div className="h-16 rounded-xl bg-slate-200 overflow-hidden">
+                <div className="h-16 rounded-xl bg-slate-200 overflow-hidden relative">
                   {bannerUrl && (
                     <Image
                       src={bannerUrl}
                       alt="Banner image"
-                      width={600}
-                      height={80}
-                      className="h-full w-full object-cover"
+                      fill
+                      className="object-cover"
                     />
                   )}
                 </div>
