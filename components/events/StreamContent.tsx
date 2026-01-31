@@ -361,11 +361,26 @@ export default function StreamContent({
                                 <div className="flex flex-col items-center gap-0.5">
                                   <div className="flex items-center gap-1.5">
                                     {redFlagUrl && (
-                                      <Image src={redFlagUrl} alt={redFighter?.country || ""} width={20} height={16} className="w-5 h-4 object-cover rounded" style={{ imageRendering: "crisp-edges" }} />
+                                      <Image 
+                                        src={redFlagUrl.replace("/w20/", "/w40/")} 
+                                        alt={redFighter?.country || ""} 
+                                        width={32} 
+                                        height={24} 
+                                        className="w-5 h-4 object-cover rounded shadow-sm" 
+                                        style={{ imageRendering: "crisp-edges" }} 
+                                      />
                                     )}
                                     <div className="h-10 w-10 rounded-xl bg-slate-200 overflow-hidden">
                                       {redFighter?.avatar_url && (
-                                        <Image src={redFighter.avatar_url} alt={redName} width={40} height={40} className="h-full w-full object-cover" />
+                                        <Image 
+                                          src={redFighter.avatar_url} 
+                                          alt={redName} 
+                                          width={160} 
+                                          height={160} 
+                                          className="h-full w-full object-cover" 
+                                          quality={100}
+                                          priority
+                                        />
                                       )}
                                     </div>
                                   </div>
@@ -387,11 +402,26 @@ export default function StreamContent({
                                 <div className="flex flex-col items-center gap-0.5">
                                   <div className="flex items-center gap-1.5">
                                     {blueFlagUrl && (
-                                      <Image src={blueFlagUrl} alt={blueFighter?.country || ""} width={20} height={16} className="w-5 h-4 object-cover rounded" style={{ imageRendering: "crisp-edges" }} />
+                                      <Image 
+                                        src={blueFlagUrl.replace("/w20/", "/w40/")} 
+                                        alt={blueFighter?.country || ""} 
+                                        width={32} 
+                                        height={24} 
+                                        className="w-5 h-4 object-cover rounded shadow-sm" 
+                                        style={{ imageRendering: "crisp-edges" }} 
+                                      />
                                     )}
                                     <div className="h-10 w-10 rounded-xl bg-slate-200 overflow-hidden">
                                       {blueFighter?.avatar_url && (
-                                        <Image src={blueFighter.avatar_url} alt={blueName} width={40} height={40} className="h-full w-full object-cover" />
+                                        <Image 
+                                          src={blueFighter.avatar_url} 
+                                          alt={blueName} 
+                                          width={160} 
+                                          height={160} 
+                                          className="h-full w-full object-cover" 
+                                          quality={100}
+                                          priority
+                                        />
                                       )}
                                     </div>
                                   </div>
@@ -452,10 +482,24 @@ export default function StreamContent({
                                 <div className="flex flex-col items-center gap-0.5">
                                   <div className="flex items-center gap-1.5">
                                     {redFlagUrl && (
-                                      <Image src={redFlagUrl} alt={redFighter?.country || ""} width={20} height={15} className="rounded" />
+                                      <Image 
+                                        src={redFlagUrl.replace("/w20/", "/w40/")} 
+                                        alt={redFighter?.country || ""} 
+                                        width={32} 
+                                        height={24} 
+                                        className="w-5 h-4 object-cover rounded shadow-sm" 
+                                        style={{ imageRendering: "crisp-edges" }} 
+                                      />
                                     )}
                                     {redFighter?.avatar_url && (
-                                      <Image src={redFighter.avatar_url} alt={redName} width={32} height={32} className="rounded-full" />
+                                      <Image 
+                                        src={redFighter.avatar_url} 
+                                        alt={redName} 
+                                        width={64} 
+                                        height={64} 
+                                        className="h-8 w-8 rounded-full object-cover" 
+                                        quality={90}
+                                      />
                                     )}
                                   </div>
                                   {redFighter?.country && (
@@ -476,10 +520,24 @@ export default function StreamContent({
                                 <div className="flex flex-col items-center gap-0.5">
                                   <div className="flex items-center gap-1.5">
                                     {blueFlagUrl && (
-                                      <Image src={blueFlagUrl} alt={blueFighter?.country || ""} width={20} height={15} className="rounded" />
+                                      <Image 
+                                        src={blueFlagUrl.replace("/w20/", "/w40/")} 
+                                        alt={blueFighter?.country || ""} 
+                                        width={32} 
+                                        height={24} 
+                                        className="w-5 h-4 object-cover rounded shadow-sm" 
+                                        style={{ imageRendering: "crisp-edges" }} 
+                                      />
                                     )}
                                     {blueFighter?.avatar_url && (
-                                      <Image src={blueFighter.avatar_url} alt={blueName} width={32} height={32} className="rounded-full" />
+                                      <Image 
+                                        src={blueFighter.avatar_url} 
+                                        alt={blueName} 
+                                        width={64} 
+                                        height={64} 
+                                        className="h-8 w-8 rounded-full object-cover" 
+                                        quality={90}
+                                      />
                                     )}
                                   </div>
                                   {blueFighter?.country && (

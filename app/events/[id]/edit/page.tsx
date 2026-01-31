@@ -215,6 +215,12 @@ export default function EditEventPage() {
 
   const [bouts, setBouts] = useState<BoutForm[]>([]);
   const [originalBoutIds, setOriginalBoutIds] = useState<string[]>([]);
+  // Track original fighter assignments to detect swaps in bouts with results
+  const [originalBoutFighters, setOriginalBoutFighters] = useState<Record<string, {
+    redFighterId: string | null;
+    blueFighterId: string | null;
+    winnerSide: string | null;
+  }>>({});
 
   // Event sponsorships
   type SponsorshipForm = {
@@ -456,9 +462,10 @@ export default function EditEventPage() {
           boutDetails: b.bout_details || "",
           redLooking: !!b.red_looking_for_opponent,
           blueLooking: !!b.blue_looking_for_opponent,
-          // Only set fighter IDs if there's actually a profile match
-          redFighterId: redFighter?.id || null,
-          blueFighterId: blueFighter?.id || null,
+          // IMPORTANT: Preserve the original fighter_id from database, 
+          // even if profile lookup fails (RLS, deleted profile, etc.)
+          redFighterId: b.red_fighter_id || null,
+          blueFighterId: b.blue_fighter_id || null,
           winnerSide: (b.winner_side as Winner | null) || "none",
           resultMethod: b.result_method || "",
           resultRound:
@@ -473,6 +480,21 @@ export default function EditEventPage() {
 
       setOriginalBoutIds(originalIds);
       setBouts(mappedBouts.length > 0 ? mappedBouts : [createEmptyBout("main")]);
+      
+      // Track original fighter assignments for bouts with results
+      const originalFighters: Record<string, {
+        redFighterId: string | null;
+        blueFighterId: string | null;
+        winnerSide: string | null;
+      }> = {};
+      dbBouts.forEach((b) => {
+        originalFighters[b.id] = {
+          redFighterId: b.red_fighter_id || null,
+          blueFighterId: b.blue_fighter_id || null,
+          winnerSide: b.winner_side || null,
+        };
+      });
+      setOriginalBoutFighters(originalFighters);
       
       // Load sponsorships
       const { data: sponsorshipsData } = await supabase
@@ -1021,6 +1043,53 @@ export default function EditEventPage() {
         setSaving(false);
         router.push(`/events/${event.id}`);
         return;
+      }
+    }
+
+    // Detect fighter swaps in bouts with results and update records
+    const fightersToUpdate = new Set<string>();
+    
+    for (const bout of normalizedExistingBouts) {
+      const original = originalBoutFighters[bout.id];
+      if (!original || !original.winnerSide || original.winnerSide === "none") {
+        // Bout had no result, no record impact
+        continue;
+      }
+      
+      const rowPayload = buildBoutRow(bout, 0);
+      
+      // Check if red fighter changed
+      if (original.redFighterId !== rowPayload.red_fighter_id) {
+        if (original.redFighterId) {
+          fightersToUpdate.add(original.redFighterId);
+        }
+        if (rowPayload.red_fighter_id) {
+          fightersToUpdate.add(rowPayload.red_fighter_id);
+        }
+      }
+      
+      // Check if blue fighter changed
+      if (original.blueFighterId !== rowPayload.blue_fighter_id) {
+        if (original.blueFighterId) {
+          fightersToUpdate.add(original.blueFighterId);
+        }
+        if (rowPayload.blue_fighter_id) {
+          fightersToUpdate.add(rowPayload.blue_fighter_id);
+        }
+      }
+    }
+    
+    // Trigger record updates for affected fighters
+    for (const fighterId of fightersToUpdate) {
+      try {
+        console.log(`Updating record for fighter ${fighterId} due to bout fighter swap`);
+        await fetch("/api/fighters/update-record", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fighterId }),
+        });
+      } catch (err) {
+        console.error(`Error updating record for fighter ${fighterId}:`, err);
       }
     }
 

@@ -96,7 +96,23 @@ export default async function ProfilePage({
 
   const posts: Post[] = postsData || [];
 
-  // 3) If gym, load linked fighters (fighters whose social_links.gym_username = this gym's username or handle)
+  // 3) If gym or promotion, load events
+  let events: any[] = [];
+  if (role === "gym" || role === "promotion") {
+    const { data: eventsData, error: eventsError } = await supabase
+      .from("events")
+      .select("id, owner_profile_id, title, name, event_date, location, banner_url")
+      .eq("owner_profile_id", profile.id)
+      .order("event_date", { ascending: true });
+    
+    if (eventsError) {
+      console.error("Error loading events:", eventsError);
+    }
+    
+    events = eventsData || [];
+  }
+
+  // 4) If gym, load linked fighters (fighters whose social_links.gym_username = this gym's username or handle)
   let fighters: any[] = [];
   const gymIdentifier = profile.username || profile.handle;
   if (role === "gym" && gymIdentifier) {
@@ -162,7 +178,12 @@ export default async function ProfilePage({
       )}
 
       {role === "promotion" && (
-        <PromotionProfile profile={profile} posts={posts} isOwnProfile={isOwnProfile} />
+        <PromotionProfile 
+          profile={profile} 
+          posts={posts} 
+          isOwnProfile={isOwnProfile} 
+          initialEvents={events}
+        />
       )}
 
       {!role && (

@@ -16,6 +16,7 @@ import PostImages from "@/components/social/PostImages";
 import PostContent from "@/components/social/PostContent";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@/hooks/useTranslation";
+import { countryToFlagUrl } from "@/lib/countries";
 
 type Profile = {
   id: string;
@@ -386,6 +387,8 @@ export default function FighterProfile({
       ? `${current_win_streak}W`
       : "–";
 
+  const flagUrl = countryToFlagUrl(country);
+
   return (
     <div className="space-y-6">
       {/* SECTION 1 – Banner / header */}
@@ -397,6 +400,7 @@ export default function FighterProfile({
               alt="Profile banner"
               fill
               className="object-cover"
+              quality={90}
             />
           )}
         </div>
@@ -409,9 +413,11 @@ export default function FighterProfile({
                   <Image
                     src={avatar_url}
                     alt="Avatar"
-                    width={128}
-                    height={128}
+                    width={400}
+                    height={400}
                     className="h-full w-full object-cover"
+                    quality={100}
+                    priority
                   />
                 )}
               </div>

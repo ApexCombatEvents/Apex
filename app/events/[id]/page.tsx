@@ -370,6 +370,11 @@ export default async function EventPage({
                       Revenue & Analytics
                     </Link>
                   )}
+                  <ShareEventButton 
+                    eventId={event.id} 
+                    eventTitle={title}
+                    eventBannerUrl={event.banner_url || null}
+                  />
                 </>
               )}
             </div>
@@ -899,19 +904,21 @@ function BoutRow({
                   <Image
                     src={redFighter.avatar_url}
                     alt={redNameBase}
-                    width={40}
-                    height={40}
+                    width={160}
+                    height={160}
                     className="h-full w-full object-cover"
+                    quality={100}
+                    priority
                   />
                 )}
               </div>
               {redFlagUrl && (
                 <Image
-                  src={redFlagUrl}
+                  src={redFlagUrl.replace("/w20/", "/w40/")}
                   alt={redCountry || "Country flag"}
-                  width={20}
-                  height={16}
-                  className="w-4 h-3 sm:w-5 sm:h-4 object-cover rounded"
+                  width={32}
+                  height={24}
+                  className="w-5 h-4 sm:w-6 sm:h-5 object-cover rounded shadow-sm"
                   style={{ imageRendering: "crisp-edges" }}
                 />
               )}
@@ -956,11 +963,11 @@ function BoutRow({
             <div className="flex items-center gap-1.5">
               {blueFlagUrl && (
                 <Image
-                  src={blueFlagUrl}
+                  src={blueFlagUrl.replace("/w20/", "/w40/")}
                   alt={blueCountry || "Country flag"}
-                  width={20}
-                  height={16}
-                  className="w-4 h-3 sm:w-5 sm:h-4 object-cover rounded"
+                  width={32}
+                  height={24}
+                  className="w-5 h-4 sm:w-6 sm:h-5 object-cover rounded shadow-sm"
                   style={{ imageRendering: "crisp-edges" }}
                 />
               )}
@@ -969,9 +976,11 @@ function BoutRow({
                   <Image
                     src={blueFighter.avatar_url}
                     alt={blueNameBase}
-                    width={40}
-                    height={40}
+                    width={160}
+                    height={160}
                     className="h-full w-full object-cover"
+                    quality={100}
+                    priority
                   />
                 )}
               </div>

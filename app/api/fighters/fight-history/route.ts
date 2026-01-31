@@ -152,17 +152,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // Trigger record update
-    try {
-      await fetch(`${new URL(req.url).origin}/api/fighters/update-record`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fighterId: user.id }),
-      });
-    } catch (updateError) {
-      console.error("Error triggering record update after manual fight entry:", updateError);
-    }
-
+    // NOTE: Manual fight history does NOT auto-update the record anymore
+    // Users should manually update their record in settings if they want to include manual fights
+    // Manual fights are for profile display (fight history section) only
+    
     return NextResponse.json({ fight: data }, { status: 201 });
   } catch (err) {
     console.error("Unexpected error:", err);

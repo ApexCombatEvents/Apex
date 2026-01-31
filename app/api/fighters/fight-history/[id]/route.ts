@@ -124,17 +124,9 @@ export async function PUT(
       );
     }
 
-    // Trigger record update
-    try {
-      await fetch(`${new URL(req.url).origin}/api/fighters/update-record`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fighterId: user.id }),
-      });
-    } catch (updateError) {
-      console.error("Error triggering record update after manual fight update:", updateError);
-    }
-
+    // NOTE: Manual fight history does NOT auto-update the record anymore
+    // Users should manually update their record in settings if they want to include manual fights
+    
     return NextResponse.json({ fight: data });
   } catch (err) {
     console.error("Unexpected error:", err);
@@ -199,17 +191,9 @@ export async function DELETE(
       );
     }
 
-    // Trigger record update
-    try {
-      await fetch(`${new URL(req.url).origin}/api/fighters/update-record`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fighterId: user.id }),
-      });
-    } catch (updateError) {
-      console.error("Error triggering record update after manual fight deletion:", updateError);
-    }
-
+    // NOTE: Manual fight history does NOT auto-update the record anymore
+    // Users should manually update their record in settings if they want to reflect changes
+    
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("Unexpected error:", err);

@@ -267,29 +267,38 @@ export default function ProfileSettingsPage() {
     // Convert role to uppercase for database constraint (database expects: FIGHTER, COACH, GYM, PROMOTION)
     const roleToSave = role ? role.toUpperCase() as "FIGHTER" | "COACH" | "GYM" | "PROMOTION" : null;
 
+    // Build the update object - only include record_base if user provided a record value
+    // This prevents accidentally resetting record to 0-0-0 when user doesn't touch the field
+    const updateData: Record<string, any> = {
+      full_name: fullName || null,
+      username: username || null,
+      role: roleToSave,
+      country: country || null,
+      bio: bio || null,
+      martial_arts: martialArtsArray.length ? martialArtsArray : null,
+      social_links,
+      preferred_language: lang,
+      // stats
+      rank: rank || null,
+      age: ageInt,
+      height_unit: heightUnit,
+      height_cm: heightCmNum,
+      height_feet: heightFeetInt,
+      height_inches: heightInchesInt,
+      weight_unit: weightUnit,
+      weight: weightNum,
+      updated_at: new Date().toISOString(),
+    };
+    
+    // Only update record_base if user explicitly provided a record value
+    // This prevents resetting the record when the field is left empty
+    if (record && record.trim() !== '') {
+      updateData.record_base = record;
+    }
+
     const { error } = await supabase
       .from("profiles")
-      .update({
-        full_name: fullName || null,
-        username: username || null,
-        role: roleToSave,
-        country: country || null,
-        bio: bio || null,
-        martial_arts: martialArtsArray.length ? martialArtsArray : null,
-        social_links,
-        preferred_language: lang,
-        // stats
-        rank: rank || null,
-        record_base: record || '0-0-0',
-        age: ageInt,
-        height_unit: heightUnit,
-        height_cm: heightCmNum,
-        height_feet: heightFeetInt,
-        height_inches: heightInchesInt,
-        weight_unit: weightUnit,
-        weight: weightNum,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq("id", user.id);
 
     if (error) {
@@ -303,18 +312,21 @@ export default function ProfileSettingsPage() {
       }
       setSaving(false);
     } else {
-      // Trigger record update with the NEW total record to sync correctly
-      try {
-        await fetch("/api/fighters/update-record", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            fighterId: user.id,
-            newTotalRecord: record // Pass the user's input as the new target total
-          }),
-        });
-      } catch (updateError) {
-        console.error("Error triggering record update after settings save:", updateError);
+      // Only trigger record update if user explicitly provided a record value
+      // This prevents accidentally resetting records when user saves other settings
+      if (record && record.trim() !== '') {
+        try {
+          await fetch("/api/fighters/update-record", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              fighterId: user.id,
+              newTotalRecord: record // Pass the user's input as the new target total
+            }),
+          });
+        } catch (updateError) {
+          console.error("Error triggering record update after settings save:", updateError);
+        }
       }
 
       // Use the username that was just saved for redirect

@@ -14,7 +14,7 @@ import PostContent from "@/components/social/PostContent";
 import PromotionFighters from "@/components/promotions/PromotionFighters";
 
 type Profile = {
-  id?: string;
+  id: string;
   full_name?: string | null;
   username?: string | null;
   avatar_url?: string | null;
@@ -41,11 +41,13 @@ type Post = {
 export default function PromotionProfile({ 
   profile, 
   posts = [],
-  isOwnProfile = false 
+  isOwnProfile = false,
+  initialEvents = []
 }: { 
   profile: Profile;
   posts?: Post[];
   isOwnProfile?: boolean;
+  initialEvents?: any[];
 }) {
   const router = useRouter();
   const {
@@ -71,10 +73,65 @@ export default function PromotionProfile({
     });
   }, []);
 
-  const isMe = id && myId === id;
+  const isMe = myId === id;
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
   // Start at page 0 (newest posts)
   const [postPage, setPostPage] = useState(0);
+
+  const [events, setEvents] = useState<any[]>(initialEvents);
+  const [eventsLoading, setEventsLoading] = useState(initialEvents.length === 0);
+  const [eventsFilter, setEventsFilter] = useState<"upcoming" | "past">("upcoming");
+  const [eventsDisplayCount, setEventsDisplayCount] = useState(5);
+
+
+  // Load events for this promotion if not provided
+  useEffect(() => {
+    if (!id || initialEvents.length > 0) return;
+    const supabase = createSupabaseBrowser();
+
+    (async () => {
+      setEventsLoading(true);
+      
+      const { data: eventsData, error: eventsError } = await supabase
+        .from("events")
+        .select("id, owner_profile_id, title, name, event_date, location, banner_url")
+        .eq("owner_profile_id", id)
+        .order("event_date", { ascending: true });
+
+      if (eventsError) {
+        console.error("Error loading events:", eventsError);
+        setEvents([]);
+      } else {
+        setEvents(eventsData || []);
+      }
+      setEventsLoading(false);
+    })();
+  }, [id, initialEvents]);
+
+  // Helper function to check if event is upcoming
+  const isEventUpcoming = (eventDate: string | null) => {
+    if (!eventDate) return true; // Events without dates treated as upcoming (drafts)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const date = new Date(eventDate);
+    date.setHours(0, 0, 0, 0);
+    return date >= today;
+  };
+
+  // Filter and paginate events
+  const getFilteredEvents = () => {
+    const filtered = events.filter((ev) => {
+      const upcoming = isEventUpcoming(ev.event_date || null);
+      return eventsFilter === "upcoming" ? upcoming : !upcoming;
+    });
+    // Sort: upcoming shows earliest first, past shows most recent first
+    const sorted = [...filtered].sort((a, b) => {
+      const dateA = a.event_date ? new Date(a.event_date).getTime() : Infinity;
+      const dateB = b.event_date ? new Date(b.event_date).getTime() : Infinity;
+      return eventsFilter === "upcoming" ? dateA - dateB : dateB - dateA;
+    });
+    return sorted.slice(0, eventsDisplayCount);
+  };
 
   return (
     <div className="space-y-6">
@@ -177,15 +234,113 @@ export default function PromotionProfile({
         <PromotionFighters promotionId={id} isOwner={isMe || false} />
       )}
 
-      {/* SECTION 4 – Created events */}
+      {/* SECTION 4 – Events */}
       <section className="card">
         <div className="section-header mb-4">
-          <h2 className="section-title text-lg">Created events</h2>
+          <h2 className="section-title text-lg">Events</h2>
         </div>
-        <p className="text-sm text-slate-600 mb-3">
-          This will list events created by the promotion and allow gyms/head
-          coaches to send fighters for open slots.
-        </p>
+        
+        {eventsLoading ? (
+          <p className="text-sm text-slate-600">Loading events…</p>
+        ) : events.length === 0 ? (
+          <p className="text-sm text-slate-600">
+            No events found for this promotion. {isMe && "Use the create event page to add your first show."}
+          </p>
+        ) : (
+          <>
+            {/* Filter buttons */}
+            <div className="flex items-center gap-2 mb-3">
+              <button
+                onClick={() => {
+                  setEventsFilter("upcoming");
+                  setEventsDisplayCount(5);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  eventsFilter === "upcoming"
+                    ? "bg-purple-100 text-purple-700 border border-purple-300"
+                    : "bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200"
+                }`}
+              >
+                Upcoming
+              </button>
+              <button
+                onClick={() => {
+                  setEventsFilter("past");
+                  setEventsDisplayCount(5);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  eventsFilter === "past"
+                    ? "bg-purple-100 text-purple-700 border border-purple-300"
+                    : "bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200"
+                }`}
+              >
+                Past
+              </button>
+            </div>
+
+            {getFilteredEvents().length === 0 ? (
+              <p className="text-sm text-slate-600">
+                No {eventsFilter === "upcoming" ? "upcoming" : "past"} events.
+              </p>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  {getFilteredEvents().map((ev) => {
+                    const title = ev.title || ev.name || "Untitled event";
+                    const dateLabel = ev.event_date
+                      ? new Date(ev.event_date).toLocaleDateString()
+                      : "Date TBC";
+
+                    return (
+                      <Link
+                        key={ev.id}
+                        href={`/events/${ev.id}`}
+                        className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs hover:border-purple-400 hover:bg-purple-50"
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-slate-900">
+                            {title}
+                          </span>
+                          <span className="text-[11px] text-slate-600">
+                            {dateLabel}
+                            {ev.location ? ` • ${ev.location}` : ""}
+                          </span>
+                        </div>
+
+                        {ev.banner_url && (
+                          <div className="h-10 w-16 rounded-md overflow-hidden bg-slate-200 flex-shrink-0">
+                            <Image
+                              src={ev.banner_url}
+                              alt={title}
+                              width={64}
+                              height={40}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+
+                {/* Load more button */}
+                {events.filter((ev) => {
+                  const upcoming = isEventUpcoming(ev.event_date || null);
+                  return eventsFilter === "upcoming" ? upcoming : !upcoming;
+                }).length > eventsDisplayCount && (
+                  <div className="mt-4 flex justify-center">
+                    <button
+                      onClick={() => setEventsDisplayCount(prev => prev + 5)}
+                      className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors"
+                    >
+                      Load More
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
       </section>
 
       {/* SECTION 5 – Social feed */}

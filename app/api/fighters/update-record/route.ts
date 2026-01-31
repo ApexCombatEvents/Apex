@@ -36,6 +36,10 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { fighterId, newTotalRecord } = body;
 
+    console.log("=== UPDATE RECORD API CALLED ===");
+    console.log("Fighter ID:", fighterId);
+    console.log("New Total Record (from request):", newTotalRecord || "not provided");
+
     if (!fighterId) {
       return NextResponse.json({ error: "Missing fighterId" }, { status: 400 });
     }
@@ -48,8 +52,11 @@ export async function POST(req: Request) {
       .single();
 
     if (fetchError || !profile) {
+      console.log("Fighter not found:", fighterId);
       return NextResponse.json({ error: "Fighter not found" }, { status: 404 });
     }
+    
+    console.log("Current record_base from DB:", profile.record_base);
 
     // 2. Fetch ALL bouts for this fighter that have a result
     const { data: bouts, error: boutsError } = await supabaseAdmin
@@ -69,17 +76,24 @@ export async function POST(req: Request) {
 
     if (manualError) throw manualError;
 
-    // 3. Calculate Stats
+    // 3. Calculate Stats from Apex bouts ONLY
+    // Manual fight history is NOT included in automatic calculations
+    // because users include those in their manual record entry
     const apexRecord: RecordTriple = { wins: 0, losses: 0, draws: 0 };
     let last5 = "";
     let streak = 0;
     let streakBroken = false;
 
+    console.log("Found", bouts?.length || 0, "Apex bouts with results");
+    console.log("Found", manualFights?.length || 0, "manual fight history entries (NOT counted in record)");
+
     if (bouts) {
-      // Calculate Wins, Losses, Draws from Apex bouts
+      // Calculate Wins, Losses, Draws from Apex bouts ONLY
       for (const bout of bouts) {
         const isRed = bout.red_fighter_id === fighterId;
         const result = bout.winner_side;
+
+        console.log(`Bout ${bout.id}: isRed=${isRed}, winner_side=${result}`);
 
         if (result === "draw") {
           apexRecord.draws++;
@@ -92,49 +106,37 @@ export async function POST(req: Request) {
         }
       }
     }
+    
+    console.log("Apex record calculated (excluding manual fights):", formatRecord(apexRecord));
 
-    // Add manual fight history to apexRecord counts
-    if (manualFights) {
-      for (const fight of manualFights) {
-        if (fight.result === "win") apexRecord.wins++;
-        else if (fight.result === "loss") apexRecord.losses++;
-        else if (fight.result === "draw") apexRecord.draws++;
-      }
-    }
+    // NOTE: Manual fight history is NOT added to apexRecord anymore
+    // Users are expected to include their manual fights in their record_base
+    // Manual fights are only used for display on the profile page
 
-    // Combine all fights for Last 5 and Streak
+    // Calculate Last 5 and Streak from Apex bouts ONLY
+    // Manual fights are excluded from these calculations too
     const allFights = [
       ...(bouts || []).map(b => ({
         date: b.created_at,
         result: b.winner_side,
         isApex: true,
         isRed: b.red_fighter_id === fighterId
-      })),
-      ...(manualFights || []).map(f => ({
-        date: f.event_date,
-        result: f.result,
-        isApex: false,
-        isRed: true // Manual results are always from fighter perspective
       }))
+      // Manual fights are NOT included - they're for profile display only
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     if (allFights.length > 0) {
-      // Form: Last 5 bouts (WWLDW format)
+      // Form: Last 5 Apex bouts (WWLDW format)
       const recent5 = allFights.slice(0, 5).reverse();
       last5 = recent5.map(fight => {
         if (fight.result === "draw") return "D";
         if (fight.result === "no_contest") return "N";
         
-        let won = false;
-        if (fight.isApex) {
-          won = (fight.isRed && fight.result === "red") || (!fight.isRed && fight.result === "blue");
-        } else {
-          won = fight.result === "win";
-        }
+        const won = (fight.isRed && fight.result === "red") || (!fight.isRed && fight.result === "blue");
         return won ? "W" : "L";
       }).join("");
 
-      // Streak: Consecutive wins
+      // Streak: Consecutive wins from Apex bouts
       for (const fight of allFights) {
         if (streakBroken) break;
         if (fight.result === "draw" || fight.result === "no_contest") {
@@ -142,12 +144,7 @@ export async function POST(req: Request) {
           break;
         }
         
-        let won = false;
-        if (fight.isApex) {
-          won = (fight.isRed && fight.result === "red") || (!fight.isRed && fight.result === "blue");
-        } else {
-          won = fight.result === "win";
-        }
+        const won = (fight.isRed && fight.result === "red") || (!fight.isRed && fight.result === "blue");
         
         if (won) streak++;
         else streakBroken = true;
@@ -158,25 +155,87 @@ export async function POST(req: Request) {
     let recordBaseToSave = profile.record_base;
     let finalTotalRecord = "";
 
+    // Also fetch current record to compare and prevent accidental resets
+    const { data: currentProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("record")
+      .eq("id", fighterId)
+      .single();
+    
+    const currentRecord = parseRecord(currentProfile?.record);
+
     if (newTotalRecord) {
-      // If user provided a new total from settings, reverse-calculate the base
-      const updatedTotal = parseRecord(newTotalRecord);
-      const calculatedBase = {
-        wins: updatedTotal.wins - apexRecord.wins,
-        losses: updatedTotal.losses - apexRecord.losses,
-        draws: updatedTotal.draws - apexRecord.draws,
-      };
-      recordBaseToSave = formatRecord(calculatedBase);
+      // If user provided a new total from settings, set BOTH record and record_base to that value
+      // This treats the user's input as the definitive record, NOT as "total including Apex wins"
+      // The user's manually entered record should be preserved as-is
+      recordBaseToSave = newTotalRecord;
       finalTotalRecord = newTotalRecord;
+      console.log("Using user-provided total as BOTH record and record_base:", newTotalRecord);
+      console.log("This preserves the user's manual entry without subtracting Apex wins");
     } else {
       // Standard recalculation
       const base = parseRecord(profile.record_base || "0-0-0");
+      console.log("Parsed record_base:", formatRecord(base));
+      
       finalTotalRecord = formatRecord({
         wins: base.wins + apexRecord.wins,
         losses: base.losses + apexRecord.losses,
         draws: base.draws + apexRecord.draws,
       });
+      console.log("Calculated final record:", finalTotalRecord, "= record_base", formatRecord(base), "+ apex", formatRecord(apexRecord));
+      
+      // Safety check: If the new record would have FEWER WINS than current,
+      // this is suspicious and we should investigate before applying
+      const newTotal = parseRecord(finalTotalRecord);
+      const newTotalFights = newTotal.wins + newTotal.losses + newTotal.draws;
+      const currentTotalFights = currentRecord.wins + currentRecord.losses + currentRecord.draws;
+      
+      console.log("Current record in DB:", currentProfile?.record);
+      console.log("New record would be:", finalTotalRecord);
+      console.log("Current total fights:", currentTotalFights, "New total fights:", newTotalFights);
+      console.log("Current wins:", currentRecord.wins, "New wins:", newTotal.wins);
+      
+      // If wins would decrease, log extensively and skip the update
+      if (newTotal.wins < currentRecord.wins) {
+        console.warn(`⚠️ RECORD WOULD LOSE WINS for fighter ${fighterId}!`);
+        console.warn(`Current: ${currentProfile?.record} → Would become: ${finalTotalRecord}`);
+        console.warn(`Wins would decrease from ${currentRecord.wins} to ${newTotal.wins}`);
+        console.warn(`Apex bouts found: ${bouts?.length || 0}`);
+        console.warn(`Manual fights found: ${manualFights?.length || 0}`);
+        console.warn(`record_base: ${profile.record_base}`);
+        
+        // Don't apply updates that reduce wins unless there are fewer total bouts than current wins
+        const totalBoutsAndFights = (bouts?.length || 0) + (manualFights?.length || 0);
+        if (totalBoutsAndFights < currentRecord.wins) {
+          console.warn(`SKIPPING UPDATE: Total bouts/fights (${totalBoutsAndFights}) is less than current wins (${currentRecord.wins})`);
+          return NextResponse.json({ 
+            success: true, 
+            totalRecord: currentProfile?.record || finalTotalRecord,
+            last5,
+            streak,
+            skipped: true,
+            reason: "Would reduce wins unexpectedly"
+          });
+        }
+      }
+      
+      if (newTotalFights < currentTotalFights && (bouts?.length || 0) === 0 && (manualFights?.length || 0) === 0) {
+        console.log(`Skipping record update for fighter ${fighterId}: would reduce total fights from ${currentTotalFights} to ${newTotalFights} with no bouts or manual fights`);
+        return NextResponse.json({ 
+          success: true, 
+          totalRecord: currentProfile?.record || finalTotalRecord,
+          last5,
+          streak,
+          skipped: true,
+          reason: "Would reduce record with no bouts"
+        });
+      }
     }
+    
+    console.log("=== FINAL UPDATE ===");
+    console.log("Setting record to:", finalTotalRecord);
+    console.log("Setting record_base to:", recordBaseToSave);
+    console.log("=== END UPDATE RECORD API ===");
 
     const { error: updateError } = await supabaseAdmin
       .from("profiles")
