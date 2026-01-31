@@ -12,8 +12,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { blocked_id, action } = body;
+    let blocked_id: string;
+    let action: string;
+    try {
+      const body = await request.json();
+      blocked_id = body.blocked_id;
+      action = body.action;
+    } catch (jsonError) {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      );
+    }
 
     if (!blocked_id || !action) {
       return NextResponse.json(

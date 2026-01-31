@@ -14,7 +14,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const { notificationId } = await req.json();
+  let notificationId: string;
+  try {
+    const json = await req.json();
+    notificationId = json.notificationId;
+  } catch (jsonError) {
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 }
+    );
+  }
 
   if (!notificationId) {
     return NextResponse.json(

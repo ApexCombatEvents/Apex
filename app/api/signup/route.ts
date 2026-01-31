@@ -4,10 +4,15 @@ import { createClient } from "@supabase/supabase-js";
 import { checkRateLimit, getClientIP, RATE_LIMITS } from "@/lib/ratelimit";
 import { validateEmail, validatePassword, validateUsername, validateRole, sanitizeEmail, sanitizeUsername, sanitizeString } from "@/lib/input-validation";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Validate environment variables at module load
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !serviceRoleKey) {
+  throw new Error("Missing required Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+}
+
+const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
 export async function POST(req: Request) {
   try {
@@ -37,7 +42,24 @@ export async function POST(req: Request) {
       );
     }
 
-    const { email, password, full_name, username, role } = await req.json();
+    let email: string;
+    let password: string;
+    let full_name: string | undefined;
+    let username: string | undefined;
+    let role: string | undefined;
+    try {
+      const json = await req.json();
+      email = json.email;
+      password = json.password;
+      full_name = json.full_name;
+      username = json.username;
+      role = json.role;
+    } catch (jsonError) {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      );
+    }
 
     // Server-side validation using validation utilities
     const emailValidation = validateEmail(email);
@@ -62,6 +84,28 @@ export async function POST(req: Request) {
       if (!usernameValidation.valid) {
         return NextResponse.json(
           { error: usernameValidation.error },
+          { status: 400 }
+        );
+      }
+
+      // Check if username is already taken
+      const { data: existingUser, error: checkError } = await supabaseAdmin
+        .from("profiles")
+        .select("id")
+        .eq("username", username.trim().toLowerCase())
+        .maybeSingle();
+
+      if (checkError) {
+        console.error("Error checking username:", checkError);
+        return NextResponse.json(
+          { error: "Error checking username availability. Please try again." },
+          { status: 500 }
+        );
+      }
+
+      if (existingUser) {
+        return NextResponse.json(
+          { error: "This username is already taken. Please choose a different one." },
           { status: 400 }
         );
       }
@@ -95,6 +139,15 @@ export async function POST(req: Request) {
     });
 
     if (error) {
+      // Check for username unique constraint violation
+      if (error.message?.includes('profiles_username_unique_idx') || 
+          error.message?.includes('duplicate key') ||
+          error.message?.includes('already been registered')) {
+        return NextResponse.json(
+          { error: "This username or email is already taken. Please choose a different one." },
+          { status: 400 }
+        );
+      }
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 

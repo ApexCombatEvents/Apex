@@ -14,7 +14,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const { fighterId } = await req.json();
+    let fighterId: string;
+    try {
+      const json = await req.json();
+      fighterId = json.fighterId;
+    } catch (jsonError) {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      );
+    }
 
     if (!fighterId) {
       return NextResponse.json({ error: "Fighter ID is required" }, { status: 400 });
@@ -68,10 +77,18 @@ export async function POST(req: Request) {
 
     // Update the fighter's profile (using service role for gym owner to update fighter profile)
     // We need to use a service role client here since RLS prevents gym owners from updating fighter profiles
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error("Missing Supabase environment variables");
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
+    }
+    
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
     const { error: updateError } = await supabaseAdmin
       .from("profiles")

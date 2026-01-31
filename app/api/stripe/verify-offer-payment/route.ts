@@ -4,10 +4,15 @@ import { stripe } from '@/lib/stripe';
 import { createSupabaseServerForRoute } from '@/lib/supabaseServerForRoute';
 import { calculatePlatformFee } from '@/lib/platformFees';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Validate environment variables at module load
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !serviceRoleKey) {
+  throw new Error("Missing required Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+}
+
+const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
 export async function POST(req: Request) {
   try {
@@ -22,7 +27,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const { sessionId, boutId, fighterId, side } = await req.json();
+    let sessionId: string;
+    let boutId: string;
+    let fighterId: string;
+    let side: string;
+    try {
+      const json = await req.json();
+      sessionId = json.sessionId;
+      boutId = json.boutId;
+      fighterId = json.fighterId;
+      side = json.side;
+    } catch (jsonError) {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      );
+    }
 
     if (!sessionId || !boutId || !fighterId || !side) {
       return NextResponse.json(
@@ -147,8 +167,8 @@ export async function POST(req: Request) {
           actor_profile_id: user.id,
           data: {
             bout_id: boutId,
-            event_id: event.id,
-            event_name: event.title || event.name,
+            event_id: event?.id || null,
+            event_name: event?.title || event?.name || "Event",
             fighter_profile_id: fighterId,
             fighter_name: fighterName,
             from_profile_id: user.id,

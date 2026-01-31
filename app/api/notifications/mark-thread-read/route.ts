@@ -14,7 +14,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const { threadId } = await req.json();
+  let threadId: string;
+  try {
+    const json = await req.json();
+    threadId = json.threadId;
+  } catch (jsonError) {
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 }
+    );
+  }
 
   if (!threadId) {
     return NextResponse.json(

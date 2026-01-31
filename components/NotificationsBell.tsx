@@ -4,6 +4,15 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 
+type NotificationItem = {
+  id: string;
+  type: string;
+  data: any;
+  is_read: boolean;
+  created_at: string;
+  actor_profile_id?: string | null;
+};
+
 export default function NotificationsBell() {
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -56,7 +65,7 @@ export default function NotificationsBell() {
 }
 
 function renderNotificationText(
-  n: Notification, 
+  n: NotificationItem, 
   href?: string | null,
   actorProfiles?: Record<string, { name: string; handle: string | null }>
 ): React.ReactNode {
@@ -108,13 +117,15 @@ function renderNotificationText(
   }
 
   if (n.type === "post_like") {
-    // Prioritize actorProfiles if available, otherwise use data field
+    // Try multiple sources for the liker name
     let liker = (n.actor_profile_id && actorProfiles?.[n.actor_profile_id]?.name) ||
-                  (n.data?.liker_name && n.data?.liker_name !== "Someone" ? n.data?.liker_name : null);
+                (n.data?.liker_name && n.data?.liker_name !== "Someone" && n.data?.liker_name ? n.data?.liker_name : null) ||
+                (n.data?.actor_name && n.data?.actor_name !== "Someone" ? n.data?.actor_name : null);
     
-    // Final fallback only if we truly have no data - use handle if available
+    // If no name, try handle
     if (!liker) {
-      liker = n.data?.liker_handle ? `@${n.data.liker_handle}` : null;
+      liker = n.data?.liker_handle ? `@${n.data.liker_handle}` : 
+              n.data?.actor_handle ? `@${n.data.actor_handle}` : null;
     }
     
     // If still no name, use generic message
@@ -123,7 +134,8 @@ function renderNotificationText(
     }
     
     const likerHandle = (n.actor_profile_id && actorProfiles?.[n.actor_profile_id]?.handle) ||
-                       (n.data?.liker_handle) ||
+                       n.data?.liker_handle ||
+                       n.data?.actor_handle ||
                        null;
     return (
       <>
@@ -290,6 +302,49 @@ function renderNotificationText(
     );
   }
 
+  if (n.type === "bout_added") {
+    const eventName = n.data?.event_name || "an event";
+    const redName = n.data?.red_name || "TBC";
+    const blueName = n.data?.blue_name || "TBC";
+    const cardType = n.data?.card_type === "main" ? "Main card" : "Undercard";
+    const boutNumber = n.data?.bout_number;
+    
+    if (boutNumber) {
+      return (
+        <>
+          {cardType} bout {boutNumber} added to <span className="font-semibold">{eventName}</span>: {redName} vs {blueName}
+        </>
+      );
+    }
+    
+    return (
+      <>
+        New bout added to <span className="font-semibold">{eventName}</span>: {redName} vs {blueName}
+      </>
+    );
+  }
+
+  if (n.type === "bout_started") {
+    const eventName = n.data?.event_name || "an event";
+    const redName = n.data?.red_name || "TBC";
+    const blueName = n.data?.blue_name || "TBC";
+    const boutNumber = n.data?.bout_number;
+    
+    if (boutNumber) {
+      return (
+        <>
+          Bout {boutNumber} started at <span className="font-semibold">{eventName}</span>: {redName} vs {blueName}
+        </>
+      );
+    }
+    
+    return (
+      <>
+        Fight started at <span className="font-semibold">{eventName}</span>: {redName} vs {blueName}
+      </>
+    );
+  }
+
   if (n.type === "gym_added") {
     const gymName = n.data?.gym_name || "a gym";
     return (
@@ -367,15 +422,72 @@ function renderNotificationText(
     );
   }
 
-  // Fallback
+  if (n.type === "offer_accepted") {
+    const eventName = n.data?.event_name || "an event";
+    const fighterName = n.data?.fighter_name || "A fighter";
+    const side = n.data?.side === "red" ? "red corner" : "blue corner";
+    return (
+      <>
+        Your offer for <span className="font-semibold">{fighterName}</span>{" "}
+        has been accepted for the <span className="font-semibold">{side}</span>{" "}
+        at <span className="font-semibold">{eventName}</span>
+      </>
+    );
+  }
+
+  if (n.type === "offer_declined") {
+    const eventName = n.data?.event_name || "an event";
+    const fighterName = n.data?.fighter_name || "A fighter";
+    const refundAmount = n.data?.refund_amount;
+    const refunded = n.data?.refunded === true;
+    const refundText = refunded && refundAmount 
+      ? ` Your payment of $${(refundAmount / 100).toFixed(2)} has been refunded.`
+      : "";
+    return (
+      <>
+        Your offer for <span className="font-semibold">{fighterName}</span>{" "}
+        at <span className="font-semibold">{eventName}</span> was declined.{refundText}
+      </>
+    );
+  }
+
+  // Fallback - try to extract any useful information from data
   if (typeof n.data?.message === "string") {
     return <>{n.data.message}</>;
   }
 
+  // If we have actor_profile_id but no specific handler, try to show actor name
+  if (n.actor_profile_id && actorProfiles?.[n.actor_profile_id]) {
+    const actor = actorProfiles[n.actor_profile_id];
+    const actorHandle = actor.handle;
+    return (
+      <>
+        {actorHandle ? (
+          <Link href={`/profile/${actorHandle}`} className="font-semibold text-purple-700 hover:underline">
+            {actor.name}
+          </Link>
+        ) : (
+          <span className="font-semibold">{actor.name}</span>
+        )}{" "}
+        interacted with your content
+      </>
+    );
+  }
+
+  // Last resort - show generic message
   return <>You have a new notification.</>;
 }
 
-function getNotificationHref(n: Notification): string | null {
+function getNotificationHref(n: NotificationItem): string | null {
+  if (n.type === "offer_accepted" || n.type === "offer_declined") {
+    const eventId = n.data?.event_id;
+    const boutId = n.data?.bout_id;
+    if (eventId) {
+      return boutId ? `/events/${eventId}#bout-${boutId}` : `/events/${eventId}`;
+    }
+    return null;
+  }
+
   if (n.type === "message") {
     // Check both threadId and thread_id (different sources might use different field names)
     const threadId = n.data?.threadId || n.data?.thread_id;
@@ -423,12 +535,13 @@ function getNotificationHref(n: Notification): string | null {
     return eventId ? `/events/${eventId}` : null;
   }
 
-  if (n.type === "event_bout_matched") {
+  if (n.type === "event_bout_matched" || n.type === "bout_added" || n.type === "bout_started") {
     const eventId = n.data?.event_id;
-    if (!eventId) {
-      console.warn("⚠️ Event bout matched notification missing event_id:", n);
+    const boutId = n.data?.bout_id;
+    if (eventId) {
+      return boutId ? `/events/${eventId}#bout-${boutId}` : `/events/${eventId}`;
     }
-    return eventId ? `/events/${eventId}` : null;
+    return null;
   }
 
   if (n.type === "bout_assigned") {

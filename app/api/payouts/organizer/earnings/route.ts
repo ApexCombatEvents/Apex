@@ -106,7 +106,13 @@ export async function GET(req: Request) {
 
     // Build breakdown
     const eventsById: Record<string, any> = {};
-    (events || []).forEach((e: any) => (eventsById[e.id] = e));
+    if (events && Array.isArray(events)) {
+      events.forEach((e: any) => {
+        if (e && e.id) {
+          eventsById[e.id] = e;
+        }
+      });
+    }
     const earningsBreakdown = eventIds.map((id) => ({
       eventId: id,
       eventName: eventsById[id]?.title || eventsById[id]?.name || "Event",

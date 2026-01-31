@@ -12,7 +12,10 @@ import CreatePostModal from "@/components/social/CreatePostModal";
 import PostActionsMenu from "@/components/social/PostActionsMenu";
 import FighterPromotions from "@/components/promotions/FighterPromotions";
 import FighterBelts from "@/components/profiles/FighterBelts";
+import PostImages from "@/components/social/PostImages";
+import PostContent from "@/components/social/PostContent";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "@/hooks/useTranslation";
 
 type Profile = {
   id: string;
@@ -61,6 +64,7 @@ type Post = {
   content?: string | null;
   created_at: string;
   image_url?: string | null;
+  image_urls?: string[] | null;
 };
 
 export default function FighterProfile({
@@ -79,6 +83,7 @@ export default function FighterProfile({
   hideFights?: boolean;
 }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const {
     full_name,
     username,
@@ -124,6 +129,11 @@ export default function FighterProfile({
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
   // Start at page 0 (newest posts)
   const [postPage, setPostPage] = useState(0);
+
+  // Pagination for fights
+  const [upcomingDisplayCount, setUpcomingDisplayCount] = useState(6);
+  const [pastDisplayCount, setPastDisplayCount] = useState(6);
+  const [activeFightsTab, setActiveFightsTab] = useState<"upcoming" | "past">("upcoming");
 
   useEffect(() => {
     const supabase = createSupabaseBrowser();
@@ -367,7 +377,9 @@ export default function FighterProfile({
       : "–";
 
   const displayLast5Form =
-    last_5_form && last_5_form.trim() !== "" ? last_5_form : "–";
+    last_5_form && last_5_form.trim() !== "" 
+      ? last_5_form.split('').join('-') 
+      : "–";
 
   const displayWinStreak =
     typeof current_win_streak === "number" && current_win_streak > 0
@@ -464,7 +476,7 @@ export default function FighterProfile({
       {/* SECTION 2 – Bio */}
       <section className="card">
         <div className="section-header mb-4">
-          <h2 className="section-title text-lg">Bio</h2>
+          <h2 className="section-title text-lg">{t('Profile.bio')}</h2>
         </div>
         <p className="text-sm text-slate-700 leading-relaxed min-h-[60px]">
           {bio || (isMe ? "Tell people about your fighting style, experience and goals." : "")}
@@ -478,7 +490,7 @@ export default function FighterProfile({
       {!hideStats && (
       <section className="card">
         <div className="section-header mb-4">
-          <h2 className="section-title text-lg">Stats</h2>
+          <h2 className="section-title text-lg">{t('Profile.stats')}</h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
           <StatBox label="Rank">{displayRank}</StatBox>
@@ -487,7 +499,7 @@ export default function FighterProfile({
           </StatBox>
           <StatBox label="Record">{displayRecord}</StatBox>
           <StatBox label="Last 5">{displayLast5Form}</StatBox>
-          <StatBox label="Win streak">{displayWinStreak}</StatBox>
+          <StatBox label="Win Streak">{displayWinStreak}</StatBox>
           <StatBox label="Age">{displayAge}</StatBox>
           <StatBox label="Height">{displayHeight}</StatBox>
           <StatBox label="Weight">{displayWeight}</StatBox>
@@ -506,122 +518,201 @@ export default function FighterProfile({
       {/* SECTION 5 – Fights */}
       {!hideFights && (
       <section className="card">
-        <div className="section-header mb-4">
-          <h2 className="section-title text-lg">Fights</h2>
+        <div className="flex items-center justify-between mb-4 border-b border-slate-200">
+          <div className="flex gap-4">
+            <button
+              onClick={() => setActiveFightsTab("upcoming")}
+              className={`pb-3 px-1 text-sm font-medium transition-all duration-200 ${
+                activeFightsTab === "upcoming"
+                  ? "text-purple-700 border-b-2 border-purple-700"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Upcoming Fights
+            </button>
+            <button
+              onClick={() => setActiveFightsTab("past")}
+              className={`pb-3 px-1 text-sm font-medium transition-all duration-200 ${
+                activeFightsTab === "past"
+                  ? "text-purple-700 border-b-2 border-purple-700"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Past Fights
+            </button>
+          </div>
         </div>
 
         {loadingFights ? (
           <p className="text-sm text-slate-600">Loading fights…</p>
-        ) : upcomingFights.length === 0 && pastFights.length === 0 ? (
-          isMe && (
-            <p className="text-sm text-slate-600">
-              No fights linked yet. When you&apos;re added to event bouts, they&apos;ll
-              show here automatically.
-            </p>
-          )
         ) : (
           <div className="space-y-4 text-sm">
-            {upcomingFights.length > 0 && (
+            {/* Upcoming Fights Tab */}
+            {activeFightsTab === "upcoming" && (
               <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wide text-purple-700">
-                  Upcoming
-                </h3>
-                <div className="space-y-3">
-                  {upcomingFights.map((fight) => (
-                    <Link
-                      key={fight.boutId}
-                      href={`/events/${fight.eventId}`}
-                      className="block card-compact hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-slate-900 truncate">
-                              {fight.eventTitle}
-                            </span>
-                            <span className="text-[11px] text-slate-500 whitespace-nowrap">
-                              {fight.dateLabel}
-                            </span>
-                          </div>
+                {upcomingFights.length === 0 ? (
+                  <p className="text-sm text-slate-600 py-4">
+                    No upcoming fights linked yet.
+                  </p>
+                ) : (
+                  <>
+                    <div className="space-y-3">
+                      {upcomingFights.slice(0, upcomingDisplayCount).map((fight) => {
+                        const FightContent = (
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-slate-900 truncate">
+                                  {fight.eventTitle}
+                                </span>
+                                <span className="text-[11px] text-slate-500 whitespace-nowrap">
+                                  {fight.dateLabel}
+                                </span>
+                              </div>
 
-                          <div className="mt-0.5 text-[11px] text-slate-600 flex flex-wrap gap-2">
-                            {fight.resultSummary && (
-                              <span className="font-semibold">
-                                {fight.resultSummary}
+                              <div className="mt-0.5 text-[11px] text-slate-600 flex flex-wrap gap-2">
+                                <span>vs {fight.opponentName}</span>
+                                {fight.boutDetails && <span>{fight.boutDetails}</span>}
+                                {fight.weight && (
+                                  <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                                    {fight.weight}
+                                  </span>
+                                )}
+                                {fight.locationLabel && (
+                                  <span>{fight.locationLabel}</span>
+                                )}
+                              </div>
+                            </div>
+
+                            {fight.eventId && (
+                              <span className="text-[11px] text-purple-700 font-medium">
+                                View event
                               </span>
                             )}
-                            <span>vs {fight.opponentName}</span>
-                            {fight.boutDetails && <span>{fight.boutDetails}</span>}
-                            {fight.weight && (
-                              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                                {fight.weight}
-                              </span>
-                            )}
-                            {fight.locationLabel && (
-                              <span>{fight.locationLabel}</span>
-                            )}
                           </div>
-                        </div>
+                        );
 
-                        <span className="text-[11px] text-purple-700 font-medium">
-                          View event
-                        </span>
+                        if (fight.eventId) {
+                          return (
+                            <Link
+                              key={fight.boutId || fight.eventTitle}
+                              href={`/events/${fight.eventId}`}
+                              className="block card-compact hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+                            >
+                              {FightContent}
+                            </Link>
+                          );
+                        }
+
+                        return (
+                          <div
+                            key={fight.boutId || fight.eventTitle}
+                            className="block card-compact"
+                          >
+                            {FightContent}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {upcomingFights.length > upcomingDisplayCount && (
+                      <div className="flex justify-center mt-4">
+                        <button
+                          onClick={() => setUpcomingDisplayCount(prev => prev + 6)}
+                          className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors"
+                        >
+                          Load More
+                        </button>
                       </div>
-                    </Link>
-                  ))}
-                </div>
+                    )}
+                  </>
+                )}
               </div>
             )}
 
-            {pastFights.length > 0 && (
-              <div className="space-y-3 border-t border-slate-200 pt-4">
-                <h3 className="text-xs font-bold uppercase tracking-wide text-slate-600">
-                  Past fights
-                </h3>
-                <div className="space-y-3">
-                  {pastFights.map((fight) => (
-                    <Link
-                      key={fight.boutId}
-                      href={`/events/${fight.eventId}`}
-                      className="block card-compact hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 opacity-75 hover:opacity-100"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-slate-900 truncate">
-                              {fight.eventTitle}
-                            </span>
-                            <span className="text-[11px] text-slate-500 whitespace-nowrap">
-                              {fight.dateLabel}
-                            </span>
-                          </div>
+            {/* Past Fights Tab */}
+            {activeFightsTab === "past" && (
+              <div className="space-y-3">
+                {pastFights.length === 0 ? (
+                  <p className="text-sm text-slate-600 py-4">
+                    No past fights found.
+                  </p>
+                ) : (
+                  <>
+                    <div className="space-y-3">
+                      {pastFights.slice(0, pastDisplayCount).map((fight) => {
+                        const FightContent = (
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-slate-900 truncate">
+                                  {fight.eventTitle}
+                                </span>
+                                <span className="text-[11px] text-slate-500 whitespace-nowrap">
+                                  {fight.dateLabel}
+                                </span>
+                              </div>
 
-                          <div className="mt-0.5 text-[11px] text-slate-600 flex flex-wrap gap-2">
-                            {fight.resultSummary && (
-                              <span className="font-semibold">
-                                {fight.resultSummary}
+                              <div className="mt-0.5 text-[11px] text-slate-600 flex flex-wrap gap-2">
+                                {fight.resultSummary && (
+                                  <span className="font-semibold text-purple-700">
+                                    {fight.resultSummary}
+                                  </span>
+                                )}
+                                <span>vs {fight.opponentName}</span>
+                                {fight.boutDetails && <span>{fight.boutDetails}</span>}
+                                {fight.weight && (
+                                  <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                                    {fight.weight}
+                                  </span>
+                                )}
+                                {fight.locationLabel && (
+                                  <span>{fight.locationLabel}</span>
+                                )}
+                              </div>
+                            </div>
+
+                            {fight.eventId && (
+                              <span className="text-[11px] text-purple-700 font-medium">
+                                View event
                               </span>
                             )}
-                            <span>vs {fight.opponentName}</span>
-                            {fight.boutDetails && <span>{fight.boutDetails}</span>}
-                            {fight.weight && (
-                              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                                {fight.weight}
-                              </span>
-                            )}
-                            {fight.locationLabel && (
-                              <span>{fight.locationLabel}</span>
-                            )}
                           </div>
-                        </div>
+                        );
 
-                        <span className="text-[11px] text-purple-700 font-medium">
-                          View event
-                        </span>
+                        if (fight.eventId) {
+                          return (
+                            <Link
+                              key={fight.boutId || fight.eventTitle}
+                              href={`/events/${fight.eventId}`}
+                              className="block card-compact hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 opacity-90 hover:opacity-100"
+                            >
+                              {FightContent}
+                            </Link>
+                          );
+                        }
+
+                        return (
+                          <div
+                            key={fight.boutId || fight.eventTitle}
+                            className="block card-compact opacity-90"
+                          >
+                            {FightContent}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {pastFights.length > pastDisplayCount && (
+                      <div className="flex justify-center mt-4">
+                        <button
+                          onClick={() => setPastDisplayCount(prev => prev + 6)}
+                          className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors"
+                        >
+                          Load More
+                        </button>
                       </div>
-                    </Link>
-                  ))}
-                </div>
+                    )}
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -740,21 +831,16 @@ export default function FighterProfile({
                       variant={post.image_url ? "dark" : "light"}
                     />
                   )}
-                  {post.image_url ? (
+                  {(post.image_url || post.image_urls) ? (
                     <div className="relative aspect-square overflow-hidden bg-slate-100">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={post.image_url}
-                        alt={post.content || "Post image"}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
+                      <PostImages imageUrl={post.image_url} imageUrls={post.image_urls} />
                       {/* Overlay with content and date */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                         <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
                           {post.content && (
-                            <p className="text-xs font-medium mb-1 line-clamp-2">
-                              {post.content}
-                            </p>
+                            <div className="mb-1">
+                              <PostContent content={post.content} truncate className="text-white" />
+                            </div>
                           )}
                           <div className="flex items-center gap-2 mt-2">
                             <div className="text-[10px] text-white/80">
@@ -777,22 +863,27 @@ export default function FighterProfile({
                       </div>
                     </div>
                   ) : (
-                    <div className="aspect-square p-4 flex flex-col justify-between bg-gradient-to-br from-purple-50 to-slate-50">
+                    <div className="relative aspect-square p-4 flex flex-col justify-between bg-gradient-to-br from-purple-50 to-slate-50">
                       <div>
                         {post.content && (
-                          <p className="text-sm text-slate-800 line-clamp-4 mb-2">
-                            {post.content}
-                          </p>
+                          <div className="mb-2">
+                            <PostContent content={post.content} className="line-clamp-4" />
+                          </div>
                         )}
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="text-[10px] text-slate-500">
                           {new Date(post.created_at).toLocaleDateString()}
                         </div>
-                      <PostReactions
-                        postId={post.id}
-                        commentHref={`/posts/${post.id}`}
-                      />
+                      </div>
+                      {/* Hover overlay with reactions */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-purple-900/70 via-purple-900/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                        <div className="absolute bottom-3 left-3 right-3 pointer-events-auto">
+                          <PostReactions
+                            postId={post.id}
+                            commentHref={`/posts/${post.id}`}
+                          />
+                        </div>
                       </div>
                     </div>
                   )}

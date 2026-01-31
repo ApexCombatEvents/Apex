@@ -12,6 +12,8 @@ type Event = {
   title: string | null;
   name: string | null;
   event_date: string | null;
+  is_featured: boolean | null;
+  featured_until: string | null;
   owner: {
     id: string;
     username: string | null;
@@ -57,6 +59,30 @@ export default function AdminDashboard() {
     }
   }, [isAdmin]);
 
+  // Filter events and profiles based on search query
+  const filteredEvents = useMemo(() => {
+    if (!searchQuery.trim()) return events;
+    const query = searchQuery.toLowerCase();
+    return events.filter((event) => {
+      const title = (event.title || event.name || "").toLowerCase();
+      return title.includes(query);
+    });
+  }, [events, searchQuery]);
+
+  const filteredProfiles = useMemo(() => {
+    if (!searchQuery.trim()) return profiles;
+    const query = searchQuery.toLowerCase();
+    return profiles.filter((profile) => {
+      const name = (profile.full_name || profile.username || "").toLowerCase();
+      return name.includes(query);
+    });
+  }, [profiles, searchQuery]);
+
+  // Early return for non-admin users (must be after all hooks)
+  if (!isAdmin) {
+    return <div className="p-8 text-center">Loading...</div>;
+  }
+
   async function checkAdmin() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -85,7 +111,7 @@ export default function AdminDashboard() {
       const [eventsResult, profilesResult] = await Promise.all([
         supabase
           .from("events")
-          .select("id, title, name, event_date, owner_profile_id"),
+          .select("id, title, name, event_date, owner_profile_id, is_featured, featured_until"),
         supabase
           .from("profiles")
           .select("id, username, full_name, role, avatar_url, created_at"),
@@ -129,6 +155,8 @@ export default function AdminDashboard() {
             title: e.title,
             name: e.name,
             event_date: e.event_date,
+            is_featured: e.is_featured,
+            featured_until: e.featured_until,
             owner: ownerId ? ownersMap[ownerId] || null : null,
           };
         });
@@ -169,36 +197,18 @@ export default function AdminDashboard() {
     }
   }
 
-  // Filter events and profiles based on search query
-  const filteredEvents = useMemo(() => {
-    if (!searchQuery.trim()) return events;
-    const query = searchQuery.toLowerCase();
-    return events.filter((event) => {
-      const title = (event.title || event.name || "").toLowerCase();
-      return title.includes(query);
-    });
-  }, [events, searchQuery]);
-
-  const filteredProfiles = useMemo(() => {
-    if (!searchQuery.trim()) return profiles;
-    const query = searchQuery.toLowerCase();
-    return profiles.filter((profile) => {
-      const name = (profile.full_name || profile.username || "").toLowerCase();
-      return name.includes(query);
-    });
-  }, [profiles, searchQuery]);
-
   async function deleteEvent(eventId: string) {
     setDeleting(eventId);
     try {
-      const { error } = await supabase
-        .from("events")
-        .delete()
-        .eq("id", eventId);
+      const response = await fetch(`/api/admin/events/${eventId}`, {
+        method: 'DELETE',
+      });
 
-      if (error) {
-        console.error("Error deleting event:", error);
-        alert("Failed to delete event");
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Error deleting event:", data.error);
+        alert(data.error || "Failed to delete event");
       } else {
         setEvents(events.filter(e => e.id !== eventId));
       }
@@ -213,14 +223,15 @@ export default function AdminDashboard() {
   async function deleteProfile(profileId: string) {
     setDeleting(profileId);
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .delete()
-        .eq("id", profileId);
+      const response = await fetch(`/api/admin/profiles/${profileId}`, {
+        method: 'DELETE',
+      });
 
-      if (error) {
-        console.error("Error deleting profile:", error);
-        alert("Failed to delete profile");
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Error deleting profile:", data.error);
+        alert(data.error || "Failed to delete profile");
       } else {
         setProfiles(profiles.filter(p => p.id !== profileId));
       }
@@ -239,7 +250,7 @@ export default function AdminDashboard() {
       message: `Are you sure you want to delete "${eventName}"? This action cannot be undone.`,
       onConfirm: () => {
         deleteEvent(eventId);
-        setConfirmDialog({ ...confirmDialog, open: false });
+        setConfirmDialog({ open: false, title: "", message: "", onConfirm: () => {} });
       },
     });
   }
@@ -251,17 +262,14 @@ export default function AdminDashboard() {
       message: `Are you sure you want to delete "${profileName}"? This action cannot be undone.`,
       onConfirm: () => {
         deleteProfile(profileId);
-        setConfirmDialog({ ...confirmDialog, open: false });
+        setConfirmDialog({ open: false, title: "", message: "", onConfirm: () => {} });
       },
     });
   }
 
-  if (!isAdmin) {
-    return <div className="p-8 text-center">Loading...</div>;
-  }
-
+  // Main dashboard content
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+    <div className="max-w-[1280px] mx-auto px-4 py-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Admin Dashboard</h1>
@@ -341,25 +349,38 @@ export default function AdminDashboard() {
                   {searchQuery ? "No events found matching your search." : "No events found."}
                 </div>
               ) : (
-                filteredEvents.map((event) => (
-                  <div key={event.id} className="card flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-semibold text-slate-900">
-                          {event.title || event.name || "Untitled Event"}
-                        </h3>
+                filteredEvents.map((event) => {
+                  const now = new Date();
+                  const featuredUntil = event.featured_until ? new Date(event.featured_until) : null;
+                  const isCurrentlyFeatured = event.is_featured === true && (!featuredUntil || featuredUntil > now);
+                  
+                  return (
+                    <div key={event.id} className="card flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <h3 className="font-semibold text-slate-900">
+                            {event.title || event.name || "Untitled Event"}
+                          </h3>
+                          {isCurrentlyFeatured && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 border border-purple-200">
+                              Featured
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 flex items-center gap-4 text-xs text-slate-600">
+                          {event.event_date && (
+                            <span>{new Date(event.event_date).toLocaleDateString()}</span>
+                          )}
+                          {event.owner && (
+                            <span>
+                              by {event.owner.full_name || event.owner.username || "Unknown"}
+                            </span>
+                          )}
+                          {isCurrentlyFeatured && featuredUntil && (
+                            <AdminFeaturedCountdown featuredUntil={featuredUntil.toISOString()} />
+                          )}
+                        </div>
                       </div>
-                      <div className="mt-1 flex items-center gap-4 text-xs text-slate-600">
-                        {event.event_date && (
-                          <span>{new Date(event.event_date).toLocaleDateString()}</span>
-                        )}
-                        {event.owner && (
-                          <span>
-                            by {event.owner.full_name || event.owner.username || "Unknown"}
-                          </span>
-                        )}
-                      </div>
-                    </div>
                     <div className="flex items-center gap-2">
                       <Link
                         href={`/events/${event.id}`}
@@ -376,8 +397,9 @@ export default function AdminDashboard() {
                       </button>
                     </div>
                   </div>
-                ))
-              )}
+                );
+              })
+            )}
             </div>
           )}
 
@@ -449,8 +471,49 @@ export default function AdminDashboard() {
         cancelText="Cancel"
         danger={true}
         onConfirm={confirmDialog.onConfirm}
-        onClose={() => setConfirmDialog({ ...confirmDialog, open: false })}
+        onClose={() => setConfirmDialog({ open: false, title: "", message: "", onConfirm: () => {} })}
       />
     </div>
+  );
+}
+
+// Admin featured countdown component
+function AdminFeaturedCountdown({ featuredUntil }: { featuredUntil: string }) {
+  const [timeRemaining, setTimeRemaining] = useState<string>("");
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      const now = new Date();
+      const until = new Date(featuredUntil);
+      const diff = until.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setTimeRemaining("Expired");
+        return;
+      }
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+      if (days > 0) {
+        setTimeRemaining(`${days}d ${hours}h ${minutes}m`);
+      } else if (hours > 0) {
+        setTimeRemaining(`${hours}h ${minutes}m`);
+      } else {
+        setTimeRemaining(`${minutes}m`);
+      }
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, [featuredUntil]);
+
+  return (
+    <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
+      {timeRemaining || "Featured"}
+    </span>
   );
 }

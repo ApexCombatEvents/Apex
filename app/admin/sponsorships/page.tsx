@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -33,7 +33,8 @@ type Placement =
   | "search_page"
   | "event_page"
   | "profile_page"
-  | "rankings_page";
+  | "rankings_page"
+  | "messages_page";
 
 export default function AdminSponsorshipsPage() {
   const router = useRouter();
@@ -45,6 +46,29 @@ export default function AdminSponsorshipsPage() {
   const [selectedPlacement, setSelectedPlacement] = useState<Placement | "all">("all");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  const loadSponsorships = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("sponsorships")
+        .select("*")
+        .order("placement", { ascending: true })
+        .order("display_order", { ascending: true });
+
+      if (error) {
+        console.error("Error loading sponsorships:", error);
+        setMessage("Failed to load sponsorships: " + error.message);
+      } else {
+        setSponsorships((data as Sponsorship[]) || []);
+      }
+    } catch (err: any) {
+      console.error("Error:", err);
+      setMessage("An error occurred: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [supabase]);
 
   // Check if user is admin
   useEffect(() => {
@@ -70,30 +94,7 @@ export default function AdminSponsorshipsPage() {
       }
     }
     checkAdmin();
-  }, [router, supabase]);
-
-  async function loadSponsorships() {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("sponsorships")
-        .select("*")
-        .order("placement", { ascending: true })
-        .order("display_order", { ascending: true });
-
-      if (error) {
-        console.error("Error loading sponsorships:", error);
-        setMessage("Failed to load sponsorships: " + error.message);
-      } else {
-        setSponsorships((data as Sponsorship[]) || []);
-      }
-    } catch (err: any) {
-      console.error("Error:", err);
-      setMessage("An error occurred: " + err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
+  }, [router, supabase, loadSponsorships]);
 
   async function handleDelete(id: string) {
     if (!confirm("Are you sure you want to delete this sponsorship?")) return;
@@ -150,6 +151,7 @@ export default function AdminSponsorshipsPage() {
     { value: "event_page", label: "Event Page" },
     { value: "profile_page", label: "Profile Page" },
     { value: "rankings_page", label: "Rankings Page" },
+    { value: "messages_page", label: "Messages Page" },
   ];
 
   if (loading) {
@@ -295,6 +297,7 @@ function SponsorshipCard({
     event_page: "Event Page",
     profile_page: "Profile Page",
     rankings_page: "Rankings Page",
+    messages_page: "Messages Page",
   };
 
   return (
@@ -425,7 +428,14 @@ function EditSponsorshipModal({
       if (error) {
         setMessage("Failed to load sponsorship: " + error.message);
       } else {
-        setSponsorship(data as Sponsorship);
+        const sponsorshipData = data as Sponsorship;
+        // Automatically set variant based on placement
+        if (sponsorshipData.placement === "homepage_hero") {
+          sponsorshipData.variant = "slideshow";
+        } else if (sponsorshipData.placement === "search_page" || sponsorshipData.placement === "messages_page") {
+          sponsorshipData.variant = "vertical";
+        }
+        setSponsorship(sponsorshipData);
       }
       setLoading(false);
     }
@@ -438,13 +448,18 @@ function EditSponsorshipModal({
     setMessage(null);
 
     try {
+      // Automatically set variant based on placement
+      const variant = sponsorship.placement === "homepage_hero" ? "slideshow" 
+        : (sponsorship.placement === "search_page" || sponsorship.placement === "messages_page") ? "vertical"
+        : (sponsorship.variant || "horizontal");
+      
       const { error } = await supabase
         .from("sponsorships")
         .update({
           title: sponsorship.title,
           description: sponsorship.description || null,
           placement: sponsorship.placement,
-          variant: sponsorship.variant,
+          variant: variant,
           image_url: sponsorship.image_url || null,
           link_url: sponsorship.link_url || null,
           button_text: sponsorship.button_text || null,
@@ -599,7 +614,17 @@ function SponsorshipForm({
             </label>
             <select
               value={sponsorship.placement || ""}
-              onChange={(e) => setSponsorship({ ...sponsorship, placement: e.target.value })}
+              onChange={(e) => {
+                const newPlacement = e.target.value;
+                setSponsorship({ 
+                  ...sponsorship, 
+                  placement: newPlacement,
+                  // Automatically set variant based on placement
+                  variant: newPlacement === "homepage_hero" ? "slideshow" 
+                    : (newPlacement === "search_page" || newPlacement === "messages_page") ? "vertical"
+                    : (sponsorship.variant || "horizontal")
+                });
+              }}
               required
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
             >
@@ -611,42 +636,96 @@ function SponsorshipForm({
               <option value="event_page">Event Page</option>
               <option value="profile_page">Profile Page</option>
               <option value="rankings_page">Rankings Page</option>
+              <option value="messages_page">Messages Page</option>
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Variant
-            </label>
-            <select
-              value={sponsorship.variant || "horizontal"}
-              onChange={(e) => setSponsorship({ ...sponsorship, variant: e.target.value })}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-            >
-              <option value="horizontal">Horizontal</option>
-              <option value="vertical">Vertical</option>
-              <option value="compact">Compact</option>
-              <option value="slideshow">Slideshow</option>
-            </select>
-          </div>
+          {sponsorship.placement !== "homepage_hero" && sponsorship.placement !== "search_page" && sponsorship.placement !== "messages_page" && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Variant
+              </label>
+              <select
+                value={sponsorship.variant || "horizontal"}
+                onChange={(e) => setSponsorship({ ...sponsorship, variant: e.target.value })}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+              >
+                <option value="horizontal">Horizontal</option>
+                <option value="vertical">Vertical</option>
+                <option value="compact">Compact</option>
+                <option value="slideshow">Slideshow</option>
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Image
             </label>
-            {sponsorship.image_url && (
-              <div className="mb-2">
-                <Image
-                  src={sponsorship.image_url}
-                  alt={sponsorship.title || "Preview"}
-                  width={200}
-                  height={100}
-                  className="rounded-lg border border-slate-200"
-                />
-              </div>
-            )}
-            <input
-              type="file"
+            {(() => {
+              // Get recommended image size based on placement and variant
+              const getImageSizeGuide = (): string => {
+                const placement = sponsorship.placement;
+                const variant = sponsorship.variant || "horizontal";
+                
+                if (placement === "homepage_hero" || variant === "slideshow") {
+                  return "Recommended: 1920×640px (3:1 ratio) - Full-width hero banner";
+                }
+                if (placement === "homepage_sidebar") {
+                  if (variant === "vertical") return "Recommended: 800×320px (5:2 ratio) - Vertical sidebar banner";
+                  if (variant === "compact") return "Recommended: 64×64px - Small square logo";
+                  return "Recommended: 400×200px (2:1 ratio) - Horizontal sidebar banner";
+                }
+                if (placement === "search_page") {
+                  if (variant === "vertical") return "Recommended: 800×320px (5:2 ratio) - Vertical banner";
+                  if (variant === "compact") return "Recommended: 96×96px - Square logo";
+                  return "Recommended: 600×300px (2:1 ratio) - Horizontal banner";
+                }
+                if (placement === "stream_page") {
+                  if (variant === "vertical") return "Recommended: 800×320px (5:2 ratio) - Vertical banner";
+                  if (variant === "compact") return "Recommended: 96×96px - Square logo";
+                  return "Recommended: 600×300px (2:1 ratio) - Horizontal banner";
+                }
+                if (placement === "event_page" || placement === "profile_page" || placement === "rankings_page") {
+                  if (variant === "vertical") return "Recommended: 800×320px (5:2 ratio) - Vertical banner";
+                  if (variant === "compact") return "Recommended: 64×64px - Small square logo";
+                  return "Recommended: 400×200px (2:1 ratio) - Horizontal banner";
+                }
+                if (placement === "messages_page") {
+                  if (variant === "vertical") return "Recommended: 800×320px (5:2 ratio) - Vertical banner";
+                  if (variant === "compact") return "Recommended: 96×96px - Square logo";
+                  return "Recommended: 600×300px (2:1 ratio) - Horizontal banner";
+                }
+                // Default
+                if (variant === "vertical") return "Recommended: 800×320px (5:2 ratio)";
+                if (variant === "compact") return "Recommended: 64×64px - Square logo";
+                return "Recommended: 600×300px (2:1 ratio) - Horizontal banner";
+              };
+              
+              return (
+                <>
+                  {sponsorship.image_url && (
+                    <div className="mb-2">
+                      <Image
+                        src={sponsorship.image_url}
+                        alt={sponsorship.title || "Preview"}
+                        width={200}
+                        height={100}
+                        className="rounded-lg border border-slate-200"
+                      />
+                    </div>
+                  )}
+                  {sponsorship.placement && (
+                    <div className="mb-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                      <p className="text-xs font-medium text-purple-900 mb-1">📐 Image Size Guide</p>
+                      <p className="text-xs text-purple-700">{getImageSizeGuide()}</p>
+                      <p className="text-xs text-purple-600 mt-1 italic">
+                        Images will automatically resize to fit while maintaining aspect ratio.
+                      </p>
+                    </div>
+                  )}
+                  <input
+                    type="file"
               accept="image/*"
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -656,6 +735,9 @@ function SponsorshipForm({
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
             />
             {uploading && <p className="text-xs text-slate-500 mt-1">Uploading...</p>}
+                </>
+              );
+            })()}
           </div>
 
           <div>

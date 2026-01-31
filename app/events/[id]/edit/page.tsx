@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
@@ -185,6 +185,7 @@ export default function EditEventPage() {
   const supabase = createSupabaseBrowser();
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const eventId = params.id as string;
 
   const [loading, setLoading] = useState(true);
@@ -226,11 +227,109 @@ export default function EditEventPage() {
   };
   const [sponsorships, setSponsorships] = useState<SponsorshipForm[]>([]);
   const [uploadingSponsorship, setUploadingSponsorship] = useState<string | null>(null);
+  
+  // Bout results section collapsed state
+  const [boutResultsExpanded, setBoutResultsExpanded] = useState(false);
 
   const [notAllowed, setNotAllowed] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [featuredLoading, setFeaturedLoading] = useState(false);
+
+  // Handle payment success redirect
+  useEffect(() => {
+    const featuredSuccess = searchParams.get('featured_success');
+    const sessionId = searchParams.get('session_id');
+    
+    if (featuredSuccess === 'true' && sessionId) {
+      // Verify payment with Stripe
+      (async () => {
+        try {
+          const response = await fetch('/api/stripe/verify-featured-payment', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ sessionId }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            if (data.featured) {
+              setMessage('✓ Payment successful! Your event is now featured.');
+              setIsFeatured(true);
+              // Reload event data to get updated featured status from database
+              const { data: eventData } = await supabase
+                .from("events")
+                .select("*")
+                .eq("id", eventId)
+                .single<EventRow>();
+              
+              if (eventData) {
+                setEvent(eventData);
+                const now = new Date();
+                const featuredUntil = eventData.featured_until ? new Date(eventData.featured_until) : null;
+                const isCurrentlyFeatured = eventData.is_featured === true && (!featuredUntil || featuredUntil > now);
+                setIsFeatured(isCurrentlyFeatured);
+              } else {
+                // If event not loaded yet, reload page to get fresh data
+                setTimeout(() => {
+                  window.location.reload();
+                }, 1000);
+              }
+            } else {
+              setMessage('Payment verified. Featured status will be updated shortly. Please wait a moment...');
+              // Check again after a delay
+              setTimeout(async () => {
+                const retryResponse = await fetch('/api/stripe/verify-featured-payment', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ sessionId }),
+                });
+                const retryData = await retryResponse.json();
+                if (retryData.success && retryData.featured) {
+                  setMessage('✓ Payment successful! Your event is now featured.');
+                  setIsFeatured(true);
+                  // Reload event data to get updated featured status from database
+                  const { data: eventData } = await supabase
+                    .from("events")
+                    .select("*")
+                    .eq("id", eventId)
+                    .single<EventRow>();
+                  
+                  if (eventData) {
+                    setEvent(eventData);
+                    const now = new Date();
+                    const featuredUntil = eventData.featured_until ? new Date(eventData.featured_until) : null;
+                    const isCurrentlyFeatured = eventData.is_featured === true && (!featuredUntil || featuredUntil > now);
+                    setIsFeatured(isCurrentlyFeatured);
+                  } else {
+                    window.location.reload();
+                  }
+                } else {
+                  // If still not featured, reload page to get fresh data
+                  setTimeout(() => window.location.reload(), 2000);
+                }
+              }, 2000);
+            }
+          } else {
+            setMessage(data.error || 'Payment verification failed. Please refresh the page.');
+          }
+
+          // Remove query params
+          const url = new URL(window.location.href);
+          url.searchParams.delete('featured_success');
+          url.searchParams.delete('session_id');
+          router.replace(url.pathname + url.search, { scroll: false });
+        } catch (err) {
+          console.error('Payment verification error:', err);
+          setMessage('Payment completed. If featured status doesn\'t update, please refresh the page.');
+        }
+      })();
+    }
+  }, [searchParams, eventId, router, supabase]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -281,10 +380,14 @@ export default function EditEventPage() {
       setStreamPrice(eventData.stream_price ? (eventData.stream_price / 100).toFixed(2) : "");
       setFighterPercentage(eventData.fighter_percentage?.toString() || "0");
       
+      // Set event data first
+      setEvent(eventData);
+      
       // Load featured status (check if still valid)
       const now = new Date();
       const featuredUntil = eventData.featured_until ? new Date(eventData.featured_until) : null;
-      setIsFeatured(eventData.is_featured === true && (!featuredUntil || featuredUntil > now));
+      const isCurrentlyFeatured = eventData.is_featured === true && (!featuredUntil || featuredUntil > now);
+      setIsFeatured(isCurrentlyFeatured);
 
       // Load bouts
       const { data: boutsData, error: boutsError } = await supabase
@@ -524,6 +627,45 @@ export default function EditEventPage() {
     }
   }
 
+  async function handleFeatureEvent() {
+    if (!event) return;
+    
+    setFeaturedLoading(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch('/api/stripe/create-featured-checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          eventId: event.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.error || 'Failed to create checkout session.');
+        setFeaturedLoading(false);
+        return;
+      }
+
+      // Redirect to Stripe checkout
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setMessage('Failed to get checkout URL.');
+        setFeaturedLoading(false);
+      }
+    } catch (err: any) {
+      console.error('Feature event checkout error:', err);
+      setMessage('Failed to start payment process.');
+      setFeaturedLoading(false);
+    }
+  }
+
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -571,7 +713,7 @@ export default function EditEventPage() {
         will_stream: willStream,
         stream_price: willStream && streamPrice ? Math.round(parseFloat(streamPrice) * 100) : null,
         fighter_percentage: willStream ? (parseInt(fighterPercentage) || 0) : 0,
-        is_featured: isFeatured,
+        // Note: is_featured is only set via payment/webhook, not manually
         updated_at: new Date().toISOString(),
       })
       .eq("id", event.id);
@@ -646,10 +788,11 @@ export default function EditEventPage() {
 
     let fightersByUsername: Record<string, FighterLite> = {};
     if (allHandles.length > 0) {
+      // Query with case-insensitive role check (database stores as "FIGHTER")
       const { data: fighters, error: fightersError } = await supabase
         .from("profiles")
         .select("id, username, full_name, role")
-        .eq("role", "fighter")
+        .or("role.eq.FIGHTER,role.eq.fighter")
         .in("username", allHandles);
 
       if (fightersError) {
@@ -658,7 +801,8 @@ export default function EditEventPage() {
       } else if (fighters) {
         (fighters as FighterLite[]).forEach((f) => {
           if (f.username) {
-            fightersByUsername[f.username] = f;
+            // Store with lowercase username for case-insensitive lookup
+            fightersByUsername[f.username.toLowerCase()] = f;
           }
         });
       }
@@ -720,13 +864,14 @@ export default function EditEventPage() {
       const redKey = normaliseHandle(bout.redHandle);
       const blueKey = normaliseHandle(bout.blueHandle);
 
+      // Lookup with case-insensitive username matching
       const redProfile =
-        redKey && fightersByUsername[redKey]
-          ? fightersByUsername[redKey]
+        redKey && fightersByUsername[redKey.toLowerCase()]
+          ? fightersByUsername[redKey.toLowerCase()]
           : null;
       const blueProfile =
-        blueKey && fightersByUsername[blueKey]
-          ? fightersByUsername[blueKey]
+        blueKey && fightersByUsername[blueKey.toLowerCase()]
+          ? fightersByUsername[blueKey.toLowerCase()]
           : null;
 
       const redDisplayHandle = bout.redHandle.trim() || null;
@@ -742,10 +887,15 @@ export default function EditEventPage() {
         ? (blueProfile.full_name || blueProfile.username)
         : (bout.blueName.trim() || null);
 
-      // If there's a profile match, use its ID. Otherwise, clear the fighter_id
-      // (name-only fighters don't have IDs)
-      const redFighterIdFinal = redProfile ? redProfile.id : null;
-      const blueFighterIdFinal = blueProfile ? blueProfile.id : null;
+      // If there's a profile match from handle, use its ID.
+      // If handle is empty, preserve existing fighter ID (for existing bouts).
+      // If handle is entered but doesn't match, clear the fighter_id (user is changing it).
+      const redFighterIdFinal = redProfile 
+        ? redProfile.id 
+        : (redKey === "" && bout.redFighterId ? bout.redFighterId : null);
+      const blueFighterIdFinal = blueProfile 
+        ? blueProfile.id 
+        : (blueKey === "" && bout.blueFighterId ? bout.blueFighterId : null);
 
       return {
         event_id: eventId,
@@ -782,9 +932,10 @@ export default function EditEventPage() {
       );
       const rowsToInsert = [...mainRowsToInsert, ...undercardRowsToInsert];
 
-      const { error: insertError } = await supabase
+      const { data: insertedBouts, error: insertError } = await supabase
         .from("event_bouts")
-        .insert(rowsToInsert);
+        .insert(rowsToInsert)
+        .select("id, card_type, order_index");
 
       if (insertError) {
         console.error("Insert new bouts error", insertError);
@@ -795,6 +946,32 @@ export default function EditEventPage() {
         setSaving(false);
         router.push(`/events/${event.id}`);
         return;
+      }
+
+      // Notify event followers about new bouts
+      if (insertedBouts && insertedBouts.length > 0) {
+        try {
+          for (const bout of insertedBouts) {
+            // Calculate bout number based on card type and order
+            const sameCardBouts = insertedBouts.filter(
+              (b) => b.card_type === bout.card_type
+            );
+            const boutNumber = sameCardBouts.findIndex((b) => b.id === bout.id) + 1;
+            
+            await fetch(`/api/events/${eventId}/notify-bout-added`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                boutId: bout.id,
+                boutNumber: boutNumber,
+                cardType: bout.card_type,
+              }),
+            });
+          }
+        } catch (notifError) {
+          console.error("Error notifying followers about new bouts:", notifError);
+          // Don't fail the save if notification fails
+        }
       }
     }
 
@@ -993,19 +1170,34 @@ export default function EditEventPage() {
           </p>
 
           <div className="grid md:grid-cols-[2fr,3fr] gap-4 items-center">
-            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 h-32 flex items-center justify-center overflow-hidden">
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 h-32 flex items-center justify-center overflow-hidden relative">
               {bannerPreview ? (
                 <Image
                   src={bannerPreview}
                   alt="Banner preview"
-                  width={600}
-                  height={120}
-                  className="w-full h-full object-cover"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 300px"
+                  className="object-cover"
                 />
               ) : (
-                <span className="text-xs text-slate-500">
-                  No image selected
-                </span>
+                <div className="flex flex-col items-center justify-center text-slate-400 px-4">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 mb-1"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <span className="text-xs font-medium mb-0.5">No image selected</span>
+                  <span className="text-[10px] text-center">Recommended: 1920×640px (3:1 ratio)</span>
+                </div>
               )}
             </div>
 
@@ -1031,6 +1223,9 @@ export default function EditEventPage() {
             <h2 className="text-sm font-semibold">Event Sponsorships</h2>
             <p className="text-xs text-slate-600 mt-1">
               Add sponsor logos/banners that will be displayed on your event page in a slideshow format.
+            </p>
+            <p className="text-[10px] text-slate-500 mt-1">
+              Recommended image size: 600×400px (3:2 ratio) - Images will fill the promotional box
             </p>
           </div>
 
@@ -1114,29 +1309,29 @@ export default function EditEventPage() {
             Feature your event to appear at the top of search results and the homepage. This increases visibility and helps attract more attendees.
           </p>
           
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isFeatured}
-              onChange={(e) => setIsFeatured(e.target.checked)}
-              className="rounded border-slate-300 text-purple-600 focus:ring-purple-500"
-            />
-            <span className="text-xs text-slate-700 font-medium">
-              Feature this event (requires payment)
-            </span>
-          </label>
-          
-          {isFeatured && (
-            <div className="mt-2 p-3 bg-purple-100 rounded-lg border border-purple-200">
-              <p className="text-xs text-purple-800">
-                <strong>Note:</strong> Payment processing for featured events will be integrated soon. 
-                For now, contact support to activate featured status for your event.
+          {isFeatured ? (
+            <div className="mt-2 p-3 bg-green-50 rounded-lg border border-green-200">
+              <p className="text-xs text-green-800 font-medium">
+                ✓ Your event is currently featured
               </p>
+              {event?.featured_until && (
+                <FeaturedCountdown featuredUntil={event.featured_until} />
+              )}
             </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleFeatureEvent}
+              disabled={featuredLoading}
+              className="w-full px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {featuredLoading ? 'Processing...' : 'Feature Event - $150 (30 days)'}
+            </button>
           )}
         </section>
 
-        {/* STREAM SETTINGS */}
+        {/* STREAM SETTINGS - Temporarily hidden until streaming feature is ready */}
+        {false && (
         <section className="card space-y-3">
           <h2 className="text-sm font-semibold">Stream Settings</h2>
           
@@ -1231,6 +1426,7 @@ export default function EditEventPage() {
             </div>
           )}
         </section>
+        )}
 
         {/* BOUTS (card builder) */}
         <section className="card space-y-3">
@@ -1324,54 +1520,82 @@ export default function EditEventPage() {
 
         {/* BOUT RESULTS SECTION */}
         <section className="card space-y-3">
-          <h2 className="text-sm font-semibold">Bout results</h2>
-          <p className="text-xs text-slate-600">
-            Update winners and result details for each bout. These will show on
-            the public event page and on fighter profiles.
-          </p>
-
-          {mainBouts.length > 0 && (
-            <div className="space-y-3">
-              <p className="text-[11px] font-semibold text-slate-500">
-                Main card
+          <button
+            type="button"
+            onClick={() => setBoutResultsExpanded(!boutResultsExpanded)}
+            className="flex items-center justify-between w-full text-left"
+          >
+            <div>
+              <h2 className="text-sm font-semibold">Bout results</h2>
+              <p className="text-xs text-slate-600">
+                Update winners and result details for each bout. These will show on
+                the public event page and on fighter profiles.
               </p>
-              {mainBouts.map((bout, idx) => {
-                const fightNumber = mainBouts.length - idx;
-                return (
-                  <BoutResultRow
-                    key={bout.id}
-                    bout={bout}
-                    label={`MAIN CARD • FIGHT ${fightNumber}`}
-                    onLocalChange={updateBout}
-                  />
-                );
-              })}
             </div>
-          )}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className={`h-5 w-5 text-slate-400 transition-transform ${boutResultsExpanded ? 'rotate-180' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </button>
 
-          {undercardBouts.length > 0 && (
-            <div className="space-y-3 mt-4">
-              <p className="text-[11px] font-semibold text-slate-500">
-                Undercard
-              </p>
-              {undercardBouts.map((bout, idx) => {
-                const fightNumber = undercardBouts.length - idx;
-                return (
-                  <BoutResultRow
-                    key={bout.id}
-                    bout={bout}
-                    label={`UNDERCARD • FIGHT ${fightNumber}`}
-                    onLocalChange={updateBout}
-                  />
-                );
-              })}
+          {boutResultsExpanded && (
+            <div className="space-y-4 pt-2">
+              {mainBouts.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-[11px] font-semibold text-slate-500">
+                    Main card
+                  </p>
+                  {mainBouts.map((bout, idx) => {
+                    const fightNumber = mainBouts.length - idx;
+                    return (
+                      <BoutResultRow
+                        key={bout.id}
+                        bout={bout}
+                        label={`MAIN CARD • FIGHT ${fightNumber}`}
+                        onLocalChange={updateBout}
+                        eventId={eventId}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+
+              {undercardBouts.length > 0 && (
+                <div className="space-y-3 mt-4">
+                  <p className="text-[11px] font-semibold text-slate-500">
+                    Undercard
+                  </p>
+                  {undercardBouts.map((bout, idx) => {
+                    const fightNumber = undercardBouts.length - idx;
+                    return (
+                      <BoutResultRow
+                        key={bout.id}
+                        bout={bout}
+                        label={`UNDERCARD • FIGHT ${fightNumber}`}
+                        onLocalChange={updateBout}
+                        eventId={eventId}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+
+              {mainBouts.length === 0 && undercardBouts.length === 0 && (
+                <p className="text-xs text-slate-600">
+                  Add bouts above first, then you can enter results here.
+                </p>
+              )}
             </div>
-          )}
-
-          {mainBouts.length === 0 && undercardBouts.length === 0 && (
-            <p className="text-xs text-slate-600">
-              Add bouts above first, then you can enter results here.
-            </p>
           )}
         </section>
 
@@ -1430,6 +1654,55 @@ export default function EditEventPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Featured countdown component
+function FeaturedCountdown({ featuredUntil }: { featuredUntil: string }) {
+  const [timeRemaining, setTimeRemaining] = useState<string>("");
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      const now = new Date();
+      const until = new Date(featuredUntil);
+      const diff = until.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setTimeRemaining("Expired");
+        return;
+      }
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+      if (days > 0) {
+        setTimeRemaining(`${days} day${days !== 1 ? 's' : ''} ${hours} hour${hours !== 1 ? 's' : ''} remaining`);
+      } else if (hours > 0) {
+        setTimeRemaining(`${hours} hour${hours !== 1 ? 's' : ''} ${minutes} minute${minutes !== 1 ? 's' : ''} remaining`);
+      } else {
+        setTimeRemaining(`${minutes} minute${minutes !== 1 ? 's' : ''} remaining`);
+      }
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, [featuredUntil]);
+
+  const untilDate = new Date(featuredUntil);
+  const totalDays = Math.ceil((untilDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+
+  return (
+    <div className="space-y-1">
+      <p className="text-xs text-green-700">
+        Featured until: {untilDate.toLocaleDateString()} at {untilDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+      </p>
+      <p className="text-xs font-semibold text-green-800">
+        {timeRemaining || `Expires in ${totalDays} day${totalDays !== 1 ? 's' : ''}`}
+      </p>
     </div>
   );
 }
@@ -1649,10 +1922,12 @@ function BoutResultRow({
   bout,
   label,
   onLocalChange,
+  eventId,
 }: {
   bout: BoutForm;
   label: string;
   onLocalChange: (id: string, patch: Partial<BoutForm>) => void;
+  eventId: string;
 }) {
   const supabase = createSupabaseBrowser();
   const [winner, setWinner] = useState<BoutForm["winnerSide"]>(
@@ -1670,29 +1945,25 @@ function BoutResultRow({
     oldWinner: Winner,
     newWinner: Winner
   ) {
-    const delta = diffForSide(oldWinner, newWinner, side);
-    if (!delta.wins && !delta.losses && !delta.draws) return;
+    if (oldWinner === newWinner) return;
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, record")
-      .eq("id", fighterId)
-      .single();
+    console.log(`Triggering record recalculation for fighter ${fighterId}`);
 
-    if (error || !data) {
-      console.error("Load fighter record error", error);
-      return;
-    }
+    // Use API route to bypass RLS restrictions
+    const response = await fetch("/api/fighters/update-record", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fighterId,
+      }),
+    });
 
-    const newRecord = applyRecordDelta((data as any).record, delta);
-    const { error: updError } = await supabase
-      .from("profiles")
-      .update({ record: newRecord })
-      .eq("id", fighterId);
+    const responseData = await response.json();
+    console.log("Record update API response:", responseData);
 
-    if (updError) {
-      console.error("Update fighter record error", updError);
-      throw updError;
+    if (!response.ok) {
+      console.error("Update fighter record error:", responseData);
+      throw new Error(responseData.error || "Failed to update fighter record");
     }
   }
 
@@ -1744,7 +2015,86 @@ function BoutResultRow({
       return;
     }
 
-    // 3) sync local state
+    // 3) Notify followers if a result was saved
+    if (newWinner && newWinner !== "draw") {
+      try {
+        let winnerName = "Winner";
+        let cornerText = "";
+
+        if (newWinner === "red") {
+          if (bout.redFighterId) {
+            const { data: fighter } = await supabase
+              .from("profiles")
+              .select("full_name, username")
+              .eq("id", bout.redFighterId)
+              .single();
+            winnerName = fighter?.full_name || fighter?.username || "Red corner";
+          } else {
+            winnerName = bout.redName || "Red corner";
+          }
+          cornerText = "Red corner";
+        } else if (newWinner === "blue") {
+          if (bout.blueFighterId) {
+            const { data: fighter } = await supabase
+              .from("profiles")
+              .select("full_name, username")
+              .eq("id", bout.blueFighterId)
+              .single();
+            winnerName = fighter?.full_name || fighter?.username || "Blue corner";
+          } else {
+            winnerName = bout.blueName || "Blue corner";
+          }
+          cornerText = "Blue corner";
+        }
+
+        const response = await fetch(`/api/events/${eventId}/notify-bout-result`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bout_id: bout.id,
+            winner_side: newWinner,
+            winner_name: winnerName,
+            corner_text: cornerText,
+            method: method.trim() || null,
+            round: roundInt,
+            time: time.trim() || null,
+          }),
+        });
+
+        if (!response.ok) {
+          console.error("Failed to notify followers about bout result");
+        }
+      } catch (notifError) {
+        console.error("Error notifying followers about bout result:", notifError);
+        // Don't fail the save if notification fails
+      }
+    } else if (newWinner === "draw") {
+      // Notify about draw
+      try {
+        const response = await fetch(`/api/events/${eventId}/notify-bout-result`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bout_id: bout.id,
+            winner_side: "draw",
+            winner_name: "Draw",
+            corner_text: "",
+            method: method.trim() || null,
+            round: roundInt,
+            time: time.trim() || null,
+          }),
+        });
+
+        if (!response.ok) {
+          console.error("Failed to notify followers about bout result");
+        }
+      } catch (notifError) {
+        console.error("Error notifying followers about bout result:", notifError);
+        // Don't fail the save if notification fails
+      }
+    }
+
+    // 4) sync local state
     onLocalChange(bout.id, {
       winnerSide: winner,
       resultMethod: method,

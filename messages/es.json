@@ -1,0 +1,68 @@
+{
+  "Common": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "loading": "Cargando...",
+    "error": "Error",
+    "back": "Volver",
+    "welcome": "Bienvenido a Apex",
+    "newsTitle": "Noticias y actualizaciones",
+    "newsSubtitle": "Últimas publicaciones y actividad de los perfiles y eventos que sigues. Mira actualizaciones de combates, cambios en eventos y publicaciones de tu red.",
+    "viewAll": "Ver todos los eventos →",
+    "loadingUpdates": "Cargando actualizaciones...",
+    "signInUpdates": "Inicia sesión para ver actualizaciones de los eventos que sigues.",
+    "noUpdates": "No hay actualizaciones todavía. Sigue eventos y personas para ver sus publicaciones y actualizaciones aquí."
+  },
+  "Navbar": {
+    "home": "Inicio",
+    "search": "Buscar",
+    "messages": "Mensajes",
+    "profile": "Perfil",
+    "events": "Eventos",
+    "admin": "Admin"
+  },
+  "Profile": {
+    "editProfile": "Editar Perfil",
+    "message": "Mensaje",
+    "stats": "Estadísticas",
+    "bio": "Biografía",
+    "followers": "Seguidores",
+    "following": "Siguiendo",
+    "record": "Récord",
+    "winStreak": "Racha",
+    "last5": "Últimos 5"
+  },
+  "Search": {
+    "title": "Buscar Eventos y Perfiles",
+    "subtitle": "Encuentra eventos de lucha para participar o ver. También puedes buscar luchadores, entrenadores, gimnasios y promociones.",
+    "placeholder": "Buscar eventos por título o ubicación",
+    "button": "Buscar",
+    "alsoSearch": "También buscar:",
+    "all": "Todos",
+    "fighters": "Luchadores",
+    "coaches": "Entrenadores",
+    "gyms": "Gimnasios",
+    "promotions": "Promociones",
+    "discipline": "Disciplina:",
+    "location": "Ubicación:",
+    "upcomingOnly": "Solo eventos próximos",
+    "noResults": "No se encontraron resultados. Intenta una búsqueda diferente."
+  },
+  "Settings": {
+    "title": "Ajustes del Perfil",
+    "language": "Idioma",
+    "selectLanguage": "Seleccionar idioma...",
+    "basicInfo": "Información Básica",
+    "fullName": "Nombre Completo",
+    "username": "Nombre de Usuario",
+    "country": "País",
+    "martialArts": "Artes Marciales",
+    "saveChanges": "Guardar Cambios"
+  },
+  "Messages": {
+    "title": "Mensajes",
+    "startChat": "Iniciar nuevo chat",
+    "noThreads": "No hay mensajes todavía.",
+    "restricted": "Mensaje restringido: Deben seguirse mutuamente, compartir un gimnasio o tener una oferta activa para mensajear."
+  }
+}

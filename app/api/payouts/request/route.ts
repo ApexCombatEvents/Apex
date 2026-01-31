@@ -14,7 +14,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const { eventId, amount } = await req.json();
+    let eventId: string;
+    let amount: number;
+    try {
+      const json = await req.json();
+      eventId = json.eventId;
+      amount = json.amount;
+    } catch (jsonError) {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      );
+    }
 
     if (!eventId || !amount || typeof amount !== "number" || amount <= 0) {
       return NextResponse.json(
@@ -61,11 +72,11 @@ export async function POST(req: Request) {
       .eq("event_id", eventId);
 
     let allocationEarnings = 0;
-    if (payments) {
+    if (payments && Array.isArray(payments)) {
       payments.forEach((payment: any) => {
-        if (payment.fighter_allocations && Array.isArray(payment.fighter_allocations)) {
+        if (payment && payment.fighter_allocations && Array.isArray(payment.fighter_allocations)) {
           payment.fighter_allocations.forEach((allocation: any) => {
-            if (allocation.fighter_id === user.id) {
+            if (allocation && allocation.fighter_id === user.id) {
               allocationEarnings += allocation.amount || 0;
             }
           });
@@ -81,9 +92,11 @@ export async function POST(req: Request) {
       .eq("fighter_id", user.id);
 
     let tipEarnings = 0;
-    if (tips) {
+    if (tips && Array.isArray(tips)) {
       tips.forEach((tip: any) => {
-        tipEarnings += tip.amount || 0;
+        if (tip && tip.amount) {
+          tipEarnings += tip.amount;
+        }
       });
     }
 

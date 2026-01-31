@@ -1,17 +1,22 @@
 // app/settings/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useTranslation, type Language } from "@/hooks/useTranslation";
+import { ALL_LANGUAGES } from "@/lib/languages";
 
 type Role = "fighter" | "coach" | "gym" | "promotion" | "";
 
-export default function AppSettingsPage() {
+export const dynamic = 'force-dynamic';
+
+function SettingsContent() {
   const supabase = createSupabaseBrowser();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t, lang, setLang } = useTranslation();
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -132,11 +137,50 @@ export default function AppSettingsPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <header>
-        <h1 className="text-xl font-semibold mb-2">Settings</h1>
+        <h1 className="text-xl font-semibold mb-2">{t('Settings.title')}</h1>
         <p className="text-sm text-slate-600">
           Manage your account and app preferences here.
         </p>
       </header>
+
+      {/* Language Settings */}
+      <section className="card space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold mb-1">{t('Settings.language')}</h2>
+          <p className="text-xs text-slate-500">
+            Choose your preferred language for the entire website.
+          </p>
+        </div>
+        
+        <div className="space-y-3">
+          <label className="text-xs text-slate-600 space-y-1 block">
+            {t('Settings.selectLanguage')}
+            <select
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              value={lang}
+              onChange={async (e) => {
+                const newLang = e.target.value as any;
+                setLang(newLang);
+                
+                // Save to profile
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                  await supabase
+                    .from("profiles")
+                    .update({ preferred_language: newLang })
+                    .eq("id", user.id);
+                }
+              }}
+            >
+              {ALL_LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </section>
 
       {/* Account Settings */}
       <section className="card space-y-4">
@@ -220,17 +264,20 @@ export default function AppSettingsPage() {
         </section>
       </Link>
 
-      <Link href="/settings/notifications" className="block">
-        <section className="card space-y-2 hover:border-purple-200 hover:bg-white transition-colors">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold">Notifications</h2>
-            <span className="text-xs text-purple-700 font-semibold">→</span>
-          </div>
-          <p className="text-sm text-slate-600">
-            Choose what shows up in your in-app notifications.
-          </p>
-        </section>
-      </Link>
+      {/* Notification preferences - hidden for now, can be enabled in the future */}
+      {false && (
+        <Link href="/settings/notifications" className="block">
+          <section className="card space-y-2 hover:border-purple-200 hover:bg-white transition-colors">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold">Notifications</h2>
+              <span className="text-xs text-purple-700 font-semibold">→</span>
+            </div>
+            <p className="text-sm text-slate-600">
+              Choose what shows up in your in-app notifications.
+            </p>
+          </section>
+        </Link>
+      )}
 
       {/* Earnings - Show for fighters, gyms, and promotions */}
       {(role === "fighter" || role === "gym" || role === "promotion") && (
@@ -362,5 +409,19 @@ export default function AppSettingsPage() {
         )}
       </section>
     </div>
+  );
+}
+
+export default function AppSettingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-6xl mx-auto">
+        <div className="card">
+          <p className="text-sm text-slate-600">Loading settings...</p>
+        </div>
+      </div>
+    }>
+      <SettingsContent />
+    </Suspense>
   );
 }

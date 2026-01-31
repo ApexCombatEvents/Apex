@@ -196,6 +196,28 @@ export default function BoutOfferButton({ boutId, side }: BoutOfferButtonProps) 
     const fighterName =
       fighter?.full_name || fighter?.username || "selected fighter";
 
+    // Check if an offer already exists for this bout/side/fighter combination
+    const { data: existingOffer, error: existingError } = await supabase
+      .from("event_bout_offers")
+      .select("id")
+      .eq("bout_id", boutId)
+      .eq("side", side)
+      .eq("fighter_profile_id", selectedFighterId)
+      .maybeSingle();
+
+    if (existingError) {
+      console.error("offer check error", existingError);
+      setStep("error");
+      setError("Failed to check for existing offers.");
+      return;
+    }
+
+    if (existingOffer) {
+      setStep("error");
+      setError("An offer for this fighter on this bout has already been sent.");
+      return;
+    }
+
     // Insert the offer
     const { data: insertedOffer, error: insertError } = await supabase
       .from("event_bout_offers")
@@ -210,6 +232,12 @@ export default function BoutOfferButton({ boutId, side }: BoutOfferButtonProps) 
 
     if (insertError || !insertedOffer) {
       console.error("offer insert error", insertError);
+      // Check for unique constraint violation
+      if (insertError?.message?.includes('duplicate') || insertError?.code === '23505') {
+        setStep("error");
+        setError("An offer for this fighter on this bout has already been sent.");
+        return;
+      }
       setStep("error");
       setError(insertError?.message || "Failed to send offer.");
       return;
@@ -307,6 +335,35 @@ export default function BoutOfferButton({ boutId, side }: BoutOfferButtonProps) 
         {mainButtonLabel}
       </button>
 
+      {/* Confirmation message after successful send (no fee) */}
+      {step === "sent" && (
+        <div className="rounded-xl bg-green-50 border border-green-200 p-3 mt-2 animate-in fade-in slide-in-from-top-1">
+          <div className="flex items-start gap-2">
+            <svg
+              className="h-4 w-4 text-green-600 mt-0.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <div>
+              <p className="text-[11px] font-semibold text-green-800">
+                Offer Sent Successfully!
+              </p>
+              <p className="text-[10px] text-green-700 mt-0.5">
+                Your offer for <span className="font-bold">{sentForName}</span> has been sent to the organizer.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Fighter selection UI */}
       {step === "choosing" && (
         <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 space-y-2">
@@ -345,14 +402,9 @@ export default function BoutOfferButton({ boutId, side }: BoutOfferButtonProps) 
                 <button
                   type="button"
                   onClick={handleSendOffer}
-                  disabled={step === "sending"}
-                  className={`rounded-lg px-3 py-1 text-xs font-medium ${
-                    step === "sending"
-                      ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                      : "bg-purple-600 text-white hover:bg-purple-700"
-                  }`}
+                  className="rounded-lg px-3 py-1 text-xs font-medium bg-purple-600 text-white hover:bg-purple-700"
                 >
-                  {step === "sending" ? "Processing..." : "Send offer"}
+                  Send offer
                 </button>
 
                 <button
@@ -374,13 +426,6 @@ export default function BoutOfferButton({ boutId, side }: BoutOfferButtonProps) 
       {/* Status / helper text */}
       {error && (
         <span className="text-[11px] text-red-600 max-w-xs text-center">{error}</span>
-      )}
-
-      {!error && step === "sent" && (
-        <span className="text-[10px] text-slate-500 text-center">
-          Offer sent for <span className="font-medium">{sentForName}</span>. The
-          organiser will review it.
-        </span>
       )}
 
       {!error && step === "idle" && (

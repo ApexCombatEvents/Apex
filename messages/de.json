@@ -1,0 +1,45 @@
+{
+  "Common": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "loading": "Laden...",
+    "error": "Fehler",
+    "back": "Zurück"
+  },
+  "Navbar": {
+    "home": "Home",
+    "search": "Suche",
+    "messages": "Nachrichten",
+    "profile": "Profil",
+    "events": "Events",
+    "admin": "Admin"
+  },
+  "Profile": {
+    "editProfile": "Profil bearbeiten",
+    "message": "Nachricht",
+    "stats": "Statistiken",
+    "bio": "Biografie",
+    "followers": "Follower",
+    "following": "Folge ich",
+    "record": "Kampfbilanz",
+    "winStreak": "Siegesserie",
+    "last5": "Letzte 5"
+  },
+  "Settings": {
+    "title": "Profil-Einstellungen",
+    "language": "Sprache",
+    "selectLanguage": "Sprache wählen...",
+    "basicInfo": "Basis-Info",
+    "fullName": "Vollständiger Name",
+    "username": "Benutzername",
+    "country": "Land",
+    "martialArts": "Kampfsportarten",
+    "saveChanges": "Änderungen speichern"
+  },
+  "Messages": {
+    "title": "Nachrichten",
+    "startChat": "Neuen Chat starten",
+    "noThreads": "Noch keine Nachrichten.",
+    "restricted": "Nachricht eingeschränkt: Sie müssen sich gegenseitig folgen, ein Fitnessstudio teilen oder ein aktives Angebot haben, um eine Nachricht zu senden."
+  }
+}

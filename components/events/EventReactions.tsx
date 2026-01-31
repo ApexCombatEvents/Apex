@@ -129,29 +129,50 @@ export default function EventReactions({ eventId }: EventReactionsProps) {
             .single();
           
           if (event && event.owner_profile_id !== userId) {
-            const { data: likerProfile } = await supabase
-              .from("profiles")
-              .select("handle, display_name, full_name, username")
-              .eq("id", userId)
-              .single();
-            
-            const likerName = likerProfile?.display_name || 
-                             likerProfile?.full_name || 
-                             likerProfile?.username || 
-                             likerProfile?.handle || 
-                             "Someone";
-            
-            await supabase.from("notifications").insert({
-              profile_id: event.owner_profile_id,
-              type: "event_like",
-              actor_profile_id: userId,
-              data: {
-                event_id: eventId,
-                event_name: event.name,
-                liker_name: likerName,
-                liker_handle: likerProfile?.handle || likerProfile?.username,
-              },
-            });
+            // Use API route to create notification with proper actor profile data
+            try {
+              await fetch('/api/notifications/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  profile_id: event.owner_profile_id,
+                  type: 'event_like',
+                  actor_profile_id: userId,
+                  data: {
+                    event_id: eventId,
+                    event_name: event.name,
+                  },
+                }),
+              });
+            } catch (apiError) {
+              console.error('Failed to create notification via API, falling back to direct insert:', apiError);
+              // Fallback to direct insert if API fails
+              const { data: likerProfile } = await supabase
+                .from("profiles")
+                .select("handle, display_name, full_name, username")
+                .eq("id", userId)
+                .single();
+              
+              const likerName = likerProfile?.display_name || 
+                               likerProfile?.full_name || 
+                               likerProfile?.username || 
+                               likerProfile?.handle || 
+                               null;
+              
+              if (likerName) {
+                await supabase.from("notifications").insert({
+                  profile_id: event.owner_profile_id,
+                  type: "event_like",
+                  actor_profile_id: userId,
+                  data: {
+                    event_id: eventId,
+                    event_name: event.name,
+                    liker_name: likerName,
+                    liker_handle: likerProfile?.handle || likerProfile?.username || null,
+                  },
+                });
+              }
+            }
           }
         } catch (notifError) {
           console.error("Event like notification error", notifError);

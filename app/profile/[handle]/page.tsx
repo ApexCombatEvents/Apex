@@ -20,6 +20,7 @@ type Post = {
   content: string | null;
   created_at: string;
   image_url?: string | null;
+  image_urls?: string[] | null;
 };
 
 export default async function ProfilePage({
@@ -89,7 +90,7 @@ export default async function ProfilePage({
   // 2) Load profile posts (used by fighter + gym feeds)
   const { data: postsData } = await supabase
     .from("profile_posts")
-    .select("id, content, created_at, image_url")
+    .select("id, content, created_at, image_url, image_urls")
     .eq("profile_id", profile.id)
     .order("created_at", { ascending: false });
 
@@ -100,13 +101,17 @@ export default async function ProfilePage({
   const gymIdentifier = profile.username || profile.handle;
   if (role === "gym" && gymIdentifier) {
     // Query for fighters - handle both uppercase and lowercase role values
+    // We check both @handle and handle formats
+    const gymHandle = gymIdentifier.startsWith('@') ? gymIdentifier : `@${gymIdentifier}`;
+    const gymRaw = gymIdentifier.startsWith('@') ? gymIdentifier.substring(1) : gymIdentifier;
+
     const { data: fightersData } = await supabase
       .from("profiles")
       .select(
         "id, full_name, username, avatar_url, country, martial_arts, social_links"
       )
       .or("role.eq.fighter,role.eq.FIGHTER")
-      .contains("social_links", { gym_username: gymIdentifier });
+      .or(`social_links->>gym_username.eq.${gymHandle},social_links->>gym_username.eq.${gymRaw}`);
 
     fighters = fightersData || [];
   }

@@ -11,8 +11,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { content_type, content_id, reason, description } = body;
+    let content_type: string;
+    let content_id: string;
+    let reason: string;
+    let description: string | undefined;
+    try {
+      const body = await request.json();
+      content_type = body.content_type;
+      content_id = body.content_id;
+      reason = body.reason;
+      description = body.description;
+    } catch (jsonError) {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      );
+    }
 
     // Validate input
     if (!content_type || !content_id || !reason) {
@@ -42,7 +56,7 @@ export async function POST(request: NextRequest) {
     let contentExists = false;
     if (content_type === 'post') {
       const { data } = await supabase
-        .from('posts')
+        .from('profile_posts')
         .select('id')
         .eq('id', content_id)
         .single();

@@ -11,14 +11,18 @@ export type RecordTriple = {
 function parseRecord(record: string | null | undefined): RecordTriple {
   if (!record) return { wins: 0, losses: 0, draws: 0 };
 
-  const m = record.trim().match(/^(\d+)-(\d+)-(\d+)$/);
-  if (!m) return { wins: 0, losses: 0, draws: 0 };
+  // Grab all numbers anywhere in the string: "5-2-1", "5 - 2 - 1",
+  // "5-2-1 (pro)" → ["5","2","1"]
+  const nums = record.match(/\d+/g);
+  if (!nums || nums.length === 0) {
+    return { wins: 0, losses: 0, draws: 0 };
+  }
 
-  return {
-    wins: parseInt(m[1], 10) || 0,
-    losses: parseInt(m[2], 10) || 0,
-    draws: parseInt(m[3], 10) || 0,
-  };
+  const wins = parseInt(nums[0] ?? "0", 10) || 0;
+  const losses = parseInt(nums[1] ?? "0", 10) || 0;
+  const draws = parseInt(nums[2] ?? "0", 10) || 0;
+
+  return { wins, losses, draws };
 }
 
 function formatRecord({ wins, losses, draws }: RecordTriple): string {

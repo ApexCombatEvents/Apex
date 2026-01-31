@@ -280,7 +280,8 @@ export default function EventsPage() {
                   </svg>
                 </div>
                 </Link>
-                {event.has_live_bout === true && (
+                {/* Watch Stream button hidden for initial rollout */}
+                {false && event.has_live_bout === true && (
                   <div className="mt-4 pt-4 border-t border-slate-200">
                     <Link
                       href={`/events/${event.id}/stream`}

@@ -22,7 +22,7 @@ export async function POST(
   // Verify user is the event owner
   const { data: event, error: eventError } = await supabase
     .from("events")
-    .select("id, name, title, owner_profile_id")
+    .select("id, name, title, owner_profile_id, profile_id")
     .eq("id", eventId)
     .single();
 
@@ -30,8 +30,8 @@ export async function POST(
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
-  const ownerId = (event as any).owner_profile_id;
-  if (ownerId !== user.id) {
+  const ownerId = event.owner_profile_id || event.profile_id;
+  if (!ownerId || ownerId !== user.id) {
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 

@@ -26,23 +26,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'pending';
 
-    // Get reports with reporter info
+    // Get reports
     const { data: reports, error } = await supabase
       .from('content_reports')
-      .select(`
-        *,
-        reporter:profiles!content_reports_reporter_id_fkey(
-          id,
-          username,
-          full_name,
-          avatar_url
-        ),
-        reviewer:profiles!content_reports_reviewed_by_fkey(
-          id,
-          username,
-          full_name
-        )
-      `)
+      .select('*')
       .eq('status', status)
       .order('created_at', { ascending: false })
       .limit(100);
@@ -55,7 +42,39 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ reports: reports || [] });
+    // Load reporter and reviewer profiles separately
+    const reporterIds = new Set<string>();
+    const reviewerIds = new Set<string>();
+    
+    (reports || []).forEach((report: any) => {
+      if (report.reporter_id) reporterIds.add(report.reporter_id);
+      if (report.reviewed_by) reviewerIds.add(report.reviewed_by);
+    });
+
+    const allProfileIds = Array.from(new Set([...reporterIds, ...reviewerIds]));
+    const profilesById: Record<string, any> = {};
+
+    if (allProfileIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, username, full_name, avatar_url')
+        .in('id', allProfileIds);
+
+      if (profiles) {
+        profiles.forEach((profile) => {
+          profilesById[profile.id] = profile;
+        });
+      }
+    }
+
+    // Map reports with profile data
+    const reportsWithProfiles = (reports || []).map((report: any) => ({
+      ...report,
+      reporter: report.reporter_id ? profilesById[report.reporter_id] || null : null,
+      reviewer: report.reviewed_by ? profilesById[report.reviewed_by] || null : null,
+    }));
+
+    return NextResponse.json({ reports: reportsWithProfiles });
   } catch (error) {
     console.error("Reports API error:", error);
     return NextResponse.json(

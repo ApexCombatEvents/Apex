@@ -8,6 +8,7 @@ import SponsorshipSlideshow from "@/components/sponsors/SponsorshipSlideshow";
 import SponsorshipBanner from "@/components/sponsors/SponsorshipBanner";
 import { getSponsorshipsForPlacement, type Sponsorship } from "@/lib/sponsorships";
 import ALogo from "@/components/logos/ALogo";
+import { useTranslation } from "@/hooks/useTranslation";
 
 type Profile = {
   id: string;
@@ -167,14 +168,15 @@ function FightsNearYou() {
 }
 
 function NewsAndUpdatesSection() {
+  const { t } = useTranslation();
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold text-slate-900">News & updates</h3>
+        <h3 className="font-semibold text-slate-900">{t('Common.newsTitle')}</h3>
       </div>
 
       <p className="text-sm text-slate-600 mb-4">
-        Latest posts and activity from profiles and events you follow. See bout updates, event changes, and posts from your network.
+        {t('Common.newsSubtitle')}
       </p>
 
       <NewsAndUpdates selectedSports={[]} />
@@ -184,6 +186,7 @@ function NewsAndUpdatesSection() {
 
 export default function HomePage() {
   const supabase = createSupabaseBrowser();
+  const { t } = useTranslation();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -218,17 +221,17 @@ export default function HomePage() {
   const [sidebarSponsorships, setSidebarSponsorships] = useState<Sponsorship[]>([]);
 
   useEffect(() => {
-    async function loadSponsorships() {
+      async function loadSponsorships() {
       try {
-        // Load hero slideshow sponsorships
-        const hero = await getSponsorshipsForPlacement("homepage_hero");
+        // Load hero slideshow sponsorships - only include slideshow variants
+        const allHero = await getSponsorshipsForPlacement("homepage_hero");
+        const hero = allHero.filter(s => s.variant === "slideshow");
 
         // Always include the welcome slide as the first slide
         const welcomeSlide = {
           id: "welcome-slide",
           title: "Welcome to Apex",
           description: "Connect fighters, coaches, gyms, and promotions. Find fights, manage events, and build your legacy in combat sports.",
-          button_text: "Get Started",
           link_url: "/search",
           placement: "homepage_hero",
           variant: "slideshow",
@@ -239,7 +242,6 @@ export default function HomePage() {
           id: "sponsor-placeholder",
           title: "Your Sponsor Will Appear Here",
           description: "This premium placement is available for sponsorship. Contact us at sponsors@apexcombatevents.com to feature your brand in this prominent location.",
-          button_text: "Learn More",
           link_url: "/search",
           placement: "homepage_hero",
           variant: "slideshow",
@@ -264,7 +266,6 @@ export default function HomePage() {
           id: "fallback",
           title: "Welcome to Apex",
           description: "Connect fighters, coaches, gyms, and promotions. Find fights, manage events, and build your legacy in combat sports.",
-          button_text: "Get Started",
           link_url: "/search",
           placement: "homepage_hero",
           variant: "slideshow",
@@ -288,17 +289,14 @@ export default function HomePage() {
           <NewsAndUpdatesSection />
         </div>
 
-        <div className="card order-1 md:order-2">
-          <div className="section-header mb-4">
-            <h3 className="section-title text-base sm:text-lg">Sponsored</h3>
-          </div>
+        <div className="card order-1 md:order-2 md:sticky md:top-4 md:self-start">
           <div className="space-y-3">
             {sidebarSponsorships.length > 0 ? (
               sidebarSponsorships.map((sponsorship) => (
                 <SponsorshipBanner
                   key={sponsorship.id}
                   sponsorship={sponsorship}
-                  variant={sponsorship.variant as "horizontal" | "vertical" | "compact" || "vertical"}
+                  variant="vertical"
                 />
               ))
             ) : (
@@ -312,7 +310,7 @@ export default function HomePage() {
                     Your sponsor will appear here
                   </p>
                   <p className="text-xs text-slate-500 mb-2">
-                    Premium sidebar placement
+                    Premium sticky sidebar placement
                   </p>
                   <a 
                     href="mailto:sponsors@apexcombatevents.com" 

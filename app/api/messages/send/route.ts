@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerForRoute } from "@/lib/supabaseServerForRoute";
+import { createClient } from "@supabase/supabase-js";
 
 export async function POST(req: Request) {
   try {
@@ -13,7 +14,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const { threadId, body } = await req.json();
+    let threadId: string;
+    let body: string;
+    try {
+      const json = await req.json();
+      threadId = json.threadId;
+      body = json.body;
+    } catch (jsonError) {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      );
+    }
 
     if (!threadId || !body || typeof body !== "string") {
       return NextResponse.json(
@@ -30,8 +42,45 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1️⃣ Insert message (RLS "Insert messages as self" will check sender_profile_id)
-    const { data: inserted, error: insertError } = await supabase
+    // Verify user is in the thread before inserting
+    const { data: thread, error: threadError } = await supabase
+      .from("message_threads")
+      .select("profile_a, profile_b")
+      .eq("id", threadId)
+      .single();
+
+    if (threadError || !thread) {
+      return NextResponse.json(
+        { error: "Thread not found" },
+        { status: 404 }
+      );
+    }
+
+    if (thread.profile_a !== user.id && thread.profile_b !== user.id) {
+      return NextResponse.json(
+        { error: "Forbidden" },
+        { status: 403 }
+      );
+    }
+
+    // Use service role client to bypass RLS for chat_messages insert
+    // We've already verified authorization above
+    // This avoids infinite recursion in RLS policies
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error("Missing Supabase environment variables");
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
+    }
+    
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+
+    // 1️⃣ Insert message using admin client to bypass RLS
+    const { data: inserted, error: insertError } = await supabaseAdmin
       .from("chat_messages")
       .insert({
         thread_id: threadId,
@@ -50,23 +99,16 @@ export async function POST(req: Request) {
     }
 
     // 2️⃣ Update thread summary (optional, ignore errors)
-    await supabase
-      .from("chat_threads")
-      .update({
-        last_message_at: new Date().toISOString(),
-        last_message_preview: text.slice(0, 140),
-      })
-      .eq("id", threadId);
+    // Note: message_threads table doesn't have last_message_at or last_message_preview columns
+    // These are computed from chat_messages, so we skip this update
 
-    // 3️⃣ Create notifications for the other participants
-    const { data: participants } = await supabase
-      .from("chat_thread_participants")
-      .select("profile_id")
-      .eq("thread_id", threadId);
-
-    const recipientIds = (participants || [])
-      .map((p) => p.profile_id)
-      .filter((pid) => pid !== user.id);
+    // 3️⃣ Create notifications for the other participant
+    // We already have the thread data from the authorization check above
+    const recipientIds: string[] = [];
+    const otherProfileId = thread.profile_a === user.id ? thread.profile_b : thread.profile_a;
+    if (otherProfileId) {
+      recipientIds.push(otherProfileId);
+    }
 
     if (recipientIds.length > 0) {
       const rows = recipientIds.map((pid) => ({

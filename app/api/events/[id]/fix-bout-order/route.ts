@@ -70,12 +70,13 @@ export async function POST(
     // The issue: order_index values may be swapped (e.g., Fight 1 has order 1, Fight 2 has order 0)
     // Solution: Swap order_index 0 and 1 within each card_type
     // This ensures: order_index 0 = first fight chronologically, order_index 1 = second fight
-    const undercardBouts = [...bouts]
-      .filter((b) => b.card_type === "undercard")
+    const boutsArray = bouts || [];
+    const undercardBouts = [...boutsArray]
+      .filter((b) => b && b.card_type === "undercard")
       .sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
     
-    const mainCardBouts = [...bouts]
-      .filter((b) => b.card_type === "main")
+    const mainCardBouts = [...boutsArray]
+      .filter((b) => b && b.card_type === "main")
       .sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
 
     // Build the correct order_index assignments
@@ -141,7 +142,7 @@ export async function POST(
       return NextResponse.json({
         message: "All order_index values are already correct",
         fixed: 0,
-        bouts: bouts.map((b) => ({
+        bouts: (bouts || []).map((b) => ({
           id: b.id,
           name: `${b.red_name} vs ${b.blue_name}`,
           card_type: b.card_type,
@@ -185,7 +186,7 @@ export async function POST(
       fixed: successCount,
       failed: failCount,
       updates: results,
-      before: bouts.map((b) => ({
+      before: (bouts || []).map((b) => ({
         id: b.id,
         name: `${b.red_name} vs ${b.blue_name}`,
         card_type: b.card_type,

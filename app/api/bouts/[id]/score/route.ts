@@ -15,8 +15,22 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { round_number, red_score, blue_score, notes } = body;
+    let round_number: number;
+    let red_score: number;
+    let blue_score: number;
+    let notes: string | undefined;
+    try {
+      const body = await request.json();
+      round_number = body.round_number;
+      red_score = body.red_score;
+      blue_score = body.blue_score;
+      notes = body.notes;
+    } catch (jsonError) {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      );
+    }
 
     // Validate input
     if (!round_number || red_score === undefined || blue_score === undefined) {
@@ -55,6 +69,13 @@ export async function POST(
     }
 
     const event = (bout as any).event;
+    if (!event) {
+      return NextResponse.json(
+        { error: "Event not found for this bout" },
+        { status: 404 }
+      );
+    }
+    
     const isOrganizer = event.owner_profile_id === user.id || event.profile_id === user.id;
 
     // Check if admin

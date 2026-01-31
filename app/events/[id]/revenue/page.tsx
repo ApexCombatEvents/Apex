@@ -124,18 +124,18 @@ export default async function EventRevenuePage({
   const tips: StreamTip[] = (tipsData as StreamTip[]) || [];
 
   // 5) Calculate revenue statistics
-  const totalRevenue = payments.reduce((sum, p) => sum + p.amount_paid, 0);
-  const totalTips = tips.reduce((sum, t) => sum + t.amount, 0);
-  const viewerCount = payments.length;
-  const uniqueTippers = new Set(tips.map((t) => t.user_id)).size;
+  const totalRevenue = (payments || []).reduce((sum, p) => sum + (p.amount_paid || 0), 0);
+  const totalTips = (tips || []).reduce((sum, t) => sum + (t.amount || 0), 0);
+  const viewerCount = payments?.length || 0;
+  const uniqueTippers = new Set((tips || []).map((t) => t.user_id).filter(Boolean)).size;
 
   // 6) Calculate fighter earnings
   const fighterEarningsMap: Record<string, FighterEarnings> = {};
 
   // Process allocations from payments
-  payments.forEach((payment) => {
+  (payments || []).forEach((payment) => {
     if (payment.fighter_allocations && Array.isArray(payment.fighter_allocations)) {
-      payment.fighter_allocations.forEach((allocation) => {
+      payment.fighter_allocations.forEach((allocation: any) => {
         if (!fighterEarningsMap[allocation.fighter_id]) {
           fighterEarningsMap[allocation.fighter_id] = {
             fighter_id: allocation.fighter_id,
@@ -153,7 +153,7 @@ export default async function EventRevenuePage({
   });
 
   // Process tips
-  tips.forEach((tip) => {
+  (tips || []).forEach((tip) => {
     if (!fighterEarningsMap[tip.fighter_id]) {
       fighterEarningsMap[tip.fighter_id] = {
         fighter_id: tip.fighter_id,

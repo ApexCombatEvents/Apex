@@ -18,13 +18,40 @@ export async function POST(
   }
 
   const eventId = params.id;
-  const body = await req.json();
-  const { bout_id, winner_side, winner_name, corner_text, method, round, time } = body;
+  let bout_id: string;
+  let winner_side: string;
+  let winner_name: string;
+  let corner_text: string | undefined;
+  let method: string | undefined;
+  let round: number | undefined;
+  let time: string | undefined;
+  try {
+    const body = await req.json();
+    bout_id = body.bout_id;
+    winner_side = body.winner_side;
+    winner_name = body.winner_name;
+    corner_text = body.corner_text;
+    method = body.method;
+    round = body.round;
+    time = body.time;
+  } catch (jsonError) {
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 }
+    );
+  }
+
+  if (!bout_id || !winner_side || !winner_name) {
+    return NextResponse.json(
+      { error: "Missing required fields: bout_id, winner_side, winner_name" },
+      { status: 400 }
+    );
+  }
 
   // Verify user is the event owner
   const { data: event, error: eventError } = await supabase
     .from("events")
-    .select("id, name, title, owner_profile_id")
+    .select("id, name, title, owner_profile_id, profile_id")
     .eq("id", eventId)
     .single();
 
@@ -32,8 +59,8 @@ export async function POST(
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
-  const ownerId = (event as any).owner_profile_id;
-  if (ownerId !== user.id) {
+  const ownerId = event.owner_profile_id || event.profile_id;
+  if (!ownerId || ownerId !== user.id) {
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
@@ -55,7 +82,7 @@ export async function POST(
     return NextResponse.json({ notified: 0, message: "No followers found" });
   }
 
-  const eventName = (event as any).title || (event as any).name || "Event";
+  const eventName = event.title || event.name || "Event";
 
   // Create notifications for all followers
   const notifications = followers.map((f) => ({

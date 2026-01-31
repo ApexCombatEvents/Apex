@@ -4,7 +4,18 @@ import { createSupabaseServerForRoute } from "@/lib/supabaseServerForRoute";
 export async function POST(request: Request) {
   try {
     const supabase = createSupabaseServerForRoute();
-    const { gym_id, fighter_id } = await request.json();
+    let gym_id: string;
+    let fighter_id: string;
+    try {
+      const json = await request.json();
+      gym_id = json.gym_id;
+      fighter_id = json.fighter_id;
+    } catch (jsonError) {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      );
+    }
 
     // Insert a new join request
     const { error } = await supabase

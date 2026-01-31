@@ -40,7 +40,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const { boutId, fighterId, side } = await req.json();
+    let boutId: string;
+    let fighterId: string;
+    let side: string;
+    try {
+      const json = await req.json();
+      boutId = json.boutId;
+      fighterId = json.fighterId;
+      side = json.side;
+    } catch (jsonError) {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      );
+    }
 
     if (!boutId || !fighterId || !side) {
       return NextResponse.json(

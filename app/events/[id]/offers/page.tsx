@@ -312,12 +312,20 @@ export default async function EventOffersPage({
         <h1 className="text-xl font-semibold">
           Offers – {event.title || event.name || "Event"}
         </h1>
-        <Link
-          href={`/events/${event.id}`}
-          className="text-xs text-purple-700 hover:underline"
-        >
-          ← Back to event
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/events/${event.id}/offers/all`}
+            className="text-xs text-purple-700 hover:underline"
+          >
+            View all offers
+          </Link>
+          <Link
+            href={`/events/${event.id}`}
+            className="text-xs text-purple-700 hover:underline"
+          >
+            ← Back to event
+          </Link>
+        </div>
       </div>
 
       <p className="text-xs text-slate-600">

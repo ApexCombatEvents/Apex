@@ -2,7 +2,7 @@ import React from "react";
 
 export default function ApexLogo({ className = "" }: { className?: string }) {
   return (
-    <div className={`flex flex-col items-center ${className}`}>
+    <div className={`flex flex-col items-center notranslate ${className}`} translate="no">
       {/* Apex text with gradient */}
       <div className="text-2xl font-extrabold leading-tight">
         <span className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-500 bg-clip-text text-transparent">

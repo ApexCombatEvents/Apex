@@ -16,6 +16,7 @@ import LiveEventControls from "@/components/events/LiveEventControls";
 import EventSponsorshipSlideshow from "@/components/events/EventSponsorshipSlideshow";
 import StartEventButton from "@/components/events/StartEventButton";
 import OfferPaymentMessage from "@/components/events/OfferPaymentMessage";
+import ShareEventButton from "@/components/events/ShareEventButton";
 
 
 type Event = {
@@ -114,10 +115,11 @@ export default async function EventPage({
   }
 
   // 2) Load organiser profile
+  const ownerId = event.owner_profile_id || event.profile_id;
   const { data: organiser } = await supabase
     .from("profiles")
     .select("id, username, full_name, avatar_url, country")
-    .eq("id", event.profile_id)
+    .eq("id", ownerId)
     .single<GymProfileLite>();
 
   // 3) Load bouts
@@ -148,13 +150,10 @@ export default async function EventPage({
     display_order?: number | null;
   }>;
   
-  // Sort bouts: live bouts first, then by order_index
+  // Sort bouts by order_index only (keep live bouts in their original position)
   const sortBouts = (boutList: Bout[]) => {
     return [...boutList].sort((a, b) => {
-      // Live bouts always come first
-      if (a.is_live && !b.is_live) return -1;
-      if (!a.is_live && b.is_live) return 1;
-      // Then sort by order_index
+      // Sort by order_index only - live bouts stay in their original position
       return a.order_index - b.order_index;
     });
   };
@@ -188,7 +187,6 @@ export default async function EventPage({
   // 4) Get current user
   const { data: userData } = await supabase.auth.getUser();
   const user = userData.user ?? null;
-  const ownerId = event.owner_profile_id || event.profile_id;
   const canEdit = !!user && user.id === ownerId;
 
   // 5) Load fighter profiles for bouts
@@ -286,8 +284,8 @@ export default async function EventPage({
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      {/* Back to Stream Link */}
-      {fromStream && (
+      {/* Back to Stream Link - Hidden for initial rollout */}
+      {false && fromStream && (
         <div className="mb-4">
           <Link
             href={`/events/${event.id}/stream`}
@@ -347,7 +345,14 @@ export default async function EventPage({
 
             <div className="flex items-center gap-3 flex-wrap">
               {!canEdit && (
-                <EventFollowButton eventId={event.id} eventName={title} />
+                <>
+                  <EventFollowButton eventId={event.id} eventName={title} />
+                  <ShareEventButton 
+                    eventId={event.id} 
+                    eventTitle={title}
+                    eventBannerUrl={event.banner_url || null}
+                  />
+                </>
               )}
               {canEdit && (
                 <>
@@ -483,33 +488,53 @@ export default async function EventPage({
           {/* Banner Image */}
           <div className="rounded-2xl border border-slate-200 bg-slate-100 overflow-hidden h-56 flex-shrink-0">
             {event.banner_url ? (
-              <Image
-                src={event.banner_url}
-                alt={title}
-                width={800}
-                height={500}
-                className="w-full h-full object-cover"
-              />
+              <div className="relative w-full h-full">
+                <Image
+                  src={event.banner_url}
+                  alt={title}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 400px"
+                  className="object-cover"
+                />
+              </div>
             ) : (
-              <div className="h-full flex items-center justify-center text-sm text-slate-500">
-                No banner image
+              <div className="h-full flex flex-col items-center justify-center text-slate-500 px-4">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-8 w-8 mb-2 opacity-50"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+                <div className="text-sm font-medium mb-1">No banner image</div>
+                <div className="text-xs opacity-75 text-center max-w-xs">
+                  Recommended: 1600×560px (16:9 ratio)
+                </div>
               </div>
             )}
           </div>
 
           {/* Event Sponsorships Slideshow */}
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-[300px] md:min-h-0">
             {sponsorships.length > 0 ? (
-              <div className="h-full">
+              <div className="h-full min-h-[300px] md:min-h-0">
                 <EventSponsorshipSlideshow sponsorships={sponsorships} autoRotateInterval={5000} />
               </div>
             ) : (
-              <div className="h-full rounded-xl border-2 border-dashed border-purple-300 bg-purple-50 flex flex-col items-center justify-center text-center p-4 text-purple-700">
+              <div className="h-full min-h-[300px] md:min-h-0 rounded-xl border-2 border-dashed border-purple-300 bg-purple-50 flex flex-col items-center justify-center text-center p-4 text-purple-700">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mb-2 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V3m0 9v3m0 3.01V21M21 12h-3.01M3 12H6m15.364-6.364l-2.122-2.122M5.636 18.364l-2.122 2.122M18.364 18.364l-2.122 2.122M5.636 5.636l-2.122-2.122" />
                 </svg>
                 <p className="font-semibold text-sm">Add sponsorships here</p>
                 <p className="text-xs mt-1">These will appear in a rotating display.</p>
+                <p className="text-[10px] mt-2 text-purple-600">Recommended: 600×400px (3:2 ratio)</p>
               </div>
             )}
           </div>
@@ -517,19 +542,19 @@ export default async function EventPage({
       </section>
 
       {/* BOUTS */}
-      <section className="card p-6">
-        <div className="flex items-center justify-between text-sm text-slate-600 mb-4">
+      <section className="card p-3 sm:p-6">
+        <div className="flex items-center justify-between text-xs sm:text-sm text-slate-600 mb-3 sm:mb-4">
           <div className="font-semibold">Red corner</div>
-          <div className="text-[11px] uppercase tracking-wide text-slate-400">
+          <div className="text-[10px] sm:text-[11px] uppercase tracking-wide text-slate-400">
             VS
           </div>
           <div className="font-semibold text-right">Blue corner</div>
         </div>
 
         {mainCard.length > 0 && (
-          <div className="mt-4">
-            <h2 className="text-base sm:text-lg font-bold mb-4">Main card</h2>
-            <div className="space-y-4">
+          <div className="mt-2 sm:mt-4">
+            <h2 className="text-sm sm:text-base lg:text-lg font-bold mb-3 sm:mb-4">Main card</h2>
+            <div className="space-y-3 sm:space-y-4">
               {mainCard.map((bout, index) => {
                 const fightNumber = mainCard.length - index;
                 return (
@@ -546,9 +571,9 @@ export default async function EventPage({
         )}
 
         {undercard.length > 0 && (
-          <div className="mt-8">
-            <h2 className="text-base sm:text-lg font-bold mb-4">Undercard</h2>
-            <div className="space-y-4">
+          <div className="mt-6 sm:mt-8">
+            <h2 className="text-sm sm:text-base lg:text-lg font-bold mb-3 sm:mb-4">Undercard</h2>
+            <div className="space-y-3 sm:space-y-4">
               {undercard.map((bout, index) => {
                 const fightNumber = undercard.length - index;
                 return (
@@ -982,7 +1007,7 @@ function BoutRow({
 
   return (
     <div
-      className={`rounded-xl border px-2 sm:px-3 py-2 min-h-[100px] sm:min-h-[120px] flex flex-col relative ${
+      className={`rounded-xl border px-2 sm:px-3 py-2 min-h-[90px] sm:min-h-[120px] flex flex-col relative ${
         bout.is_live
           ? "border-red-500 bg-red-50/30 shadow-lg"
           : "border-slate-200 bg-slate-50"
@@ -990,23 +1015,23 @@ function BoutRow({
     >
       {bout.is_live && (
         <div className="absolute top-2 right-2 z-10">
-          <div className="bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-lg animate-pulse">
-            <span className="relative flex h-2 w-2">
+          <div className="bg-red-600 text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold flex items-center gap-1 sm:gap-1.5 shadow-lg animate-pulse">
+            <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-white"></span>
             </span>
             LIVE
           </div>
         </div>
       )}
-      <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+      <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-slate-500 mb-1">
         <span>{label}</span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1.2fr),auto,minmax(0,1.2fr)] gap-3 sm:gap-4 items-center flex-1">
-        <div className="flex justify-center order-2 sm:order-none">{renderRedSide()}</div>
+      <div className="grid grid-cols-[minmax(0,1fr),auto,minmax(0,1fr)] gap-2 sm:gap-4 items-center flex-1">
+        <div className="flex justify-center">{renderRedSide()}</div>
 
-        <div className="flex flex-col items-center justify-center text-xs text-slate-600 px-2 order-1 sm:order-none mb-2 sm:mb-0">
+        <div className="flex flex-col items-center justify-center text-[10px] sm:text-xs text-slate-600 px-1 sm:px-2">
           {bout.weight && (
             <span className="font-medium text-center">{bout.weight}</span>
           )}
@@ -1014,18 +1039,18 @@ function BoutRow({
             {bout.bout_details || "Bout details TBC"}
           </span>
           {bout.notes && (
-            <span className="mt-1 text-[11px] text-slate-500 text-center">
+            <span className="mt-1 text-[10px] sm:text-[11px] text-slate-500 text-center">
               {bout.notes}
             </span>
           )}
           {resultText && (
-            <span className="mt-1 text-[11px] text-purple-700 text-center">
+            <span className="mt-1 text-[10px] sm:text-[11px] text-purple-700 text-center">
               {resultText}
             </span>
           )}
         </div>
 
-        <div className="flex justify-center order-3 sm:order-none">{renderBlueSide()}</div>
+        <div className="flex justify-center">{renderBlueSide()}</div>
       </div>
     </div>
   );

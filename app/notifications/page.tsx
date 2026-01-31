@@ -29,16 +29,10 @@ export default function NotificationsPage() {
       const notifications = json.notifications || [];
       setItems(notifications);
 
-      // Fetch actor profiles for all notifications that have an actor_profile_id
+      // Fetch actor profiles for ALL notifications that have an actor_profile_id
+      // This ensures we have names for likes, comments, follows, etc.
       const notificationsNeedingData = notifications.filter(
-        (n: Notification) =>
-          n.actor_profile_id &&
-          (n.type === "follow" ||
-            n.type === "event_follow" ||
-            n.type === "event_like" ||
-            n.type === "event_comment" ||
-            n.type === "post_like" ||
-            n.type === "post_comment")
+        (n: Notification) => n.actor_profile_id && !n.data?.actor_name
       );
 
       if (notificationsNeedingData.length > 0) {
@@ -75,6 +69,7 @@ export default function NotificationsPage() {
                   const profile = profilesMap[n.actor_profile_id];
                   const updatedData = { ...n.data };
 
+                  // Update notification data with actor profile info based on type
                   if (n.type === "follow" || n.type === "event_follow") {
                     updatedData.follower_name = profile.name;
                     updatedData.follower_handle = profile.handle;
@@ -84,7 +79,15 @@ export default function NotificationsPage() {
                   } else if (n.type === "event_comment" || n.type === "post_comment") {
                     updatedData.commenter_name = profile.name;
                     updatedData.commenter_handle = profile.handle;
+                  } else if (n.type === "offer_accepted" || n.type === "offer_declined") {
+                    // Store organizer name for offer notifications
+                    updatedData.organizer_name = profile.name;
+                    updatedData.organizer_handle = profile.handle;
                   }
+                  
+                  // Always store generic actor info for fallback
+                  updatedData.actor_name = profile.name;
+                  updatedData.actor_handle = profile.handle;
 
                   return {
                     ...n,
@@ -244,19 +247,27 @@ function renderNotificationText(
   }
 
   if (n.type === "post_like") {
+    // Try multiple sources for the liker name
     let liker =
       (n.actor_profile_id && actorProfiles?.[n.actor_profile_id]?.name) ||
-      (n.data?.liker_name && n.data?.liker_name !== "Someone" ? n.data?.liker_name : null);
+      (n.data?.liker_name && n.data?.liker_name !== "Someone" && n.data?.liker_name ? n.data?.liker_name : null) ||
+      (n.data?.actor_name && n.data?.actor_name !== "Someone" ? n.data?.actor_name : null);
 
+    // If no name, try handle
     if (!liker) {
-      liker = n.data?.liker_handle ? `@${n.data.liker_handle}` : null;
+      liker = n.data?.liker_handle ? `@${n.data.liker_handle}` : 
+              n.data?.actor_handle ? `@${n.data.actor_handle}` : null;
     }
 
+    // If still no liker info, show generic message
     if (!liker) {
       return <>A user liked your post</>;
     }
 
-    const likerHandle = (n.actor_profile_id && actorProfiles?.[n.actor_profile_id]?.handle) || n.data?.liker_handle || null;
+    const likerHandle = (n.actor_profile_id && actorProfiles?.[n.actor_profile_id]?.handle) || 
+                       n.data?.liker_handle || 
+                       n.data?.actor_handle || 
+                       null;
     return (
       <>
         {likerHandle ? (
@@ -419,6 +430,49 @@ function renderNotificationText(
     );
   }
 
+  if (n.type === "bout_added") {
+    const eventName = n.data?.event_name || "an event";
+    const redName = n.data?.red_name || "TBC";
+    const blueName = n.data?.blue_name || "TBC";
+    const cardType = n.data?.card_type === "main" ? "Main card" : "Undercard";
+    const boutNumber = n.data?.bout_number;
+    
+    if (boutNumber) {
+      return (
+        <>
+          {cardType} bout {boutNumber} added to <span className="font-semibold">{eventName}</span>: {redName} vs {blueName}
+        </>
+      );
+    }
+    
+    return (
+      <>
+        New bout added to <span className="font-semibold">{eventName}</span>: {redName} vs {blueName}
+      </>
+    );
+  }
+
+  if (n.type === "bout_started") {
+    const eventName = n.data?.event_name || "an event";
+    const redName = n.data?.red_name || "TBC";
+    const blueName = n.data?.blue_name || "TBC";
+    const boutNumber = n.data?.bout_number;
+    
+    if (boutNumber) {
+      return (
+        <>
+          Bout {boutNumber} started at <span className="font-semibold">{eventName}</span>: {redName} vs {blueName}
+        </>
+      );
+    }
+    
+    return (
+      <>
+        Fight started at <span className="font-semibold">{eventName}</span>: {redName} vs {blueName}
+      </>
+    );
+  }
+
   if (n.type === "gym_added") {
     const gymName = n.data?.gym_name || "a gym";
     return (
@@ -504,6 +558,35 @@ function renderNotificationText(
     );
   }
 
+  if (n.type === "offer_accepted") {
+    const eventName = n.data?.event_name || "an event";
+    const fighterName = n.data?.fighter_name || "A fighter";
+    const side = n.data?.side === "red" ? "red corner" : "blue corner";
+    return (
+      <>
+        Your offer for <span className="font-semibold">{fighterName}</span>{" "}
+        has been accepted for the <span className="font-semibold">{side}</span>{" "}
+        at <span className="font-semibold">{eventName}</span>
+      </>
+    );
+  }
+
+  if (n.type === "offer_declined") {
+    const eventName = n.data?.event_name || "an event";
+    const fighterName = n.data?.fighter_name || "A fighter";
+    const refundAmount = n.data?.refund_amount;
+    const refunded = n.data?.refunded === true;
+    const refundText = refunded && refundAmount 
+      ? ` Your payment of $${(refundAmount / 100).toFixed(2)} has been refunded.`
+      : "";
+    return (
+      <>
+        Your offer for <span className="font-semibold">{fighterName}</span>{" "}
+        at <span className="font-semibold">{eventName}</span> was declined.{refundText}
+      </>
+    );
+  }
+
   // Fallback
   if (typeof n.data?.message === "string") {
     return <>{n.data.message}</>;
@@ -552,6 +635,15 @@ function getNotificationHref(n: Notification): string | null {
     return eventId ? `/events/${eventId}/offers` : null;
   }
 
+  if (n.type === "offer_accepted" || n.type === "offer_declined") {
+    const eventId = n.data?.event_id;
+    const boutId = n.data?.bout_id;
+    if (eventId) {
+      return boutId ? `/events/${eventId}#bout-${boutId}` : `/events/${eventId}`;
+    }
+    return null;
+  }
+
   if (n.type === "event_follow") {
     const eventId = n.data?.event_id;
     if (!eventId) {
@@ -560,12 +652,13 @@ function getNotificationHref(n: Notification): string | null {
     return eventId ? `/events/${eventId}` : null;
   }
 
-  if (n.type === "event_bout_matched") {
+  if (n.type === "event_bout_matched" || n.type === "bout_added" || n.type === "bout_started") {
     const eventId = n.data?.event_id;
-    if (!eventId) {
-      console.warn("⚠️ Event bout matched notification missing event_id:", n);
+    const boutId = n.data?.bout_id;
+    if (eventId) {
+      return boutId ? `/events/${eventId}#bout-${boutId}` : `/events/${eventId}`;
     }
-    return eventId ? `/events/${eventId}` : null;
+    return null;
   }
 
   if (n.type === "bout_assigned") {

@@ -12,10 +12,12 @@ import FighterBeltsManager from "@/components/fighters/FighterBeltsManager";
 type Role = "fighter" | "coach" | "gym" | "promotion" | "";
 
 import { COUNTRIES } from "@/lib/countries";
+import { useTranslation, SUPPORTED_LANGUAGES, type Language } from "@/hooks/useTranslation";
 
 export default function ProfileSettingsPage() {
   const supabase = createSupabaseBrowser();
   const router = useRouter();
+  const { t, lang, setLang } = useTranslation();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -122,7 +124,8 @@ export default function ProfileSettingsPage() {
 
         // Stats fields – these assume matching columns exist in profiles
         setRank(profile.rank ?? "");
-        setRecord(profile.record ?? "");
+        // Use the calculated 'record' field if it exists, otherwise fallback to 'record_base'
+        setRecord(profile.record ?? profile.record_base ?? "");
         setAge(profile.age ? String(profile.age) : "");
 
         setHeightUnit((profile.height_unit as "cm" | "ft") || "cm");
@@ -163,6 +166,40 @@ export default function ProfileSettingsPage() {
       setMessage("Record must be in the format 10-2-1 (wins-losses-draws).");
       setSaving(false);
       return;
+    }
+
+    // Username validation
+    const trimmedUsername = username.trim().toLowerCase();
+    if (trimmedUsername) {
+      // Check if username format is valid (alphanumeric, underscores, hyphens only)
+      if (!/^[a-z0-9_-]+$/i.test(trimmedUsername)) {
+        setMessage("Username can only contain letters, numbers, underscores, and hyphens.");
+        setSaving(false);
+        return;
+      }
+
+      // Check if username is already taken by another user
+      if (trimmedUsername !== currentUsername?.toLowerCase()) {
+        const { data: existingUser, error: checkError } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("username", trimmedUsername)
+          .neq("id", user.id)
+          .maybeSingle();
+
+        if (checkError) {
+          console.error("Error checking username:", checkError);
+          setMessage("Error checking username availability. Please try again.");
+          setSaving(false);
+          return;
+        }
+
+        if (existingUser) {
+          setMessage("This username is already taken. Please choose a different one.");
+          setSaving(false);
+          return;
+        }
+      }
     }
 
     const ageInt =
@@ -239,9 +276,10 @@ export default function ProfileSettingsPage() {
         bio: bio || null,
         martial_arts: martialArtsArray.length ? martialArtsArray : null,
         social_links,
+        preferred_language: lang,
         // stats
         rank: rank || null,
-        record: record || null,
+        record_base: record || '0-0-0',
         age: ageInt,
         height_unit: heightUnit,
         height_cm: heightCmNum,
@@ -254,9 +292,30 @@ export default function ProfileSettingsPage() {
       .eq("id", user.id);
 
     if (error) {
-      setMessage(error.message);
+      // Check for username unique constraint violation
+      if (error.message?.includes('profiles_username_unique_idx') || 
+          error.message?.includes('duplicate key') ||
+          error.code === '23505') {
+        setMessage("This username is already taken. Please choose a different one.");
+      } else {
+        setMessage(error.message);
+      }
       setSaving(false);
     } else {
+      // Trigger record update with the NEW total record to sync correctly
+      try {
+        await fetch("/api/fighters/update-record", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            fighterId: user.id,
+            newTotalRecord: record // Pass the user's input as the new target total
+          }),
+        });
+      } catch (updateError) {
+        console.error("Error triggering record update after settings save:", updateError);
+      }
+
       // Use the username that was just saved for redirect
       // If username was updated, use it; otherwise use currentUsername
       const redirectUsername = username.trim() || currentUsername;
@@ -343,14 +402,8 @@ async function handleImageUpload(
       if (type === "avatars") setAvatarUrl(publicUrl);
       else setBannerUrl(publicUrl);
       
-      // Redirect to profile page after successful image upload
-      const redirectUsername = username.trim() || currentUsername;
-      if (redirectUsername) {
-        router.push(`/profile/${redirectUsername}`);
-      } else {
-        setMessage("Profile updated. Please set a username to view your profile.");
-        router.refresh();
-      }
+      // Just update the preview, don't redirect - user will save when ready
+      setMessage(`${type === "avatars" ? "Avatar" : "Banner"} uploaded. Click "Save changes" to update your profile.`);
     }
 
     if (type === "avatars") setUploadingAvatar(false);
@@ -422,6 +475,9 @@ async function handleImageUpload(
           disabled={uploadingAvatar}
           className="text-xs"
         />
+        <span className="text-[10px] text-slate-500">
+          Recommended: 512×512px (1:1 ratio)
+        </span>
       </div>
     </div>
 
@@ -446,6 +502,9 @@ async function handleImageUpload(
         disabled={uploadingBanner}
         className="text-xs"
       />
+      <span className="text-[10px] text-slate-500">
+        Recommended: 1600×560px (16:9 ratio)
+      </span>
     </div>
   </div>
 </div>
@@ -568,11 +627,14 @@ async function handleImageUpload(
           <label className="text-xs text-slate-600 space-y-1 block">
             <textarea
               className="w-full rounded-xl border px-3 py-2 text-sm min-h-[80px]"
-              maxLength={400}
+              maxLength={500}
               value={bio}
               onChange={(e) => setBio(e.target.value)}
-              placeholder="Short description (we can enforce character limits later to match your sketches)."
+              placeholder="Tell people about yourself, your fighting style, experience, and goals."
             />
+            <div className="text-xs text-slate-500 mt-1 text-right">
+              {bio.length}/500 characters
+            </div>
           </label>
         </div>
 
@@ -698,13 +760,6 @@ async function handleImageUpload(
           </div>
         )}
 
-        {/* Fight History Section - Only for fighters (under Stats) */}
-        {role === "fighter" && !loading && userId && (
-          <div className="card">
-            <FightHistoryManager fighterId={userId} />
-          </div>
-        )}
-
         {/* Social links */}
         <div className="card space-y-3">
           <h2 className="text-sm font-semibold">Social media links</h2>
@@ -823,6 +878,13 @@ async function handleImageUpload(
           {saving ? "Saving..." : "Save changes"}
         </button>
       </form>
+
+      {/* Fight History Section - Only for fighters (outside main form to avoid nested forms) */}
+      {role === "fighter" && !loading && userId && (
+        <div className="card">
+          <FightHistoryManager fighterId={userId} />
+        </div>
+      )}
 
     </div>
   );

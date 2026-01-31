@@ -9,6 +9,8 @@ import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import CreatePostModal from "@/components/social/CreatePostModal";
 import PostReactions from "@/components/social/PostReactions";
 import PostActionsMenu from "@/components/social/PostActionsMenu";
+import PostImages from "@/components/social/PostImages";
+import PostContent from "@/components/social/PostContent";
 import PromotionFighters from "@/components/promotions/PromotionFighters";
 
 type Profile = {
@@ -33,6 +35,7 @@ type Post = {
   content: string | null;
   created_at: string;
   image_url?: string | null;
+  image_urls?: string[] | null;
 };
 
 export default function PromotionProfile({ 
@@ -79,13 +82,34 @@ export default function PromotionProfile({
       <section className="rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm">
         {/* Banner */}
         <div className="relative h-40 w-full bg-slate-200">
-          {banner_url && (
+          {banner_url ? (
             <Image
               src={banner_url}
               alt="Promotion banner"
               fill
               className="object-cover"
             />
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 px-4">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6 mb-1.5 opacity-50"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+              <div className="text-xs font-medium mb-0.5">No banner</div>
+              <div className="text-[10px] opacity-75 text-center">
+                1920×640px (3:1)
+              </div>
+            </div>
           )}
         </div>
 
@@ -162,10 +186,6 @@ export default function PromotionProfile({
           This will list events created by the promotion and allow gyms/head
           coaches to send fighters for open slots.
         </p>
-        <div className="rounded-xl border border-dashed border-slate-200 p-4 text-xs text-slate-500">
-          Event list coming soon. For now we&apos;ll focus on the profile UI and
-          settings.
-        </div>
       </section>
 
       {/* SECTION 5 – Social feed */}
@@ -277,21 +297,16 @@ export default function PromotionProfile({
                       variant={post.image_url ? "dark" : "light"}
                     />
                   )}
-                  {post.image_url ? (
+                  {(post.image_url || post.image_urls) ? (
                     <div className="relative aspect-square overflow-hidden bg-slate-100">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={post.image_url}
-                        alt={post.content || "Post image"}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
+                      <PostImages imageUrl={post.image_url} imageUrls={post.image_urls} />
                       {/* Overlay with content and date */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                         <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
                           {post.content && (
-                            <p className="text-xs font-medium mb-1 line-clamp-2">
-                              {post.content}
-                            </p>
+                            <div className="mb-1">
+                              <PostContent content={post.content} truncate className="text-white" />
+                            </div>
                           )}
                           <div className="flex items-center gap-2 mt-2">
                             <div className="text-[10px] text-white/80">
@@ -314,22 +329,27 @@ export default function PromotionProfile({
                       </div>
                     </div>
                   ) : (
-                    <div className="aspect-square p-4 flex flex-col justify-between bg-gradient-to-br from-purple-50 to-slate-50">
+                    <div className="relative aspect-square p-4 flex flex-col justify-between bg-gradient-to-br from-purple-50 to-slate-50">
                       <div>
                         {post.content && (
-                          <p className="text-sm text-slate-800 line-clamp-4 mb-2">
-                            {post.content}
-                          </p>
+                          <div className="mb-2">
+                            <PostContent content={post.content} className="line-clamp-4" />
+                          </div>
                         )}
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="text-[10px] text-slate-500">
                           {new Date(post.created_at).toLocaleDateString()}
                         </div>
-                        <PostReactions
-                          postId={post.id}
-                          commentHref={`/posts/${post.id}`}
-                        />
+                      </div>
+                      {/* Hover overlay with reactions */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-purple-900/70 via-purple-900/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                        <div className="absolute bottom-3 left-3 right-3 pointer-events-auto">
+                          <PostReactions
+                            postId={post.id}
+                            commentHref={`/posts/${post.id}`}
+                          />
+                        </div>
                       </div>
                     </div>
                   )}

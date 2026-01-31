@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
@@ -65,7 +65,9 @@ type OrganizerEarningsData = {
 
 type EarningsData = FighterEarningsData | OrganizerEarningsData;
 
-export default function EarningsPage() {
+export const dynamic = 'force-dynamic';
+
+function EarningsContent() {
   const supabase = createSupabaseBrowser();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -709,3 +711,22 @@ export default function EarningsPage() {
   );
 }
 
+export default function EarningsPage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-6xl mx-auto">
+        <div className="card space-y-4">
+          <Skeleton className="h-6 w-44" />
+          <div className="grid md:grid-cols-4 gap-4">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        </div>
+      </div>
+    }>
+      <EarningsContent />
+    </Suspense>
+  );
+}

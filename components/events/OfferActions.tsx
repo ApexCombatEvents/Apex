@@ -124,18 +124,14 @@ export default function OfferActions({
       return;
     }
 
-    // 1b) If declined, process refund for offer fee (if payment was made)
+    // 1b) If declined, process refund for offer fee (if payment was made) and notify sender
     if (decision === "declined") {
       try {
-        const { data: currentUser } = await supabase.auth.getUser();
-        if (!currentUser.user) return;
-        
         // Find the payment record for this offer
         const { data: paymentRecord, error: paymentError } = await supabase
           .from("offer_payments")
-          .select("id, amount_paid, payment_status, refund_status")
+          .select("id, amount_paid, payment_status, refund_status, payer_profile_id")
           .eq("offer_id", offerId)
-          .eq("payer_profile_id", currentUser.user.id)
           .eq("payment_status", "paid")
           .maybeSingle();
 
@@ -143,18 +139,91 @@ export default function OfferActions({
           console.error("payment lookup error", paymentError);
           // Don't fail the decline action if payment lookup fails
         } else if (paymentRecord && paymentRecord.refund_status !== "refunded") {
-          // Update payment record to mark as refunded
-          // TODO: In production, initiate actual refund via payment processor
-          await supabase
-            .from("offer_payments")
-            .update({
-              refund_status: "refunded",
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", paymentRecord.id);
+          // Process refund via API route
+          try {
+            const refundResponse = await fetch('/api/stripe/refund-offer-payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ offerId }),
+            });
 
-          // Note: Actual refund processing would happen here via payment processor API
-          console.log(`Refund processed for offer ${offerId}: $${(paymentRecord.amount_paid / 100).toFixed(2)}`);
+            const refundData = await refundResponse.json();
+
+            if (refundResponse.ok && refundData.success) {
+              console.log(`✅ Refund processed for offer ${offerId}: $${(paymentRecord.amount_paid / 100).toFixed(2)}`);
+              
+              // Get offer details for notification
+              const { data: offerData } = await supabase
+                .from("event_bout_offers")
+                .select("bout_id, fighter_profile_id")
+                .eq("id", offerId)
+                .single();
+
+              if (offerData) {
+                const { data: bout } = await supabase
+                  .from("event_bouts")
+                  .select("event_id")
+                  .eq("id", offerData.bout_id)
+                  .single();
+
+                if (bout) {
+                  const { data: event } = await supabase
+                    .from("events")
+                    .select("id, name, title")
+                    .eq("id", bout.event_id)
+                    .single();
+
+                  if (event && paymentRecord.payer_profile_id) {
+                    // Get fighter name
+                    const { data: fighter } = await supabase
+                      .from("profiles")
+                      .select("full_name, username")
+                      .eq("id", offerData.fighter_profile_id)
+                      .single();
+
+                    const fighterName = fighter?.full_name || fighter?.username || "A fighter";
+                    const eventName = event.title || event.name || "Event";
+
+                    // Get current user (event organizer) for notification
+                    const { data: currentUser } = await supabase.auth.getUser();
+                    const organizerId = currentUser?.user?.id;
+
+                    // Notify the sender that their offer was declined and refunded
+                    if (organizerId) {
+                      try {
+                        await fetch('/api/notifications/create', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            profile_id: paymentRecord.payer_profile_id,
+                            type: "offer_declined",
+                            actor_profile_id: organizerId,
+                            data: {
+                              offer_id: offerId,
+                              bout_id: offerData.bout_id,
+                              event_id: bout.event_id,
+                              event_name: eventName,
+                              fighter_profile_id: offerData.fighter_profile_id,
+                              fighter_name: fighterName,
+                              refund_amount: paymentRecord.amount_paid,
+                              refunded: true,
+                            },
+                          }),
+                        });
+                      } catch (notifError) {
+                        console.error("Failed to create declined notification:", notifError);
+                      }
+                    }
+                  }
+                }
+              }
+            } else {
+              console.error("Refund failed:", refundData.error);
+            }
+          } catch (refundApiError) {
+            console.error("Refund API error:", refundApiError);
+            // Don't fail the decline action if refund API call fails
+          }
         }
       } catch (refundError) {
         console.error("refund processing error", refundError);
@@ -177,7 +246,7 @@ export default function OfferActions({
           // Calculate and update platform fee (5% of amount_paid)
           const platformFee = Math.round((paymentRecord.amount_paid * 5) / 100);
           
-          await supabase
+          const { error: updateError } = await supabase
             .from("offer_payments")
             .update({
               platform_fee: platformFee,
@@ -185,7 +254,31 @@ export default function OfferActions({
             })
             .eq("id", paymentRecord.id);
 
-          console.log(`✅ Platform fee charged for accepted offer ${offerId}: $${(platformFee / 100).toFixed(2)}`);
+          if (!updateError) {
+            console.log(`✅ Platform fee charged for accepted offer ${offerId}: $${(platformFee / 100).toFixed(2)}`);
+            
+            // Transfer platform fee to platform owner's account
+            try {
+              const transferResponse = await fetch('/api/stripe/transfer-platform-fee', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  paymentId: paymentRecord.id,
+                  offerId: offerId,
+                }),
+              });
+
+              const transferData = await transferResponse.json();
+              if (transferResponse.ok && transferData.success) {
+                console.log(`✅ Platform fee transferred to platform account: $${(platformFee / 100).toFixed(2)}`);
+              } else {
+                console.error("Platform fee transfer failed:", transferData.error);
+              }
+            } catch (transferError) {
+              console.error("Platform fee transfer error:", transferError);
+              // Don't fail the acceptance if transfer fails
+            }
+          }
         }
       } catch (feeError) {
         console.error("Platform fee calculation error:", feeError);
@@ -243,20 +336,61 @@ export default function OfferActions({
               if (event) {
                 const eventName = event.title || event.name || "Event";
                 
-                // 1. Notify the fighter being assigned
-                await supabase.from("notifications").insert({
-                  profile_id: fighterProfileId,
-                  type: "bout_assigned",
-                  actor_profile_id: event.owner_profile_id,
-                  data: {
-                    bout_id: boutId,
-                    event_id: bout.event_id,
-                    event_name: eventName,
-                    side: side,
-                  },
-                });
+                // Get offer sender info
+                const { data: offerData } = await supabase
+                  .from("event_bout_offers")
+                  .select("from_profile_id")
+                  .eq("id", offerId)
+                  .single();
 
-                // 2. Notify all event followers that a bout has been matched
+                // 1. Notify the fighter being assigned
+                try {
+                  await fetch('/api/notifications/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      profile_id: fighterProfileId,
+                      type: "bout_assigned",
+                      actor_profile_id: event.owner_profile_id,
+                      data: {
+                        bout_id: boutId,
+                        event_id: bout.event_id,
+                        event_name: eventName,
+                        side: side,
+                      },
+                    }),
+                  });
+                } catch (notifError) {
+                  console.error("Failed to create bout_assigned notification:", notifError);
+                }
+
+                // 2. Notify the offer sender that their offer was accepted
+                if (offerData?.from_profile_id) {
+                  try {
+                    await fetch('/api/notifications/create', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        profile_id: offerData.from_profile_id,
+                        type: "offer_accepted",
+                        actor_profile_id: event.owner_profile_id,
+                        data: {
+                          offer_id: offerId,
+                          bout_id: boutId,
+                          event_id: bout.event_id,
+                          event_name: eventName,
+                          fighter_profile_id: fighterProfileId,
+                          fighter_name: displayName,
+                          side: side,
+                        },
+                      }),
+                    });
+                  } catch (notifError) {
+                    console.error("Failed to create offer_accepted notification:", notifError);
+                  }
+                }
+
+                // 3. Notify all event followers that a bout has been matched
                 // Use API route to bypass RLS restrictions
                 try {
                   const { data: fighterProfile } = await supabase

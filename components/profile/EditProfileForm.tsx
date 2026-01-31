@@ -294,8 +294,8 @@ export default function EditProfileForm() {
     } else {
       if (type === "avatars") setAvatarUrl(publicUrl);
       else setBannerUrl(publicUrl);
-      setMessage("Profile updated.");
-      router.refresh();
+      // Just update the preview, don't refresh - user will save when ready
+      setMessage(`${type === "avatars" ? "Avatar" : "Banner"} uploaded. Click "Save changes" to update your profile.`);
     }
 
     if (type === "avatars") setUploadingAvatar(false);
@@ -374,6 +374,9 @@ export default function EditProfileForm() {
                   disabled={uploadingBanner}
                   className="text-xs"
                 />
+                <span className="text-[10px] text-slate-500">
+                  Recommended: 1600×560px (16:9 ratio)
+                </span>
               </div>
             </div>
           </div>

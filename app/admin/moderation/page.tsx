@@ -100,7 +100,7 @@ export default function ModerationDashboard() {
           if (!contentMap[`${report.content_type}:${report.content_id}`]) {
             let tableName = "";
             if (report.content_type === "post") {
-              tableName = "posts";
+              tableName = "profile_posts"; // Fixed: use profile_posts not posts
             } else if (report.content_type === "profile_post_comment") {
               tableName = "profile_post_comments";
             } else if (report.content_type === "event_comment") {
@@ -108,19 +108,38 @@ export default function ModerationDashboard() {
             }
 
             if (tableName) {
-              const { data: content } = await supabase
-                .from(tableName)
-                .select("*")
-                .eq("id", report.content_id)
-                .single();
+              try {
+                const { data: content, error: contentError } = await supabase
+                  .from(tableName)
+                  .select("*")
+                  .eq("id", report.content_id)
+                  .single();
 
-              if (content) {
-                contentMap[`${report.content_type}:${report.content_id}`] = content;
+                if (contentError) {
+                  console.error(`Error loading content for ${report.content_type}:${report.content_id}:`, contentError);
+                  // Set a placeholder if content not found
+                  contentMap[`${report.content_type}:${report.content_id}`] = {
+                    id: report.content_id,
+                    body: "[Content not found or deleted]",
+                    content: "[Content not found or deleted]",
+                  };
+                } else if (content) {
+                  contentMap[`${report.content_type}:${report.content_id}`] = content;
+                }
+              } catch (err) {
+                console.error(`Error loading content:`, err);
+                contentMap[`${report.content_type}:${report.content_id}`] = {
+                  id: report.content_id,
+                  body: "[Error loading content]",
+                  content: "[Error loading content]",
+                };
               }
             }
           }
         }
         setContentItems(contentMap);
+      } else {
+        console.error("Failed to load reports:", data);
       }
     } catch (error) {
       console.error("Error loading reports:", error);
@@ -153,8 +172,10 @@ export default function ModerationDashboard() {
       if (response.ok) {
         await loadReports();
         setSelectedReport(null);
+        setConfirmDialog({ ...confirmDialog, open: false });
       } else {
         const data = await response.json();
+        console.error("Report action error:", data);
         alert(data.error || "Failed to update report");
       }
     } catch (error) {
@@ -168,9 +189,12 @@ export default function ModerationDashboard() {
   function getContentPreview(report: Report): string {
     const key = `${report.content_type}:${report.content_id}`;
     const content = contentItems[key];
-    if (!content) return "Loading...";
+    if (!content) return "Loading content...";
 
     const text = content.body || content.content || "";
+    if (!text || text.trim() === "") {
+      return "[No text content - may contain only media]";
+    }
     return text.length > 100 ? text.substring(0, 100) + "..." : text;
   }
 
@@ -277,6 +301,62 @@ export default function ModerationDashboard() {
 
                 <div className="flex flex-col gap-2">
                   {statusFilter === "pending" && (
+                    <>
+                      <button
+                        onClick={() => {
+                          handleReportAction(report.id, "reviewing", "none");
+                        }}
+                        disabled={actionLoading === report.id}
+                        className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {actionLoading === report.id ? "Processing..." : "Start Review"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setConfirmDialog({
+                            open: true,
+                            title: "Hide Content",
+                            description: "This will hide the content from public view.",
+                            onConfirm: () => {
+                              handleReportAction(report.id, "resolved", "hide");
+                              setConfirmDialog({ ...confirmDialog, open: false });
+                            },
+                          });
+                        }}
+                        disabled={actionLoading === report.id}
+                        className="px-3 py-1.5 text-xs font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50"
+                      >
+                        {actionLoading === report.id ? "Processing..." : "Hide"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setConfirmDialog({
+                            open: true,
+                            title: "Delete Content",
+                            description: "This will permanently delete the content. This action cannot be undone.",
+                            onConfirm: () => {
+                              handleReportAction(report.id, "resolved", "delete");
+                              setConfirmDialog({ ...confirmDialog, open: false });
+                            },
+                          });
+                        }}
+                        disabled={actionLoading === report.id}
+                        className="px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                      >
+                        {actionLoading === report.id ? "Processing..." : "Delete"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleReportAction(report.id, "dismissed", "none");
+                        }}
+                        disabled={actionLoading === report.id}
+                        className="px-3 py-1.5 text-xs font-medium bg-slate-600 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50"
+                      >
+                        {actionLoading === report.id ? "Processing..." : "Dismiss"}
+                      </button>
+                    </>
+                  )}
+                  {statusFilter === "reviewing" && (
                     <>
                       <button
                         onClick={() => {

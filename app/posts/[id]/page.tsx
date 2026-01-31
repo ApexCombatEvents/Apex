@@ -3,12 +3,15 @@ import Image from "next/image";
 import { createSupabaseServer } from "@/lib/supabaseServer";
 import PostReactions from "@/components/social/PostReactions";
 import PostActionsMenu from "@/components/social/PostActionsMenu";
+import PostImages from "@/components/social/PostImages";
+import PostContent from "@/components/social/PostContent";
 
 type PostRow = {
   id: string;
   profile_id: string;
   content: string | null;
   image_url: string | null;
+  image_urls: string[] | null;
   created_at: string;
 };
 
@@ -21,7 +24,7 @@ export default async function PostPage({
 
   const { data: post, error } = await supabase
     .from("profile_posts")
-    .select("id, profile_id, content, image_url, created_at")
+    .select("id, profile_id, content, image_url, image_urls, created_at")
     .eq("id", params.id)
     .single<PostRow>();
 
@@ -111,25 +114,17 @@ export default async function PostPage({
           )}
         </div>
 
-        {/* Image */}
-        {post.image_url && (
+        {/* Images */}
+        {post.image_url || post.image_urls ? (
           <div className="relative w-full aspect-[4/3] bg-slate-100">
-            <Image
-              src={post.image_url}
-              alt={post.content || "Post image"}
-              fill
-              sizes="(max-width: 768px) 100vw, 768px"
-              className="object-cover"
-            />
+            <PostImages imageUrl={post.image_url} imageUrls={post.image_urls} />
           </div>
-        )}
+        ) : null}
 
         {/* Content */}
         {post.content && (
           <div className="px-4 py-3">
-            <p className="text-sm text-slate-800 whitespace-pre-wrap">
-              {post.content}
-            </p>
+            <PostContent content={post.content} />
           </div>
         )}
 

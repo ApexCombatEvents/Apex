@@ -56,12 +56,24 @@ export default function PromotionFighters({ promotionId, isOwner }: PromotionFig
         `)
         .eq("promotion_profile_id", promotionId)
         .eq("status", "active")
-        .order("rank", { ascending: true, nullsLast: true });
+        .order("rank", { ascending: true });
 
       if (error) {
         console.error("Error loading fighters:", error);
       } else {
-        setFighters((data as PromotionFighter[]) || []);
+        // Map the data and handle fighters array (Supabase may return array even for FK relationships)
+        const mappedData = (data || []).map((item: any) => ({
+          id: item.id,
+          fighter_profile_id: item.fighter_profile_id,
+          status: item.status,
+          rank: item.rank,
+          weight_class: item.weight_class,
+          belt_title: item.belt_title,
+          fighters: Array.isArray(item.fighters) 
+            ? (item.fighters[0] || null)
+            : (item.fighters || null),
+        }));
+        setFighters(mappedData);
       }
     } catch (error) {
       console.error("Error:", error);

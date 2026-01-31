@@ -15,7 +15,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const { eventId, amount } = await req.json();
+    let eventId: string;
+    let amount: number;
+    try {
+      const json = await req.json();
+      eventId = json.eventId;
+      amount = json.amount;
+    } catch (jsonError) {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      );
+    }
     if (!eventId || !amount || typeof amount !== "number" || amount <= 0) {
       return NextResponse.json(
         { error: "eventId and amount (in cents) are required" },

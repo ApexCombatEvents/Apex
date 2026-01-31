@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
-import ReportButton from "@/components/moderation/ReportButton";
 
 type PostReactionsProps = {
   postId: string;
@@ -163,34 +162,54 @@ export default function PostReactions({
         // Create notification for post author
         try {
           const { data: post } = await supabase
-            .from("posts")
-            .select("author_profile_id")
+            .from("profile_posts")
+            .select("profile_id")
             .eq("id", postId)
             .single();
           
-          if (post && post.author_profile_id !== userId) {
-            const { data: likerProfile } = await supabase
-              .from("profiles")
-              .select("handle, display_name, full_name, username")
-              .eq("id", userId)
-              .single();
-            
-            const likerName = likerProfile?.display_name || 
-                             likerProfile?.full_name || 
-                             likerProfile?.username || 
-                             likerProfile?.handle || 
-                             "Someone";
-            
-            await supabase.from("notifications").insert({
-              profile_id: post.author_profile_id,
-              type: "post_like",
-              actor_profile_id: userId,
-              data: {
-                post_id: postId,
-                liker_name: likerName,
-                liker_handle: likerProfile?.handle || likerProfile?.username,
-              },
-            });
+          if (post && post.profile_id !== userId) {
+            // Use API route to create notification with proper actor profile data
+            try {
+              await fetch('/api/notifications/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  profile_id: post.profile_id,
+                  type: 'post_like',
+                  actor_profile_id: userId,
+                  data: {
+                    post_id: postId,
+                  },
+                }),
+              });
+            } catch (apiError) {
+              console.error('Failed to create notification via API, falling back to direct insert:', apiError);
+              // Fallback to direct insert if API fails
+              const { data: likerProfile } = await supabase
+                .from("profiles")
+                .select("handle, display_name, full_name, username")
+                .eq("id", userId)
+                .single();
+              
+              const likerName = likerProfile?.display_name || 
+                               likerProfile?.full_name || 
+                               likerProfile?.username || 
+                               likerProfile?.handle || 
+                               null;
+              
+              if (likerName) {
+                await supabase.from("notifications").insert({
+                  profile_id: post.profile_id,
+                  type: "post_like",
+                  actor_profile_id: userId,
+                  data: {
+                    post_id: postId,
+                    liker_name: likerName,
+                    liker_handle: likerProfile?.username || likerProfile?.handle || null,
+                  },
+                });
+              }
+            }
           }
         } catch (notifError) {
           console.error("Post like notification error", notifError);
@@ -354,7 +373,6 @@ export default function PostReactions({
       {/* Like + comment summary row */}
       <div className="flex items-center justify-between text-[11px] text-slate-600">
         <div className="flex items-center gap-3">
-          <ReportButton contentType="post" contentId={postId} />
           <button
             type="button"
             onClick={(e) => {
@@ -473,13 +491,6 @@ export default function PostReactions({
                       <p className="text-[11px] text-slate-800 whitespace-pre-wrap mt-0.5">
                         {c.content}
                       </p>
-                      <div className="mt-1">
-                        <ReportButton 
-                          contentType="profile_post_comment" 
-                          contentId={c.id}
-                          size="sm"
-                        />
-                      </div>
                     </div>
                   </div>
                 );

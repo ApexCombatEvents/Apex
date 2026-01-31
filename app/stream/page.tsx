@@ -54,6 +54,26 @@ export default function StreamPage() {
   const [userOwnedEvents, setUserOwnedEvents] = useState<Set<string>>(new Set());
   const [disciplineFilter, setDisciplineFilter] = useState<string>("all");
 
+  // Helper function to insert sponsorships between events (for grid layout)
+  const insertSponsorshipsBetweenEvents = (eventList: Event[], sponsorships: Sponsorship[], interval: number = 5) => {
+    if (sponsorships.length === 0) return eventList;
+    
+    const result: (Event | { __isSponsorship: true; sponsorship: Sponsorship })[] = [];
+    let sponsorshipIndex = 0;
+    
+    eventList.forEach((event, index) => {
+      result.push(event);
+      // Insert sponsorship after every N events (but not after the last one)
+      if ((index + 1) % interval === 0 && index < eventList.length - 1) {
+        const sponsorship = sponsorships[sponsorshipIndex % sponsorships.length];
+        result.push({ __isSponsorship: true, sponsorship });
+        sponsorshipIndex++;
+      }
+    });
+    
+    return result;
+  };
+
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -299,7 +319,21 @@ export default function StreamPage() {
                 <p className="text-sm text-slate-600 mt-2">Events currently streaming</p>
               </div>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {filteredLiveEvents.map((event) => {
+                {insertSponsorshipsBetweenEvents(filteredLiveEvents, sponsorships, 5).map((item, index) => {
+                  // Check if this is a sponsorship
+                  if ('__isSponsorship' in item && item.__isSponsorship) {
+                    return (
+                      <div key={`sponsor-live-${index}`} className="col-span-full my-4">
+                        <SponsorshipBanner
+                          sponsorship={item.sponsorship}
+                          variant={item.sponsorship.variant as "horizontal" | "vertical" | "compact" || "horizontal"}
+                        />
+                      </div>
+                    );
+                  }
+
+                  // Regular event
+                  const event = item as Event;
                   const organizer = getOrganizer(event);
                   const title = event.title || event.name || "Untitled event";
                   const hasPurchased = userPurchasedEvents.has(event.id);
@@ -374,7 +408,21 @@ export default function StreamPage() {
                 <p className="text-sm text-slate-600 mt-2">Scheduled events coming soon (sorted by date)</p>
               </div>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {filteredUpcomingEvents.map((event) => {
+                {insertSponsorshipsBetweenEvents(filteredUpcomingEvents, sponsorships, 5).map((item, index) => {
+                  // Check if this is a sponsorship
+                  if ('__isSponsorship' in item && item.__isSponsorship) {
+                    return (
+                      <div key={`sponsor-upcoming-${index}`} className="col-span-full my-4">
+                        <SponsorshipBanner
+                          sponsorship={item.sponsorship}
+                          variant={item.sponsorship.variant as "horizontal" | "vertical" | "compact" || "horizontal"}
+                        />
+                      </div>
+                    );
+                  }
+
+                  // Regular event
+                  const event = item as Event;
                   const organizer = getOrganizer(event);
                   const title = event.title || event.name || "Untitled event";
                   const hasPurchased = userPurchasedEvents.has(event.id);

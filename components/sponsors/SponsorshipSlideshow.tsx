@@ -73,13 +73,29 @@ export default function SponsorshipSlideshow({
 
   const content = (
     <div className={`relative z-10 h-full flex flex-col items-center justify-center text-center px-6 ${textColor} ${currentSponsorship.link_url ? "cursor-pointer hover:opacity-95 transition-opacity" : ""}`}>
-      <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold mb-3 drop-shadow-lg">
-        {currentSponsorship.title}
-      </h2>
       {currentSponsorship.description && (
         <p className="text-base sm:text-lg md:text-xl mb-4 max-w-2xl drop-shadow-md opacity-95">
           {currentSponsorship.description}
         </p>
+      )}
+      {currentSponsorship.button_text && (
+        <span className="inline-flex items-center text-base sm:text-lg md:text-xl font-semibold drop-shadow-md">
+          {currentSponsorship.button_text}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5 ml-2"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+        </span>
       )}
     </div>
   );
@@ -100,7 +116,7 @@ export default function SponsorshipSlideshow({
             className="object-cover"
             priority={currentIndex === 0}
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/40 to-black/60"></div>
+          {/* No overlay - let the photo brightness show through naturally */}
         </div>
       ) : (
         <div className={`absolute inset-0 bg-gradient-to-br ${bgColor}`}>

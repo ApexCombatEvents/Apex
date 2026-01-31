@@ -40,7 +40,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const { eventId, streamPrice, fighterAllocations } = await req.json();
+    let eventId: string;
+    let streamPrice: number;
+    let fighterAllocations: any;
+    try {
+      const json = await req.json();
+      eventId = json.eventId;
+      streamPrice = json.streamPrice;
+      fighterAllocations = json.fighterAllocations;
+    } catch (jsonError) {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      );
+    }
 
     if (!eventId || !streamPrice) {
       return NextResponse.json(

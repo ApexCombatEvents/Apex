@@ -4,10 +4,15 @@ import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import { calculatePlatformFee } from '@/lib/platformFees';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Validate environment variables at module load
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !serviceRoleKey) {
+  throw new Error("Missing required Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+}
+
+const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
 export async function POST(req: Request) {
   const body = await req.text();
@@ -75,11 +80,15 @@ export async function POST(req: Request) {
       }
 
       // Get bout details for payment amount
-      const { data: bout } = await supabaseAdmin
+      const { data: bout, error: boutError } = await supabaseAdmin
         .from('event_bouts')
         .select('offer_fee')
         .eq('id', bout_id)
         .single();
+
+      if (boutError) {
+        console.error('Failed to fetch bout details in webhook:', boutError);
+      }
 
       const amountPaid = bout?.offer_fee || session.amount_total || 0;
       // Platform fee is 0 initially - will be charged when offer is accepted
@@ -162,7 +171,13 @@ export async function POST(req: Request) {
         return NextResponse.json({ received: true });
       }
 
-      const allocations = fighter_allocations ? JSON.parse(fighter_allocations) : [];
+      let allocations: any[] = [];
+      try {
+        allocations = fighter_allocations ? JSON.parse(fighter_allocations) : [];
+      } catch (parseError) {
+        console.error("Failed to parse fighter_allocations JSON:", parseError);
+        allocations = [];
+      }
       const amountPaid = session.amount_total || 0;
       const platformFee = calculatePlatformFee(amountPaid);
 
@@ -181,9 +196,46 @@ export async function POST(req: Request) {
       } else {
         console.log('✅ Webhook: Stream payment created successfully', {
           paymentId: payment.id,
-          eventId,
-          userId,
+          event_id,
+          user_id,
           amount: session.amount_total,
+        });
+      }
+    }
+
+    // Handle featured event payments
+    if (session.metadata?.type === 'feature_event') {
+      const {
+        event_id,
+        user_id,
+        duration_days,
+      } = session.metadata;
+
+      if (!event_id || !user_id) {
+        console.error('Missing metadata in featured event checkout session');
+        return NextResponse.json({ received: true });
+      }
+
+      const durationDays = duration_days ? parseInt(duration_days, 10) : 30;
+      const featuredUntil = new Date();
+      featuredUntil.setDate(featuredUntil.getDate() + durationDays);
+
+      // Update event to featured status
+      const { error: updateError } = await supabaseAdmin
+        .from('events')
+        .update({
+          is_featured: true,
+          featured_until: featuredUntil.toISOString(),
+        })
+        .eq('id', event_id);
+
+      if (updateError) {
+        console.error('Failed to update event featured status in webhook:', updateError);
+      } else {
+        console.log('✅ Webhook: Event featured status updated successfully', {
+          event_id,
+          user_id,
+          featuredUntil: featuredUntil.toISOString(),
         });
       }
     }

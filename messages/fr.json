@@ -1,0 +1,45 @@
+{
+  "Common": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "back": "Retour"
+  },
+  "Navbar": {
+    "home": "Accueil",
+    "search": "Rechercher",
+    "messages": "Messages",
+    "profile": "Profil",
+    "events": "Événements",
+    "admin": "Admin"
+  },
+  "Profile": {
+    "editProfile": "Modifier le Profil",
+    "message": "Message",
+    "stats": "Stats",
+    "bio": "Bio",
+    "followers": "Abonnés",
+    "following": "Abonnements",
+    "record": "Palmarès",
+    "winStreak": "Série",
+    "last5": "Derniers 5"
+  },
+  "Settings": {
+    "title": "Paramètres du Profil",
+    "language": "Langue",
+    "selectLanguage": "Choisir la langue...",
+    "basicInfo": "Infos de base",
+    "fullName": "Nom complet",
+    "username": "Nom d'utilisateur",
+    "country": "Pays",
+    "martialArts": "Arts martiaux",
+    "saveChanges": "Enregistrer les modifications"
+  },
+  "Messages": {
+    "title": "Messages",
+    "startChat": "Démarrer un chat",
+    "noThreads": "Pas encore de messages.",
+    "restricted": "Message restreint : Vous devez vous suivre mutuellement, partager une salle ou avoir une offre active pour envoyer un message."
+  }
+}

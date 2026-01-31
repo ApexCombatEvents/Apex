@@ -4,10 +4,14 @@ import { NextRequest, NextResponse } from "next/server";
 // Update report status (admin only)
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     const supabase = createSupabaseServer();
+    
+    // Handle both sync and async params (Next.js 13 vs 15)
+    const resolvedParams = await Promise.resolve(params);
+    const reportId = resolvedParams.id;
     
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -26,8 +30,20 @@ export async function PATCH(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const body = await request.json();
-    const { status, resolution_notes, moderation_action } = body;
+    let status: string;
+    let resolution_notes: string | undefined;
+    let moderation_action: string | undefined;
+    try {
+      const body = await request.json();
+      status = body.status;
+      resolution_notes = body.resolution_notes;
+      moderation_action = body.moderation_action;
+    } catch (jsonError) {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      );
+    }
 
     if (!status) {
       return NextResponse.json(
@@ -58,7 +74,7 @@ export async function PATCH(
     const { data: report, error: reportError } = await supabase
       .from('content_reports')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', reportId)
       .select()
       .single();
 
@@ -76,7 +92,7 @@ export async function PATCH(
       
       let tableName = '';
       if (content_type === 'post') {
-        tableName = 'posts';
+        tableName = 'profile_posts'; // Fixed: use profile_posts not posts
       } else if (content_type === 'profile_post_comment') {
         tableName = 'profile_post_comments';
       } else if (content_type === 'event_comment') {

@@ -1,12 +1,16 @@
 // app/api/messages/thread/[threadId]/route.ts
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabaseServer";
+import { createClient } from "@supabase/supabase-js";
 
 // Small helper so we don't repeat the same checks twice
 async function ensureUserInThread(
   supabase: ReturnType<typeof createSupabaseServer>,
   threadId: string
-) {
+): Promise<
+  | { errorResponse: NextResponse }
+  | { user: { id: string }; thread: { id: string; profile_a: string; profile_b: string } }
+> {
   const {
     data: { user },
     error: authError,
@@ -55,17 +59,37 @@ async function ensureUserInThread(
 
 export async function GET(
   _req: Request,
-  { params }: { params: { threadId: string } }
+  { params }: { params: Promise<{ threadId: string }> | { threadId: string } }
 ) {
   const supabase = createSupabaseServer();
+  
+  // Handle both sync and async params (Next.js 13 vs 15)
+  const resolvedParams = await Promise.resolve(params);
+  const threadId = resolvedParams.threadId;
 
-  const check = await ensureUserInThread(supabase, params.threadId);
+  const check = await ensureUserInThread(supabase, threadId);
   if ("errorResponse" in check) return check.errorResponse;
 
-  const { data: messages, error } = await supabase
+  // Use service role client to bypass RLS for chat_messages query
+  // We've already verified authorization in ensureUserInThread
+  // This avoids infinite recursion in RLS policies
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!supabaseUrl || !serviceRoleKey) {
+    console.error("Missing Supabase environment variables");
+    return NextResponse.json(
+      { error: "Server configuration error" },
+      { status: 500 }
+    );
+  }
+  
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+
+  const { data: messages, error } = await supabaseAdmin
     .from("chat_messages")
     .select("id, body, created_at, sender_profile_id")
-    .eq("thread_id", params.threadId)
+    .eq("thread_id", threadId)
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -81,29 +105,47 @@ export async function GET(
     ? check.thread.profile_b 
     : check.thread.profile_a;
 
-  const { data: otherProfile } = await supabase
+  const { data: otherProfile, error: profileError } = await supabase
     .from("profiles")
     .select("id, username, full_name, avatar_url, role")
     .eq("id", otherProfileId)
-    .single();
+    .maybeSingle();
+
+  if (profileError) {
+    console.error("profile error", profileError);
+    // Don't fail the whole request if profile lookup fails
+  }
 
   return NextResponse.json({ 
-    messages,
+    messages: messages || [],
     participant: otherProfile || null
   });
 }
 
 export async function POST(
   req: Request,
-  { params }: { params: { threadId: string } }
+  { params }: { params: Promise<{ threadId: string }> | { threadId: string } }
 ) {
   const supabase = createSupabaseServer();
+  
+  // Handle both sync and async params (Next.js 13 vs 15)
+  const resolvedParams = await Promise.resolve(params);
+  const threadId = resolvedParams.threadId;
 
-  const check = await ensureUserInThread(supabase, params.threadId);
+  const check = await ensureUserInThread(supabase, threadId);
   if ("errorResponse" in check) return check.errorResponse;
 
   const { user } = check;
-  const { body } = await req.json();
+  let body: string;
+  try {
+    const json = await req.json();
+    body = json.body;
+  } catch (jsonError) {
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 }
+    );
+  }
 
   if (!body || typeof body !== "string" || !body.trim()) {
     return NextResponse.json(
@@ -112,11 +154,27 @@ export async function POST(
     );
   }
 
-  const { data, error } = await supabase
+  // Use service role client to bypass RLS for chat_messages insert
+  // We've already verified authorization in ensureUserInThread
+  // This avoids infinite recursion in RLS policies
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!supabaseUrl || !serviceRoleKey) {
+    console.error("Missing Supabase environment variables");
+    return NextResponse.json(
+      { error: "Server configuration error" },
+      { status: 500 }
+    );
+  }
+  
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+
+  const { data, error } = await supabaseAdmin
     .from("chat_messages")
     .insert({
-      thread_id: params.threadId,
-      sender_profile_id: user!.id,
+      thread_id: threadId,
+      sender_profile_id: user.id,
       body: body.trim(),
     })
     .select("id")

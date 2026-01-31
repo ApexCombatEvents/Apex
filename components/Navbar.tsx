@@ -5,14 +5,31 @@ import { useEffect, useState } from "react";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import NotificationsBell from "@/components/NotificationsBell";
 import ApexLogo from "@/components/logos/ApexLogo";
+import { useTranslation, SUPPORTED_LANGUAGES, type Language } from "@/hooks/useTranslation";
 
 type Role = "fighter" | "coach" | "gym" | "promotion" | "admin" | null;
 
 export default function Navbar() {
+  const { t, lang, setLang } = useTranslation();
   const [user, setUser] = useState<any>(null);
   const [role, setRole] = useState<Role>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
+
+  const handleLanguageChange = async (newLang: Language) => {
+    setLang(newLang);
+    setLangMenuOpen(false);
+
+    // If user is logged in, save preference to profile
+    if (user) {
+      const supabase = createSupabaseBrowser();
+      await supabase
+        .from("profiles")
+        .update({ preferred_language: newLang })
+        .eq("id", user.id);
+    }
+  };
 
   useEffect(() => {
     const supabase = createSupabaseBrowser();
@@ -80,7 +97,7 @@ export default function Navbar() {
             </svg>
           </button>
 
-          <Link href="/" className="flex items-center group">
+          <Link href="/" className="flex items-center group notranslate" translate="no">
             <ApexLogo />
           </Link>
 
@@ -89,14 +106,16 @@ export default function Navbar() {
               href="/search" 
               className="px-4 py-2 rounded-lg text-sm font-medium text-slate-700 hover:text-purple-700 hover:bg-purple-50/50 transition-colors"
             >
-              Search
+              {t('Navbar.search')}
             </Link>
+            {/* Stream temporarily hidden until streaming feature is ready
             <Link 
               href="/stream" 
               className="px-4 py-2 rounded-lg text-sm font-medium text-slate-700 hover:text-purple-700 hover:bg-purple-50/50 transition-colors"
             >
               Stream
             </Link>
+            */}
             {/* Rankings temporarily hidden until legal/data import is sorted
             <Link 
               href="/rank" 
@@ -111,7 +130,7 @@ export default function Navbar() {
                 href="/messages" 
                 className="px-4 py-2 rounded-lg text-sm font-medium text-slate-700 hover:text-purple-700 hover:bg-purple-50/50 transition-colors"
               >
-                Messages
+                {t('Navbar.messages')}
               </Link>
             )}
 
@@ -120,7 +139,7 @@ export default function Navbar() {
                 href="/events" 
                 className="px-4 py-2 rounded-lg text-sm font-medium text-slate-700 hover:text-purple-700 hover:bg-purple-50/50 transition-colors"
               >
-                Events
+                {t('Navbar.events')}
               </Link>
             )}
 
@@ -130,7 +149,7 @@ export default function Navbar() {
                 href="/profile/me" 
                 className="px-4 py-2 rounded-lg text-sm font-medium text-slate-700 hover:text-purple-700 hover:bg-purple-50/50 transition-colors"
               >
-                Profile
+                {t('Navbar.profile')}
               </Link>
             )}
 
@@ -140,7 +159,7 @@ export default function Navbar() {
                   onClick={() => setAdminMenuOpen(!adminMenuOpen)}
                   className="px-4 py-2 rounded-lg text-sm font-medium text-slate-700 hover:text-purple-700 hover:bg-purple-50/50 transition-colors flex items-center gap-1"
                 >
-                  Admin
+                  {t('Navbar.admin')}
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     className={`h-4 w-4 transition-transform ${adminMenuOpen ? "rotate-180" : ""}`}
@@ -196,28 +215,7 @@ export default function Navbar() {
 
         {/* Right side */}
         <div className="flex items-center gap-3">
-          {/* Mobile: keep search + notifications in the top bar */}
-          <Link
-            href="/search"
-            className="md:hidden inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-slate-700 hover:bg-slate-50"
-            aria-label="Search"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-          </Link>
-
+          {/* Mobile: notifications in top bar */}
           {user && (
             <div className="md:hidden">
               <NotificationsBell />
@@ -309,56 +307,16 @@ export default function Navbar() {
               </div>
 
               <div className="mt-4 grid gap-2 text-sm">
-                <Link
-                  href="/search"
-                  onClick={() => setMobileOpen(false)}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-800 hover:bg-slate-50"
-                >
-                  Search
-                </Link>
-                <Link
-                  href="/stream"
-                  onClick={() => setMobileOpen(false)}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-800 hover:bg-slate-50"
-                >
-                  Stream
-                </Link>
-                {user && (
-                  <Link
-                    href="/messages"
-                    onClick={() => setMobileOpen(false)}
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-800 hover:bg-slate-50"
-                  >
-                    Messages
-                  </Link>
-                )}
+                {/* Events - only visible to gyms and promotions */}
                 {(role === "gym" || role === "promotion") && (
                   <Link
                     href="/events"
                     onClick={() => setMobileOpen(false)}
                     className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-800 hover:bg-slate-50"
                   >
-                    Events
+                    {t('Navbar.events')}
                   </Link>
                 )}
-                {user && (
-                  <Link
-                    href="/profile/me"
-                    onClick={() => setMobileOpen(false)}
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-800 hover:bg-slate-50"
-                  >
-                    Profile
-                  </Link>
-                )}
-                {/* Rankings temporarily hidden until legal/data import is sorted
-                <Link
-                  href="/rank"
-                  onClick={() => setMobileOpen(false)}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-800 hover:bg-slate-50"
-                >
-                  Rankings
-                </Link>
-                */}
                 <Link
                   href="/settings"
                   onClick={() => setMobileOpen(false)}
@@ -374,6 +332,13 @@ export default function Navbar() {
                       Admin
                     </div>
                     <Link
+                      href="/admin"
+                      onClick={() => setMobileOpen(false)}
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-800 hover:bg-slate-50"
+                    >
+                      Dashboard
+                    </Link>
+                    <Link
                       href="/admin/payouts"
                       onClick={() => setMobileOpen(false)}
                       className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-800 hover:bg-slate-50"
@@ -386,6 +351,13 @@ export default function Navbar() {
                       className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-800 hover:bg-slate-50"
                     >
                       Sponsorships
+                    </Link>
+                    <Link
+                      href="/admin/moderation"
+                      onClick={() => setMobileOpen(false)}
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-800 hover:bg-slate-50"
+                    >
+                      Moderation
                     </Link>
                   </>
                 )}

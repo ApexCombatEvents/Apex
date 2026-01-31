@@ -18,13 +18,27 @@ export async function POST(
   }
 
   const eventId = params.id;
-  const body = await req.json();
-  const { boutId, fighterName, side, martialArt } = body;
+  let boutId: string;
+  let fighterName: string;
+  let side: string;
+  let martialArt: string;
+  try {
+    const body = await req.json();
+    boutId = body.boutId;
+    fighterName = body.fighterName;
+    side = body.side;
+    martialArt = body.martialArt;
+  } catch (jsonError) {
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 }
+    );
+  }
 
   // Verify user is the event owner
   const { data: event, error: eventError } = await supabase
     .from("events")
-    .select("id, name, title, owner_profile_id")
+    .select("id, name, title, owner_profile_id, profile_id")
     .eq("id", eventId)
     .single();
 
@@ -32,8 +46,8 @@ export async function POST(
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
-  const ownerId = event.owner_profile_id;
-  if (ownerId !== user.id) {
+  const ownerId = event.owner_profile_id || event.profile_id;
+  if (!ownerId || ownerId !== user.id) {
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 

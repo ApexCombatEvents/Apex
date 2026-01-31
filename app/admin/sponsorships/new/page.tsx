@@ -12,7 +12,8 @@ type Placement =
   | "search_page"
   | "event_page"
   | "profile_page"
-  | "rankings_page";
+  | "rankings_page"
+  | "messages_page";
 
 export default function NewSponsorshipPage() {
   const router = useRouter();
@@ -92,6 +93,11 @@ export default function NewSponsorshipPage() {
     }
 
     try {
+      // Automatically set variant based on placement
+      const variant = formData.placement === "homepage_hero" ? "slideshow" 
+        : (formData.placement === "search_page" || formData.placement === "messages_page") ? "vertical"
+        : formData.variant;
+      
       console.log("Attempting to create sponsorship:", formData);
       
       const { data, error } = await supabase
@@ -100,7 +106,7 @@ export default function NewSponsorshipPage() {
           title: formData.title,
           description: formData.description || null,
           placement: formData.placement,
-          variant: formData.variant,
+          variant: variant,
           image_url: formData.image_url || null,
           link_url: formData.link_url || null,
           button_text: formData.button_text || null,
@@ -176,7 +182,17 @@ export default function NewSponsorshipPage() {
             </label>
             <select
               value={formData.placement}
-              onChange={(e) => setFormData({ ...formData, placement: e.target.value as Placement })}
+              onChange={(e) => {
+                const newPlacement = e.target.value as Placement;
+                setFormData({ 
+                  ...formData, 
+                  placement: newPlacement,
+                  // Automatically set variant based on placement
+                  variant: newPlacement === "homepage_hero" ? "slideshow" 
+                    : (newPlacement === "search_page" || newPlacement === "messages_page") ? "vertical"
+                    : formData.variant
+                });
+              }}
               required
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
             >
@@ -188,51 +204,108 @@ export default function NewSponsorshipPage() {
               <option value="event_page">Event Page</option>
               <option value="profile_page">Profile Page</option>
               <option value="rankings_page">Rankings Page</option>
+              <option value="messages_page">Messages Page</option>
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Variant
-            </label>
-            <select
-              value={formData.variant}
-              onChange={(e) => setFormData({ ...formData, variant: e.target.value as typeof formData.variant })}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-            >
-              <option value="horizontal">Horizontal</option>
-              <option value="vertical">Vertical</option>
-              <option value="compact">Compact</option>
-              <option value="slideshow">Slideshow</option>
-            </select>
-          </div>
+          {formData.placement !== "homepage_hero" && formData.placement !== "search_page" && formData.placement !== "messages_page" && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Variant
+              </label>
+              <select
+                value={formData.variant}
+                onChange={(e) => setFormData({ ...formData, variant: e.target.value as typeof formData.variant })}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+              >
+                <option value="horizontal">Horizontal</option>
+                <option value="vertical">Vertical</option>
+                <option value="compact">Compact</option>
+                <option value="slideshow">Slideshow</option>
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Image
             </label>
-            {formData.image_url && (
-              <div className="mb-2">
-                <Image
-                  src={formData.image_url}
-                  alt="Preview"
-                  width={200}
-                  height={100}
-                  className="rounded-lg border border-slate-200"
-                />
-              </div>
-            )}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleImageUpload(file);
-              }}
-              disabled={loading}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-            />
-            {loading && <p className="text-xs text-slate-500 mt-1">Uploading...</p>}
+            {(() => {
+              // Get recommended image size based on placement and variant
+              const getImageSizeGuide = (): string => {
+                const placement = formData.placement;
+                const variant = formData.variant;
+                
+                if (placement === "homepage_hero" || variant === "slideshow") {
+                  return "Recommended: 1920×640px (3:1 ratio) - Full-width hero banner";
+                }
+                if (placement === "homepage_sidebar") {
+                  if (variant === "vertical") return "Recommended: 800×320px (5:2 ratio) - Vertical sidebar banner";
+                  if (variant === "compact") return "Recommended: 64×64px - Small square logo";
+                  return "Recommended: 400×200px (2:1 ratio) - Horizontal sidebar banner";
+                }
+                if (placement === "search_page") {
+                  if (variant === "vertical") return "Recommended: 800×320px (5:2 ratio) - Vertical banner";
+                  if (variant === "compact") return "Recommended: 96×96px - Square logo";
+                  return "Recommended: 600×300px (2:1 ratio) - Horizontal banner";
+                }
+                if (placement === "stream_page") {
+                  if (variant === "vertical") return "Recommended: 800×320px (5:2 ratio) - Vertical banner";
+                  if (variant === "compact") return "Recommended: 96×96px - Square logo";
+                  return "Recommended: 600×300px (2:1 ratio) - Horizontal banner";
+                }
+                if (placement === "event_page" || placement === "profile_page" || placement === "rankings_page") {
+                  if (variant === "vertical") return "Recommended: 800×320px (5:2 ratio) - Vertical banner";
+                  if (variant === "compact") return "Recommended: 64×64px - Small square logo";
+                  return "Recommended: 400×200px (2:1 ratio) - Horizontal banner";
+                }
+                if (placement === "messages_page") {
+                  if (variant === "vertical") return "Recommended: 800×320px (5:2 ratio) - Vertical banner";
+                  if (variant === "compact") return "Recommended: 96×96px - Square logo";
+                  return "Recommended: 600×300px (2:1 ratio) - Horizontal banner";
+                }
+                // Default
+                if (variant === "vertical") return "Recommended: 800×320px (5:2 ratio)";
+                if (variant === "compact") return "Recommended: 64×64px - Square logo";
+                return "Recommended: 600×300px (2:1 ratio) - Horizontal banner";
+              };
+              
+              return (
+                <>
+                  {formData.image_url && (
+                    <div className="mb-2">
+                      <Image
+                        src={formData.image_url}
+                        alt="Preview"
+                        width={200}
+                        height={100}
+                        className="rounded-lg border border-slate-200"
+                      />
+                    </div>
+                  )}
+                  {formData.placement && (
+                    <div className="mb-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                      <p className="text-xs font-medium text-purple-900 mb-1">📐 Image Size Guide</p>
+                      <p className="text-xs text-purple-700">{getImageSizeGuide()}</p>
+                      <p className="text-xs text-purple-600 mt-1 italic">
+                        Images will automatically resize to fit while maintaining aspect ratio.
+                      </p>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file);
+                    }}
+                    disabled={loading}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  />
+                  {loading && <p className="text-xs text-slate-500 mt-1">Uploading...</p>}
+                </>
+              );
+            })()}
           </div>
 
           <div>

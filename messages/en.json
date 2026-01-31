@@ -1,0 +1,68 @@
+{
+  "Common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "loading": "Loading...",
+    "error": "Error",
+    "back": "Back",
+    "welcome": "Welcome to Apex",
+    "newsTitle": "News & updates",
+    "newsSubtitle": "Latest posts and activity from profiles and events you follow. See bout updates, event changes, and posts from your network.",
+    "viewAll": "View all events →",
+    "loadingUpdates": "Loading updates...",
+    "signInUpdates": "Sign in to see updates from events you follow.",
+    "noUpdates": "No updates yet. Follow events and people to see their posts and event updates here."
+  },
+  "Navbar": {
+    "home": "Home",
+    "search": "Search",
+    "messages": "Messages",
+    "profile": "Profile",
+    "events": "Events",
+    "admin": "Admin"
+  },
+  "Profile": {
+    "editProfile": "Edit Profile",
+    "message": "Message",
+    "stats": "Stats",
+    "bio": "Bio",
+    "followers": "Followers",
+    "following": "Following",
+    "record": "Record",
+    "winStreak": "Win Streak",
+    "last5": "Last 5"
+  },
+  "Search": {
+    "title": "Search Events & Profiles",
+    "subtitle": "Find fighting events to participate in or watch. You can also search for fighters, coaches, gyms, and promotions.",
+    "placeholder": "Search events by title or location",
+    "button": "Search",
+    "alsoSearch": "Also search:",
+    "all": "All",
+    "fighters": "Fighters",
+    "coaches": "Coaches",
+    "gyms": "Gyms",
+    "promotions": "Promotions",
+    "discipline": "Discipline:",
+    "location": "Location:",
+    "upcomingOnly": "Show upcoming events only",
+    "noResults": "No results found. Try a different search."
+  },
+  "Settings": {
+    "title": "Profile Settings",
+    "language": "Language",
+    "selectLanguage": "Select language...",
+    "basicInfo": "Basic Info",
+    "fullName": "Full Name",
+    "username": "Username",
+    "country": "Country",
+    "martialArts": "Martial Arts",
+    "saveChanges": "Save Changes"
+  },
+  "Messages": {
+    "title": "Messages",
+    "startChat": "Start a new chat",
+    "noThreads": "No messages yet.",
+    "restricted": "Message restricted: You must follow each other, share a gym, or have an active offer to message."
+  }
+}

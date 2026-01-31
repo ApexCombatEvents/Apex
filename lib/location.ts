@@ -99,5 +99,51 @@ export async function geocodeLocation(
   return null;
 }
 
+/**
+ * Get the country for a city/town name using OpenStreetMap Nominatim API
+ * Returns the country name or null if not found
+ * This is free and doesn't require an API key
+ * Note: Nominatim has rate limits (1 request per second), so results should be cached
+ */
+export async function getCountryForCity(cityName: string): Promise<string | null> {
+  if (!cityName || cityName.trim() === "") return null;
+  
+  try {
+    // Use OpenStreetMap Nominatim API (free, no API key required)
+    const encodedCity = encodeURIComponent(cityName.trim());
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodedCity}&format=json&limit=1&addressdetails=1`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'LegacyMVP/1.0' // Required by Nominatim
+      }
+    });
+    
+    if (!response.ok) {
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    if (!data || data.length === 0) {
+      return null;
+    }
+    
+    // Extract country from the address
+    const address = data[0].address;
+    if (!address) {
+      return null;
+    }
+    
+    // Nominatim returns country in different possible fields
+    const country = address.country || null;
+    
+    return country;
+  } catch (error) {
+    console.warn(`Error geocoding city "${cityName}":`, error);
+    return null;
+  }
+}
+
 
 

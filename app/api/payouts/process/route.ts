@@ -15,7 +15,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const { payoutRequestId, action } = await req.json(); // action: 'approve' or 'reject'
+    let payoutRequestId: string;
+    let action: string;
+    try {
+      const json = await req.json();
+      payoutRequestId = json.payoutRequestId;
+      action = json.action;
+    } catch (jsonError) {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      );
+    }
 
     if (!payoutRequestId || !action || !["approve", "reject"].includes(action)) {
       return NextResponse.json(
@@ -64,6 +75,11 @@ export async function POST(req: Request) {
     const fighter = (payoutRequest as any).fighters;
     const recipient = (payoutRequest as any).recipient;
 
+    // Validate required data exists
+    if (!event) {
+      return NextResponse.json({ error: "Event not found for this payout request" }, { status: 404 });
+    }
+
     // Authorization:
     // - For fighter payouts: processor must be event organizer
     // - For organizer payouts: processor must be platform admin
@@ -74,7 +90,11 @@ export async function POST(req: Request) {
       .single();
 
     const isAdmin = processorProfile?.role === "ADMIN";
-    const ownerId = event.owner_profile_id || event.profile_id;
+    const ownerId = event?.owner_profile_id || event?.profile_id;
+    
+    if (!ownerId) {
+      return NextResponse.json({ error: "Event owner not found" }, { status: 404 });
+    }
 
     if (payoutRequest.recipient_type === "fighter") {
       if (user.id !== ownerId && !isAdmin) {
@@ -132,8 +152,8 @@ export async function POST(req: Request) {
             data: {
               payout_request_id: payoutRequestId,
               amount: payoutRequest.amount_requested,
-              event_id: event.id,
-              event_name: event.title || event.name,
+              event_id: event?.id || null,
+              event_name: event?.title || event?.name || "Event",
               recipient_type: payoutRequest.recipient_type,
             },
           });
@@ -185,9 +205,9 @@ export async function POST(req: Request) {
         destination: destinationAccountId as string,
         metadata: {
           payout_request_id: payoutRequestId,
-          event_id: event.id,
-          event_name: event.title || event.name || "Unknown Event",
-          recipient_profile_id: recipient?.id || fighter?.id,
+          event_id: event?.id || "",
+          event_name: event?.title || event?.name || "Event",
+          recipient_profile_id: recipient?.id || fighter?.id || "",
           recipient_type: payoutRequest.recipient_type,
         },
       });
@@ -225,15 +245,15 @@ export async function POST(req: Request) {
           profile_id: notifyId,
           type: "payout_processed",
           actor_profile_id: user.id,
-          data: {
-            payout_request_id: payoutRequestId,
-            amount: payoutRequest.amount_requested,
-            event_id: event.id,
-            event_name: event.title || event.name,
-            transfer_id: transfer.id,
-            recipient_type: payoutRequest.recipient_type,
-            recipient_name: recipientName,
-          },
+            data: {
+              payout_request_id: payoutRequestId,
+              amount: payoutRequest.amount_requested,
+              event_id: event?.id || null,
+              event_name: event?.title || event?.name || "Event",
+              transfer_id: transfer.id,
+              recipient_type: payoutRequest.recipient_type,
+              recipient_name: recipientName,
+            },
         });
       } catch (notifError) {
         console.error("Notification error", notifError);
@@ -276,8 +296,8 @@ export async function POST(req: Request) {
             data: {
               payout_request_id: payoutRequestId,
               amount: payoutRequest.amount_requested,
-              event_id: event.id,
-              event_name: event.title || event.name,
+              event_id: event?.id || null,
+              event_name: event?.title || event?.name || "Event",
               recipient_type: payoutRequest.recipient_type,
               error: stripeError?.message || "Stripe transfer failed",
             },

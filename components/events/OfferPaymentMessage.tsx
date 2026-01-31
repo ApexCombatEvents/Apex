@@ -108,9 +108,14 @@ export default function OfferPaymentMessage() {
               d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          <p className="text-sm font-medium text-green-800">
-            Payment successful! Your bout offer has been sent.
-          </p>
+          <div>
+            <p className="text-sm font-medium text-green-800">
+              ✓ Payment successful! Your bout offer has been sent.
+            </p>
+            <p className="text-xs text-green-700 mt-1">
+              The event organizer will review your offer. If declined, your payment will be automatically refunded.
+            </p>
+          </div>
         </div>
       </div>
     );

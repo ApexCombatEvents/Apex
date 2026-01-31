@@ -45,17 +45,21 @@ export async function GET(req: Request) {
     let allocationEarnings = 0;
     const earningsByEvent: Record<string, { allocationEarnings: number; tipEarnings: number; totalEarnings: number }> = {};
 
-    if (payments) {
+    if (payments && Array.isArray(payments)) {
       payments.forEach((payment: any) => {
         if (payment.fighter_allocations && Array.isArray(payment.fighter_allocations)) {
           payment.fighter_allocations.forEach((allocation: any) => {
-            if (allocation.fighter_id === user.id) {
-              allocationEarnings += allocation.amount || 0;
+            if (allocation && allocation.fighter_id === user.id) {
+              const amount = allocation.amount || 0;
+              allocationEarnings += amount;
               
-              if (!earningsByEvent[payment.event_id]) {
-                earningsByEvent[payment.event_id] = { allocationEarnings: 0, tipEarnings: 0, totalEarnings: 0 };
+              const eventId = payment.event_id;
+              if (eventId) {
+                if (!earningsByEvent[eventId]) {
+                  earningsByEvent[eventId] = { allocationEarnings: 0, tipEarnings: 0, totalEarnings: 0 };
+                }
+                earningsByEvent[eventId].allocationEarnings += amount;
               }
-              earningsByEvent[payment.event_id].allocationEarnings += allocation.amount || 0;
             }
           });
         }
@@ -73,14 +77,20 @@ export async function GET(req: Request) {
     }
 
     let tipEarnings = 0;
-    if (tips) {
+    if (tips && Array.isArray(tips)) {
       tips.forEach((tip: any) => {
-        tipEarnings += tip.amount || 0;
-        
-        if (!earningsByEvent[tip.event_id]) {
-          earningsByEvent[tip.event_id] = { allocationEarnings: 0, tipEarnings: 0, totalEarnings: 0 };
+        if (tip && tip.fighter_id === user.id) {
+          const amount = tip.amount || 0;
+          tipEarnings += amount;
+          
+          const eventId = tip.event_id;
+          if (eventId) {
+            if (!earningsByEvent[eventId]) {
+              earningsByEvent[eventId] = { allocationEarnings: 0, tipEarnings: 0, totalEarnings: 0 };
+            }
+            earningsByEvent[eventId].tipEarnings += amount;
+          }
         }
-        earningsByEvent[tip.event_id].tipEarnings += tip.amount || 0;
       });
     }
 
@@ -124,9 +134,11 @@ export async function GET(req: Request) {
         .select("id, title, name, event_date")
         .in("id", eventIds);
       
-      if (events) {
+      if (events && Array.isArray(events)) {
         events.forEach((event: any) => {
-          eventsById[event.id] = event;
+          if (event && event.id) {
+            eventsById[event.id] = event;
+          }
         });
       }
     }

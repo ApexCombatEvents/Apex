@@ -207,9 +207,9 @@ export default function CreateEventPage() {
         location: location || null,
         martial_art: martialArt || null,
         banner_url: bannerUrl,
-        will_stream: willStream,
-        stream_price: willStream && streamPrice ? Math.round(parseFloat(streamPrice) * 100) : null,
-        fighter_percentage: willStream ? (parseInt(fighterPercentage) || 0) : 0,
+        will_stream: false,
+        stream_price: null,
+        fighter_percentage: 0,
       })
       .select("id")
       .single();
@@ -241,10 +241,11 @@ export default function CreateEventPage() {
     > = {};
 
     if (allHandles.length > 0) {
+      // Query with case-insensitive role check (database stores as "FIGHTER")
       const { data: fightersData, error: fightersError } = await supabase
         .from("profiles")
         .select("id, username, full_name, role")
-        .eq("role", "fighter")
+        .or("role.eq.FIGHTER,role.eq.fighter")
         .in("username", allHandles);
 
       if (fightersError) {
@@ -253,7 +254,8 @@ export default function CreateEventPage() {
       } else {
         fightersByUsername = Object.fromEntries(
           (fightersData || []).map((f) => [
-            (f.username as string) || "",
+            // Store with lowercase username for case-insensitive lookup
+            ((f.username as string) || "").toLowerCase(),
             {
               id: f.id as string,
               full_name: f.full_name,
@@ -272,8 +274,9 @@ export default function CreateEventPage() {
       const redKey = normaliseHandle(bout.redHandle);
       const blueKey = normaliseHandle(bout.blueHandle);
 
-      const redProfile = redKey ? fightersByUsername[redKey] : undefined;
-      const blueProfile = blueKey ? fightersByUsername[blueKey] : undefined;
+      // Lookup with case-insensitive username matching
+      const redProfile = redKey ? fightersByUsername[redKey.toLowerCase()] : undefined;
+      const blueProfile = blueKey ? fightersByUsername[blueKey.toLowerCase()] : undefined;
 
       // What the user actually typed in the handle boxes (without @)
       const redHandleClean =
@@ -343,76 +346,102 @@ export default function CreateEventPage() {
       }
     }
 
-if (boutRows.length > 0) {
-  const { data: insertedBouts, error: boutsError } = await supabase
-    .from("event_bouts")
-    .insert(boutRows)
-    .select("id, event_id, red_fighter_id, blue_fighter_id");
+    if (boutRows.length > 0) {
+      const { data: insertedBouts, error: boutsError } = await supabase
+        .from("event_bouts")
+        .insert(boutRows)
+        .select("id, event_id, red_fighter_id, blue_fighter_id");
 
-  if (boutsError) {
-    console.error("Bouts insert error", boutsError);
+      if (boutsError) {
+        console.error("Bouts insert error", boutsError);
 
-    // ❗ Stay on the page and show the full error (no redirect)
-    setMessage(
-      "Event created, but failed to save bouts:\n\n" +
-        (boutsError.message || "") +
-        (boutsError.details ? "\nDetails: " + boutsError.details : "") +
-        (boutsError.hint ? "\nHint: " + boutsError.hint : "")
-    );
+        // ❗ Stay on the page and show the full error (no redirect)
+        setMessage(
+          "Event created, but failed to save bouts:\n\n" +
+            (boutsError.message || "") +
+            (boutsError.details ? "\nDetails: " + boutsError.details : "") +
+            (boutsError.hint ? "\nHint: " + boutsError.hint : "")
+        );
 
-    setSaving(false);
-    return; // IMPORTANT: don't push to /events/[id] here
-  } else if (insertedBouts) {
-    // Create notifications for fighters assigned to bouts
-    try {
-      const { data: event } = await supabase
-        .from("events")
-        .select("name, owner_profile_id")
-        .eq("id", eventId)
-        .single();
-      
-      if (event) {
-        const notifications = [];
-        for (const bout of insertedBouts) {
-          if (bout.red_fighter_id) {
-            notifications.push({
-              profile_id: bout.red_fighter_id,
-              type: "bout_assigned",
-              actor_profile_id: event.owner_profile_id,
-              data: {
-                bout_id: bout.id,
-                event_id: bout.event_id,
-                event_name: event.name,
-                side: "red",
-              },
-            });
+        setSaving(false);
+        return; // IMPORTANT: don't push to /events/[id] here
+      } else if (insertedBouts) {
+        // Create notifications for fighters assigned to bouts
+        try {
+          const { data: event } = await supabase
+            .from("events")
+            .select("name, owner_profile_id")
+            .eq("id", eventId)
+            .single();
+          
+          if (event) {
+            const notifications = [];
+            for (const bout of insertedBouts) {
+              if (bout.red_fighter_id) {
+                notifications.push({
+                  profile_id: bout.red_fighter_id,
+                  type: "bout_assigned",
+                  actor_profile_id: event.owner_profile_id,
+                  data: {
+                    bout_id: bout.id,
+                    event_id: bout.event_id,
+                    event_name: event.name,
+                    side: "red",
+                  },
+                });
+              }
+              if (bout.blue_fighter_id) {
+                notifications.push({
+                  profile_id: bout.blue_fighter_id,
+                  type: "bout_assigned",
+                  actor_profile_id: event.owner_profile_id,
+                  data: {
+                    bout_id: bout.id,
+                    event_id: bout.event_id,
+                    event_name: event.name,
+                    side: "blue",
+                  },
+                });
+              }
+            }
+            
+            if (notifications.length > 0) {
+              await supabase.from("notifications").insert(notifications);
+            }
+
+            // Notify event followers about new bouts
+            try {
+              for (const bout of insertedBouts) {
+                // Get bout details for notification
+                const { data: boutDetails } = await supabase
+                  .from("event_bouts")
+                  .select("id, red_name, blue_name, card_type, order_index")
+                  .eq("id", bout.id)
+                  .single();
+
+                if (boutDetails) {
+                  await fetch(`/api/events/${eventId}/notify-bout-added`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      boutId: bout.id,
+                      boutNumber: (boutDetails.order_index || 0) + 1,
+                      cardType: boutDetails.card_type,
+                    }),
+                  });
+                }
+              }
+            } catch (notifError) {
+              console.error("Error notifying followers about new bouts:", notifError);
+              // Don't fail the event creation if notification fails
+            }
           }
-          if (bout.blue_fighter_id) {
-            notifications.push({
-              profile_id: bout.blue_fighter_id,
-              type: "bout_assigned",
-              actor_profile_id: event.owner_profile_id,
-              data: {
-                bout_id: bout.id,
-                event_id: bout.event_id,
-                event_name: event.name,
-                side: "blue",
-              },
-            });
-          }
-        }
-        
-        if (notifications.length > 0) {
-          await supabase.from("notifications").insert(notifications);
+        } catch (notifError) {
+          console.error("Bout assignment notification error", notifError);
+          // Don't throw - the event creation succeeded
         }
       }
-    } catch (notifError) {
-      console.error("Bout assignment notification error", notifError);
-      // Don't throw - the event creation succeeded
     }
-  }
-}
-
 
     setSaving(false);
     router.push(`/events/${eventId}`);
@@ -560,7 +589,7 @@ if (boutRows.length > 0) {
           </p>
 
           <div className="grid md:grid-cols-[2fr,3fr] gap-4 items-center">
-            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 h-32 flex items-center justify-center overflow-hidden">
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 h-32 flex items-center justify-center overflow-hidden relative">
               {bannerPreview ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -569,9 +598,24 @@ if (boutRows.length > 0) {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-xs text-slate-500">
-                  No image selected
-                </span>
+                <div className="flex flex-col items-center justify-center text-slate-400 px-4">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 mb-1"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <span className="text-xs font-medium mb-0.5">No image selected</span>
+                  <span className="text-[10px] text-center">Recommended: 1920×640px (3:1 ratio)</span>
+                </div>
               )}
             </div>
 
@@ -593,6 +637,9 @@ if (boutRows.length > 0) {
           <p className="text-xs text-slate-600">
             Add sponsor logos/banners that will be displayed on your event page
             in a slideshow format.
+          </p>
+          <p className="text-[10px] text-slate-500">
+            Recommended image size: 600×400px (3:2 ratio) - Images will fill the promotional box
           </p>
 
           {sponsorships.length > 0 && (
@@ -667,7 +714,8 @@ if (boutRows.length > 0) {
           </div>
         </section>
 
-        {/* STREAM SETTINGS */}
+        {/* STREAM SETTINGS - Temporarily hidden until streaming feature is ready */}
+        {false && (
         <section className="card space-y-3">
           <h2 className="text-sm font-semibold">Stream Settings</h2>
           
@@ -762,6 +810,7 @@ if (boutRows.length > 0) {
             </div>
           )}
         </section>
+        )}
 
         {/* BOUTS */}
         <section className="card space-y-3">

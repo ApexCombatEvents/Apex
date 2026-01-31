@@ -60,27 +60,43 @@ export async function POST(req: Request) {
       .eq("id", user.id)
       .single();
 
-    if (!profile || profile.role !== "FIGHTER") {
+    if (!profile || profile.role?.toUpperCase() !== "FIGHTER") {
       return NextResponse.json(
         { error: "Only fighters can add fight history" },
         { status: 403 }
       );
     }
 
-    const body = await req.json();
-    const {
-      event_name,
-      event_date,
-      opponent_name,
-      location,
-      result,
-      result_method,
-      result_round,
-      result_time,
-      weight_class,
-      martial_art,
-      notes,
-    } = body;
+    let event_name: string;
+    let event_date: string;
+    let opponent_name: string | undefined;
+    let location: string | undefined;
+    let result: string | undefined;
+    let result_method: string | undefined;
+    let result_round: number | undefined;
+    let result_time: string | undefined;
+    let weight_class: string | undefined;
+    let martial_art: string | undefined;
+    let notes: string | undefined;
+    try {
+      const body = await req.json();
+      event_name = body.event_name;
+      event_date = body.event_date;
+      opponent_name = body.opponent_name;
+      location = body.location;
+      result = body.result;
+      result_method = body.result_method;
+      result_round = body.result_round;
+      result_time = body.result_time;
+      weight_class = body.weight_class;
+      martial_art = body.martial_art;
+      notes = body.notes;
+    } catch (jsonError) {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      );
+    }
 
     // Validation
     if (!event_name || !event_date || !opponent_name || !result) {
@@ -93,6 +109,18 @@ export async function POST(req: Request) {
     if (!["win", "loss", "draw", "no_contest"].includes(result)) {
       return NextResponse.json(
         { error: "result must be win, loss, draw, or no_contest" },
+        { status: 400 }
+      );
+    }
+
+    // Validate that event_date is not in the future
+    const eventDateObj = new Date(event_date);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999); // End of today
+    
+    if (eventDateObj > today) {
+      return NextResponse.json(
+        { error: "Fight history dates cannot be in the future" },
         { status: 400 }
       );
     }
@@ -119,9 +147,20 @@ export async function POST(req: Request) {
     if (error) {
       console.error("Error creating fight history:", error);
       return NextResponse.json(
-        { error: "Failed to create fight history entry" },
+        { error: "Failed to create fight history entry", details: error.message },
         { status: 500 }
       );
+    }
+
+    // Trigger record update
+    try {
+      await fetch(`${new URL(req.url).origin}/api/fighters/update-record`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fighterId: user.id }),
+      });
+    } catch (updateError) {
+      console.error("Error triggering record update after manual fight entry:", updateError);
     }
 
     return NextResponse.json({ fight: data }, { status: 201 });

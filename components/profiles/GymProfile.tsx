@@ -10,6 +10,8 @@ import PostReactions from "@/components/social/PostReactions";
 import MessageButton from "@/components/messaging/MessageButton";
 import CreatePostModal from "@/components/social/CreatePostModal";
 import PostActionsMenu from "@/components/social/PostActionsMenu";
+import PostImages from "@/components/social/PostImages";
+import PostContent from "@/components/social/PostContent";
 import { useRouter, usePathname } from "next/navigation";
 
 type Profile = {
@@ -50,6 +52,7 @@ type Post = {
   content: string | null;
   created_at: string;
   image_url?: string | null;
+  image_urls?: string[] | null;
 };
 
 type EventSummary = {
@@ -103,9 +106,13 @@ export default function GymProfile({
 
   const [events, setEvents] = useState<EventSummary[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
+  const [eventsFilter, setEventsFilter] = useState<"upcoming" | "past">("upcoming");
+  const [eventsDisplayCount, setEventsDisplayCount] = useState(5);
 
   const [fighterEvents, setFighterEvents] = useState<any[]>([]);
   const [fighterEventsLoading, setFighterEventsLoading] = useState(true);
+  const [fighterEventsFilter, setFighterEventsFilter] = useState<"upcoming" | "past">("upcoming");
+  const [fighterEventsDisplayCount, setFighterEventsDisplayCount] = useState(5);
   const [activeEventTab, setActiveEventTab] = useState<"events" | "fighter-events">("events");
 
   const [coaches, setCoaches] = useState<FighterSummary[]>([]);
@@ -125,6 +132,45 @@ export default function GymProfile({
   }, []);
 
   const isMe = myId === profile.id;
+
+  // Helper function to check if event is upcoming
+  const isEventUpcoming = (eventDate: string | null) => {
+    if (!eventDate) return true; // Events without dates treated as upcoming
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const date = new Date(eventDate);
+    date.setHours(0, 0, 0, 0);
+    return date >= today;
+  };
+
+  // Filter and paginate events
+  const getFilteredEvents = () => {
+    const filtered = events.filter((ev) => {
+      const upcoming = isEventUpcoming(ev.event_date || null);
+      return eventsFilter === "upcoming" ? upcoming : !upcoming;
+    });
+    // Sort: upcoming shows earliest first, past shows most recent first
+    const sorted = [...filtered].sort((a, b) => {
+      const dateA = a.event_date ? new Date(a.event_date).getTime() : Infinity;
+      const dateB = b.event_date ? new Date(b.event_date).getTime() : Infinity;
+      return eventsFilter === "upcoming" ? dateA - dateB : dateB - dateA;
+    });
+    return sorted.slice(0, eventsDisplayCount);
+  };
+
+  // Filter and paginate fighter events (only upcoming)
+  const getFilteredFighterEvents = () => {
+    const filtered = fighterEvents.filter((ev: any) => {
+      return isEventUpcoming(ev.event_date);
+    });
+    // Sort: upcoming shows earliest first
+    const sorted = [...filtered].sort((a: any, b: any) => {
+      const dateA = a.event_date ? new Date(a.event_date).getTime() : Infinity;
+      const dateB = b.event_date ? new Date(b.event_date).getTime() : Infinity;
+      return dateA - dateB;
+    });
+    return sorted.slice(0, fighterEventsDisplayCount);
+  };
 
   // Events for this gym
   useEffect(() => {
@@ -255,10 +301,6 @@ export default function GymProfile({
         if (!eventsMap[eventId]) return; // Skip if event is owned by gym
 
         const event = eventsMap[eventId];
-        const eventDate = event.event_date ? new Date(event.event_date) : null;
-        const isUpcoming = !eventDate || eventDate >= today;
-
-        if (!isUpcoming) return; // Only include upcoming events
 
         if (!eventsWithFighters[eventId]) {
           eventsWithFighters[eventId] = {
@@ -284,15 +326,25 @@ export default function GymProfile({
         }
       });
 
-      // Convert to array and sort by date
+      // Convert to array and sort by date (upcoming first, then past)
       const fighterEventsList = Object.values(eventsWithFighters)
         .map((item) => ({
           ...item.event,
           fighters: item.fighters,
         }))
         .sort((a, b) => {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
           const dateA = a.event_date ? new Date(a.event_date).getTime() : Infinity;
           const dateB = b.event_date ? new Date(b.event_date).getTime() : Infinity;
+          const aUpcoming = !a.event_date || dateA >= today.getTime();
+          const bUpcoming = !b.event_date || dateB >= today.getTime();
+          
+          // Upcoming events first
+          if (aUpcoming && !bUpcoming) return -1;
+          if (!aUpcoming && bUpcoming) return 1;
+          
+          // Within same category, sort by date
           return dateA - dateB;
         });
 
@@ -322,12 +374,23 @@ export default function GymProfile({
 
     (async () => {
       setCoachesLoading(true);
+      
+      const gymIdentifier = username || (profile as any).handle;
+      if (!gymIdentifier) {
+        setCoaches([]);
+        setCoachesLoading(false);
+        return;
+      }
+
+      const gymHandle = gymIdentifier.startsWith('@') ? gymIdentifier : `@${gymIdentifier}`;
+      const gymRaw = gymIdentifier.startsWith('@') ? gymIdentifier.substring(1) : gymIdentifier;
+
       // Query for coaches - handle both uppercase and lowercase role values
       const { data, error } = await supabase
         .from("profiles")
         .select("id, full_name, username, avatar_url, country, social_links")
         .or("role.eq.coach,role.eq.COACH")
-        .contains("social_links", { gym_username: gymIdentifier });
+        .or(`social_links->>gym_username.eq.${gymHandle},social_links->>gym_username.eq.${gymRaw}`);
 
       if (error) {
         console.error("GymProfile coaches error", error);
@@ -345,13 +408,34 @@ export default function GymProfile({
       <section className="rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm">
         {/* Banner */}
         <div className="relative h-40 w-full bg-slate-200">
-          {banner_url && (
+          {banner_url ? (
             <Image
               src={banner_url}
               alt="Gym banner"
               fill
               className="object-cover"
             />
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 px-4">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6 mb-1.5 opacity-50"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+              <div className="text-xs font-medium mb-0.5">No banner</div>
+              <div className="text-[10px] opacity-75 text-center">
+                1920×640px (3:1)
+              </div>
+            </div>
           )}
         </div>
 
@@ -620,7 +704,10 @@ export default function GymProfile({
         <div className="mb-4">
           <div className="flex items-center gap-4 border-b border-slate-200">
             <button
-              onClick={() => setActiveEventTab("events")}
+              onClick={() => {
+                setActiveEventTab("events");
+                setEventsDisplayCount(5); // Reset pagination when switching tabs
+              }}
               className={`pb-3 px-1 text-sm font-medium transition-all duration-200 ${
                 activeEventTab === "events"
                   ? "text-purple-700 border-b-2 border-purple-700"
@@ -630,7 +717,10 @@ export default function GymProfile({
               Events
             </button>
             <button
-              onClick={() => setActiveEventTab("fighter-events")}
+              onClick={() => {
+                setActiveEventTab("fighter-events");
+                setFighterEventsDisplayCount(5); // Reset pagination when switching tabs
+              }}
               className={`pb-3 px-1 text-sm font-medium transition-all duration-200 ${
                 activeEventTab === "fighter-events"
                   ? "text-purple-700 border-b-2 border-purple-700"
@@ -657,43 +747,98 @@ export default function GymProfile({
                 show.
               </p>
             ) : (
-              <div className="space-y-2">
-                {events.map((ev) => {
-                  const title = ev.title || ev.name || "Untitled event";
-                  const dateLabel = ev.event_date
-                    ? new Date(ev.event_date).toLocaleDateString()
-                    : "Date TBC";
+              <>
+                {/* Filter buttons */}
+                <div className="flex items-center gap-2 mb-3">
+                  <button
+                    onClick={() => {
+                      setEventsFilter("upcoming");
+                      setEventsDisplayCount(5);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      eventsFilter === "upcoming"
+                        ? "bg-purple-100 text-purple-700 border border-purple-300"
+                        : "bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200"
+                    }`}
+                  >
+                    Upcoming
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEventsFilter("past");
+                      setEventsDisplayCount(5);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      eventsFilter === "past"
+                        ? "bg-purple-100 text-purple-700 border border-purple-300"
+                        : "bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200"
+                    }`}
+                  >
+                    Past
+                  </button>
+                </div>
 
-                  return (
-                    <Link
-                      key={ev.id}
-                      href={`/events/${ev.id}`}
-                      className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs hover:border-purple-400 hover:bg-purple-50"
-                    >
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-slate-900">
-                          {title}
-                        </span>
-                        <span className="text-[11px] text-slate-600">
-                          {dateLabel}
-                          {ev.location ? ` • ${ev.location}` : ""}
-                        </span>
+                {getFilteredEvents().length === 0 ? (
+                  <p className="text-sm text-slate-600">
+                    No {eventsFilter === "upcoming" ? "upcoming" : "past"} events.
+                  </p>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      {getFilteredEvents().map((ev) => {
+                        const title = ev.title || ev.name || "Untitled event";
+                        const dateLabel = ev.event_date
+                          ? new Date(ev.event_date).toLocaleDateString()
+                          : "Date TBC";
+
+                        return (
+                          <Link
+                            key={ev.id}
+                            href={`/events/${ev.id}`}
+                            className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs hover:border-purple-400 hover:bg-purple-50"
+                          >
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium text-slate-900">
+                                {title}
+                              </span>
+                              <span className="text-[11px] text-slate-600">
+                                {dateLabel}
+                                {ev.location ? ` • ${ev.location}` : ""}
+                              </span>
+                            </div>
+
+                            {ev.banner_url && (
+                              <div className="h-10 w-16 rounded-md overflow-hidden bg-slate-200 flex-shrink-0">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={ev.banner_url}
+                                  alt={title}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            )}
+                          </Link>
+                        );
+                      })}
+                    </div>
+
+                    {/* Infinite scroll trigger */}
+                    {events.filter((ev) => {
+                      const upcoming = isEventUpcoming(ev.event_date || null);
+                      return eventsFilter === "upcoming" ? upcoming : !upcoming;
+                    }).length > eventsDisplayCount && (
+                      <div className="mt-4 flex justify-center">
+                        <button
+                          onClick={() => setEventsDisplayCount(prev => prev + 5)}
+                          className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors"
+                        >
+                          Load More
+                        </button>
                       </div>
-
-                      {ev.banner_url && (
-                        <div className="h-10 w-16 rounded-md overflow-hidden bg-slate-200 flex-shrink-0">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={ev.banner_url}
-                            alt={title}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
+                    )}
+                  </>
+                )}
+              </>
             )}
           </div>
 
@@ -707,54 +852,81 @@ export default function GymProfile({
               <p className="text-sm text-slate-600">Loading fighter events…</p>
             ) : fighterEvents.length === 0 ? (
               <p className="text-sm text-slate-600">
-                No upcoming fights for your fighters on other promotions.
+                No fights for your fighters on other promotions.
               </p>
             ) : (
-              <div className="space-y-2">
-                {fighterEvents.map((ev: any) => {
-                  const title = ev.title || ev.name || "Untitled event";
-                  const dateLabel = ev.event_date
-                    ? new Date(ev.event_date).toLocaleDateString()
-                    : "Date TBC";
-                  const fightersLabel = ev.fighters && ev.fighters.length > 0
-                    ? ev.fighters.join(", ")
-                    : "Fighters";
+              <>
+                {getFilteredFighterEvents().length === 0 ? (
+                  <p className="text-sm text-slate-600">
+                    No upcoming fights for your fighters.
+                  </p>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      {getFilteredFighterEvents().map((ev: any) => {
+                        const title = ev.title || ev.name || "Untitled event";
+                        const dateLabel = ev.event_date
+                          ? new Date(ev.event_date).toLocaleDateString()
+                          : "Date TBC";
+                        const fightersLabel = ev.fighters && ev.fighters.length > 0
+                          ? ev.fighters.join(", ")
+                          : "Fighters";
 
-                  return (
-                    <Link
-                      key={ev.id}
-                      href={`/events/${ev.id}`}
-                      className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs hover:border-purple-400 hover:bg-purple-50"
-                    >
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-slate-900">
-                          {title}
-                        </span>
-                        <span className="text-[11px] text-slate-600">
-                          {dateLabel}
-                          {ev.location ? ` • ${ev.location}` : ""}
-                        </span>
-                        {ev.fighters && ev.fighters.length > 0 && (
-                          <span className="text-[10px] text-slate-500 mt-0.5">
-                            {fightersLabel}
-                          </span>
-                        )}
+                        return (
+                          <Link
+                            key={ev.id}
+                            href={`/events/${ev.id}`}
+                            className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs hover:border-purple-400 hover:bg-purple-50"
+                          >
+                            <div className="flex flex-col">
+                              {/* Fighter name first */}
+                              {ev.fighters && ev.fighters.length > 0 && (
+                                <span className="text-sm font-semibold text-slate-900 mb-0.5">
+                                  {fightersLabel}
+                                </span>
+                              )}
+                              {/* Event name */}
+                              <span className="text-sm font-medium text-slate-900">
+                                {title}
+                              </span>
+                              {/* Date and location */}
+                              <span className="text-[11px] text-slate-600">
+                                {dateLabel}
+                                {ev.location ? ` • ${ev.location}` : ""}
+                              </span>
+                            </div>
+
+                            {ev.banner_url && (
+                              <div className="h-10 w-16 rounded-md overflow-hidden bg-slate-200 flex-shrink-0">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={ev.banner_url}
+                                  alt={title}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            )}
+                          </Link>
+                        );
+                      })}
+                    </div>
+
+                    {/* Infinite scroll trigger */}
+                    {fighterEvents.filter((ev: any) => {
+                      return isEventUpcoming(ev.event_date);
+                    }).length > fighterEventsDisplayCount && (
+                      <div className="mt-4 flex justify-center">
+                        <button
+                          onClick={() => setFighterEventsDisplayCount(prev => prev + 5)}
+                          className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors"
+                        >
+                          Load More
+                        </button>
                       </div>
-
-                      {ev.banner_url && (
-                        <div className="h-10 w-16 rounded-md overflow-hidden bg-slate-200 flex-shrink-0">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={ev.banner_url}
-                            alt={title}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
+                    )}
+                  </>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -869,21 +1041,16 @@ export default function GymProfile({
                     variant={post.image_url ? "dark" : "light"}
                   />
                 )}
-                {post.image_url ? (
+                {(post.image_url || post.image_urls) ? (
                   <div className="relative aspect-square overflow-hidden bg-slate-100">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={post.image_url}
-                      alt={post.content || "Post image"}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
+                    <PostImages imageUrl={post.image_url} imageUrls={post.image_urls} />
                     {/* Overlay with content and date */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                       <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
                         {post.content && (
-                          <p className="text-xs font-medium mb-1 line-clamp-2">
-                            {post.content}
-                          </p>
+                          <div className="mb-1">
+                            <PostContent content={post.content} truncate className="text-white" />
+                          </div>
                         )}
                         <div className="flex items-center gap-2 mt-2">
                           <div className="text-[10px] text-white/80">
@@ -906,22 +1073,27 @@ export default function GymProfile({
                     </div>
                   </div>
                 ) : (
-                  <div className="aspect-square p-4 flex flex-col justify-between bg-gradient-to-br from-purple-50 to-slate-50">
+                  <div className="relative aspect-square p-4 flex flex-col justify-between bg-gradient-to-br from-purple-50 to-slate-50">
                     <div>
                       {post.content && (
-                        <p className="text-sm text-slate-800 line-clamp-4 mb-2">
-                          {post.content}
-                        </p>
+                        <div className="mb-2">
+                          <PostContent content={post.content} className="line-clamp-4" />
+                        </div>
                       )}
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="text-[10px] text-slate-500">
                         {new Date(post.created_at).toLocaleDateString()}
                       </div>
-                      <PostReactions
-                        postId={post.id}
-                        commentHref={`/posts/${post.id}`}
-                      />
+                    </div>
+                    {/* Hover overlay with reactions */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-purple-900/70 via-purple-900/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                      <div className="absolute bottom-3 left-3 right-3 pointer-events-auto">
+                        <PostReactions
+                          postId={post.id}
+                          commentHref={`/posts/${post.id}`}
+                        />
+                      </div>
                     </div>
                   </div>
                 )}

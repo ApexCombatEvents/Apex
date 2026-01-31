@@ -1,6 +1,7 @@
 // app/api/messages/start/route.ts
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabaseServer";
+import { canMessage } from "@/lib/messaging-security";
 
 export async function POST(req: Request) {
   const supabase = createSupabaseServer();
@@ -30,6 +31,12 @@ export async function POST(req: Request) {
       { error: "You cannot message yourself" },
       { status: 400 }
     );
+  }
+
+  // Check messaging permissions
+  const { allowed, reason } = await canMessage(supabase, user.id, otherProfileId);
+  if (!allowed) {
+    return NextResponse.json({ error: reason }, { status: 403 });
   }
 
   // 1) Look for existing thread between these two profiles

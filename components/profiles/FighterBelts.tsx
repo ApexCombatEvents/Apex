@@ -10,7 +10,7 @@ type FighterBelt = {
   weight_class: string | null;
   rank: string | null;
   promotions: {
-    id: string;
+    id: string | null;
     full_name: string | null;
     username: string | null;
   } | null;

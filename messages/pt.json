@@ -1,0 +1,45 @@
+{
+  "Common": {
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "loading": "Carregando...",
+    "error": "Erro",
+    "back": "Voltar"
+  },
+  "Navbar": {
+    "home": "Início",
+    "search": "Buscar",
+    "messages": "Mensagens",
+    "profile": "Perfil",
+    "events": "Eventos",
+    "admin": "Admin"
+  },
+  "Profile": {
+    "editProfile": "Editar Perfil",
+    "message": "Mensagem",
+    "stats": "Estatísticas",
+    "bio": "Bio",
+    "followers": "Seguidores",
+    "following": "Seguindo",
+    "record": "Recorde",
+    "winStreak": "Sequência",
+    "last5": "Últimos 5"
+  },
+  "Settings": {
+    "title": "Configurações do Perfil",
+    "language": "Idioma",
+    "selectLanguage": "Selecionar idioma...",
+    "basicInfo": "Informações Básicas",
+    "fullName": "Nome Completo",
+    "username": "Nome de Usuário",
+    "country": "País",
+    "martialArts": "Artes Marciais",
+    "saveChanges": "Salvar Alterações"
+  },
+  "Messages": {
+    "title": "Mensagens",
+    "startChat": "Iniciar novo chat",
+    "noThreads": "Nenhuma mensagem ainda.",
+    "restricted": "Mensagem restrita: Vocês devem se seguir mutuamente, compartilhar um ginásio ou ter uma oferta ativa para enviar mensagens."
+  }
+}

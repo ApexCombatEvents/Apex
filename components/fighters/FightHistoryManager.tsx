@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 
 type FightHistoryEntry = {
@@ -25,6 +26,7 @@ type FightHistoryManagerProps = {
 
 export default function FightHistoryManager({ fighterId }: FightHistoryManagerProps) {
   const supabase = createSupabaseBrowser();
+  const router = useRouter();
   const [fights, setFights] = useState<FightHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -43,8 +45,11 @@ export default function FightHistoryManager({ fighterId }: FightHistoryManagerPr
   const [weightClass, setWeightClass] = useState("");
   const [martialArt, setMartialArt] = useState("");
   const [notes, setNotes] = useState("");
+  const [maxDate, setMaxDate] = useState<string>("");
 
   useEffect(() => {
+    // Set max date on client side only to avoid hydration errors
+    setMaxDate(new Date().toISOString().split('T')[0]);
     loadFights();
   }, [fighterId]);
 
@@ -83,7 +88,14 @@ export default function FightHistoryManager({ fighterId }: FightHistoryManagerPr
 
   function startEdit(fight: FightHistoryEntry) {
     setEventName(fight.event_name);
-    setEventDate(fight.event_date);
+    // Format date for input field (YYYY-MM-DD)
+    const dateStr = fight.event_date;
+    const formattedDate = dateStr.includes('T') 
+      ? dateStr.split('T')[0] 
+      : dateStr.length === 10 
+        ? dateStr 
+        : new Date(dateStr).toISOString().split('T')[0];
+    setEventDate(formattedDate);
     setOpponentName(fight.opponent_name);
     setLocation(fight.location || "");
     setResult(fight.result);
@@ -103,6 +115,16 @@ export default function FightHistoryManager({ fighterId }: FightHistoryManagerPr
 
     if (!eventName || !eventDate || !opponentName) {
       setMessage("Event name, date, and opponent name are required");
+      return;
+    }
+
+    // Validate that event_date is not in the future
+    const selectedDate = new Date(eventDate);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999); // End of today
+    
+    if (selectedDate > today) {
+      setMessage("Fight history dates cannot be in the future. Please select a past date.");
       return;
     }
 
@@ -140,13 +162,22 @@ export default function FightHistoryManager({ fighterId }: FightHistoryManagerPr
       if (response.ok) {
         setMessage("Fight history saved successfully");
         resetForm();
-        loadFights();
+        // Reload fights to show the new/updated entry
+        await loadFights();
+        // Refresh the router to update the profile page display
+        router.refresh();
+        // Clear message after a short delay
+        setTimeout(() => setMessage(null), 3000);
       } else {
-        setMessage(data.error || "Failed to save fight history");
+        // Log the full error for debugging
+        console.error("Fight history save error:", data);
+        const errorMsg = data.error || data.message || "Failed to save fight history";
+        setMessage(errorMsg);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error saving fight:", err);
-      setMessage("Failed to save fight history");
+      const errorMsg = err?.message || "Failed to save fight history. Please check your connection and try again.";
+      setMessage(errorMsg);
     }
   }
 
@@ -162,7 +193,9 @@ export default function FightHistoryManager({ fighterId }: FightHistoryManagerPr
 
       if (response.ok) {
         setMessage("Fight deleted successfully");
-        loadFights();
+        await loadFights();
+        // Refresh the router to update the profile page display
+        router.refresh();
       } else {
         const data = await response.json();
         setMessage(data.error || "Failed to delete fight");
@@ -249,6 +282,7 @@ export default function FightHistoryManager({ fighterId }: FightHistoryManagerPr
                 type="date"
                 value={eventDate}
                 onChange={(e) => setEventDate(e.target.value)}
+                max={maxDate} // Prevent future dates (set on client to avoid hydration error)
                 className="w-full rounded-xl border px-3 py-2 text-sm"
                 required
               />

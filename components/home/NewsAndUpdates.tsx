@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
+import { useTranslation } from "@/hooks/useTranslation";
 
 type EventUpdate = {
   id: string;
@@ -13,7 +14,7 @@ type EventUpdate = {
   profile_id?: string;
   profile_name?: string;
   profile_username?: string;
-  type: "bout_added" | "bout_matched" | "event_updated" | "post" | "event_live" | "bout_result";
+  type: "bout_added" | "bout_matched" | "bout_started" | "event_updated" | "post" | "event_live" | "bout_result";
   message: string;
   created_at: string;
   martial_arts: string[] | null;
@@ -25,8 +26,16 @@ type NewsAndUpdatesProps = {
   selectedSports?: string[];
 };
 
+// Helper to detect if URL is a video
+function isVideoUrl(url: string): boolean {
+  const videoExtensions = ['.mp4', '.webm', '.mov', '.avi', '.mkv', '.m4v', '.ogg'];
+  const lowerUrl = url.toLowerCase();
+  return videoExtensions.some(ext => lowerUrl.includes(ext));
+}
+
 export default function NewsAndUpdates({ selectedSports = [] }: NewsAndUpdatesProps) {
   const supabase = createSupabaseBrowser();
+  const { t } = useTranslation();
   const [updates, setUpdates] = useState<EventUpdate[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
@@ -223,12 +232,12 @@ export default function NewsAndUpdates({ selectedSports = [] }: NewsAndUpdatesPr
           }
         }
 
-        // Get notifications for event_bout_matched, event_live, and bout_result
+        // Get notifications for event updates
         const { data: eventNotifs, error: eventNotifsError } = await supabase
           .from("notifications")
           .select("id, type, data, created_at")
           .eq("profile_id", user.id)
-          .in("type", ["event_bout_matched", "event_live", "bout_result"])
+          .in("type", ["event_bout_matched", "event_live", "bout_result", "bout_added", "bout_started"])
           .order("created_at", { ascending: false })
           .limit(50);
 
@@ -291,6 +300,45 @@ export default function NewsAndUpdates({ selectedSports = [] }: NewsAndUpdatesPr
                 event_name: event.name || notif.data?.event_name || "Event",
                 type: "bout_matched",
                 message: `Bout matched: ${fighterName} assigned to ${side}`,
+                created_at: notif.created_at,
+                martial_arts: martialArt ? [martialArt] : null,
+              });
+            } else if (notif.type === "bout_added") {
+              const redName = notif.data?.red_name || "TBC";
+              const blueName = notif.data?.blue_name || "TBC";
+              const cardType = notif.data?.card_type === "main" ? "Main card" : "Undercard";
+              const boutNumber = notif.data?.bout_number;
+
+              let message = `New bout added: ${redName} vs ${blueName}`;
+              if (boutNumber) {
+                message = `${cardType} bout ${boutNumber}: ${redName} vs ${blueName}`;
+              }
+
+              eventUpdates.push({
+                id: `bout-added-${notif.id}`,
+                event_id: eventId,
+                event_name: event.name || notif.data?.event_name || "Event",
+                type: "bout_added",
+                message: message,
+                created_at: notif.created_at,
+                martial_arts: martialArt ? [martialArt] : null,
+              });
+            } else if (notif.type === "bout_started") {
+              const redName = notif.data?.red_name || "TBC";
+              const blueName = notif.data?.blue_name || "TBC";
+              const boutNumber = notif.data?.bout_number;
+
+              let message = `Fight started: ${redName} vs ${blueName}`;
+              if (boutNumber) {
+                message = `Bout ${boutNumber} started: ${redName} vs ${blueName}`;
+              }
+
+              eventUpdates.push({
+                id: `bout-started-${notif.id}`,
+                event_id: eventId,
+                event_name: event.name || notif.data?.event_name || "Event",
+                type: "bout_started",
+                message: message,
                 created_at: notif.created_at,
                 martial_arts: martialArt ? [martialArt] : null,
               });
@@ -360,7 +408,7 @@ export default function NewsAndUpdates({ selectedSports = [] }: NewsAndUpdatesPr
   if (loading) {
     return (
       <div className="text-sm text-slate-600">
-        Loading updates...
+        {t('Common.loadingUpdates')}
       </div>
     );
   }
@@ -368,7 +416,7 @@ export default function NewsAndUpdates({ selectedSports = [] }: NewsAndUpdatesPr
   if (!userId) {
     return (
       <div className="text-sm text-slate-600">
-        Sign in to see updates from events you follow.
+        {t('Common.signInUpdates')}
       </div>
     );
   }
@@ -376,7 +424,7 @@ export default function NewsAndUpdates({ selectedSports = [] }: NewsAndUpdatesPr
   if (updates.length === 0) {
     return (
       <div className="text-sm text-slate-600">
-        No updates yet. Follow events and people to see their posts and event updates here.
+        {t('Common.noUpdates')}
       </div>
     );
   }
@@ -384,11 +432,16 @@ export default function NewsAndUpdates({ selectedSports = [] }: NewsAndUpdatesPr
   return (
     <div className="space-y-3">
       {updates.map((update) => {
-        const href = update.type === "post" && update.profile_username
-          ? `/profile/${update.profile_username}`
-          : update.event_id
-          ? `/events/${update.event_id}`
-          : "#";
+        // For user posts, extract the post ID and link to the full post page
+        // For event notifications, link to the event page
+        let href = "#";
+        if (update.type === "post") {
+          // Extract post ID from "post-{id}" format
+          const postId = update.id.replace("post-", "");
+          href = `/posts/${postId}`;
+        } else if (update.event_id) {
+          href = `/events/${update.event_id}`;
+        }
 
         return (
           <Link
@@ -402,14 +455,24 @@ export default function NewsAndUpdates({ selectedSports = [] }: NewsAndUpdatesPr
                   {update.type === "post" ? update.profile_name : update.event_name}
                 </p>
                 {update.type === "post" && update.post_image_url && (
-                  <div className="mb-2 rounded-lg overflow-hidden relative h-48">
-                    <Image
-                      src={update.post_image_url}
-                      alt="Post"
-                      fill
-                      sizes="100vw"
-                      className="object-cover"
-                    />
+                  <div className="mb-2 rounded-lg overflow-hidden relative h-48 bg-slate-100">
+                    {isVideoUrl(update.post_image_url) ? (
+                      <video
+                        src={update.post_image_url}
+                        className="w-full h-full object-cover"
+                        muted
+                        playsInline
+                        preload="metadata"
+                      />
+                    ) : (
+                      <Image
+                        src={update.post_image_url}
+                        alt="Post"
+                        fill
+                        sizes="100vw"
+                        className="object-cover"
+                      />
+                    )}
                   </div>
                 )}
                 <p className="text-xs text-slate-600 whitespace-pre-wrap break-words">

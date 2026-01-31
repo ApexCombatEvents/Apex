@@ -34,7 +34,18 @@ export async function POST(req: Request) {
       );
     }
 
-    const { identifier, password } = await req.json();
+    let identifier: string;
+    let password: string;
+    try {
+      const json = await req.json();
+      identifier = json.identifier;
+      password = json.password;
+    } catch (jsonError) {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      );
+    }
 
     // Server-side validation
     if (!identifier || typeof identifier !== 'string' || identifier.trim().length === 0) {
@@ -59,9 +70,20 @@ export async function POST(req: Request) {
     const cookieStore = cookies();
 
     // Create Supabase server client for route handler
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl || !anonKey) {
+      console.error("Missing Supabase environment variables");
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
+    }
+    
     const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      supabaseUrl,
+      anonKey,
       {
         cookies: {
           getAll() {
@@ -83,10 +105,18 @@ export async function POST(req: Request) {
     // If it's not an email, look up the username in profiles to get the email
     if (!isEmail) {
       // Use admin client to query profiles
-      const supabaseAdmin = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
+        const supabaseUrlAdmin = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const serviceRoleKeyAdmin = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        
+        if (!supabaseUrlAdmin || !serviceRoleKeyAdmin) {
+          console.error("Missing Supabase environment variables");
+          return NextResponse.json(
+            { error: "Server configuration error" },
+            { status: 500 }
+          );
+        }
+        
+        const supabaseAdmin = createClient(supabaseUrlAdmin, serviceRoleKeyAdmin);
 
       const { data: profile, error: profileError } = await supabaseAdmin
         .from("profiles")

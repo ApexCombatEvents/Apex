@@ -56,7 +56,18 @@ export default function FighterPromotions({ fighterId }: FighterPromotionsProps)
       if (error) {
         console.error("Error loading promotions:", error);
       } else {
-        setPromotions((data as FighterPromotion[]) || []);
+        // Map the data and handle promotions array (Supabase may return array even for FK relationships)
+        const mappedData = (data || []).map((item: any) => ({
+          id: item.id,
+          promotion_profile_id: item.promotion_profile_id,
+          rank: item.rank,
+          weight_class: item.weight_class,
+          belt_title: item.belt_title,
+          promotions: Array.isArray(item.promotions) 
+            ? (item.promotions[0] || null)
+            : (item.promotions || null),
+        }));
+        setPromotions(mappedData);
       }
     } catch (error) {
       console.error("Error:", error);

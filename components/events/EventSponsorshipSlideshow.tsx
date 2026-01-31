@@ -58,7 +58,8 @@ export default function EventSponsorshipSlideshow({
         src={currentSponsorship.image_url}
         alt="Event sponsor"
         fill
-        className="object-contain p-4"
+        className="object-cover"
+        sizes="(max-width: 768px) 100vw, 400px"
         priority={currentIndex === 0}
       />
     </div>

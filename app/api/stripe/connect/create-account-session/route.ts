@@ -98,9 +98,6 @@ export async function POST(req: Request) {
       components: {
         account_onboarding: {
           enabled: true,
-          features: {
-            external_account_collection: "always",
-          },
         },
       },
     });
