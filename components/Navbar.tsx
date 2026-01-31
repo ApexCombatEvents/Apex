@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import NotificationsBell from "@/components/NotificationsBell";
 import ApexLogo from "@/components/logos/ApexLogo";
-import { useTranslation, SUPPORTED_LANGUAGES, type Language } from "@/hooks/useTranslation";
+import { useTranslation, type Language } from "@/hooks/useTranslation";
+import { ALL_LANGUAGES as SUPPORTED_LANGUAGES } from "@/lib/languages";
 
 type Role = "fighter" | "coach" | "gym" | "promotion" | "admin" | null;
 
