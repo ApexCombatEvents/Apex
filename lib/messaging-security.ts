@@ -71,17 +71,17 @@ export async function canMessage(
   const { data: myEvents } = await supabase
     .from("events")
     .select("id")
-    .eq("owner_profile_id", myId);
+    .or(`owner_profile_id.eq.${myId},profile_id.eq.${myId}`);
 
   if (myEvents && myEvents.length > 0) {
     const eventIds = myEvents.map(e => e.id);
     
     // Check if otherId sent an offer to any of my event's bouts
     const { data: offerFromOther } = await supabase
-      .from("offers")
+      .from("event_bout_offers")
       .select("id")
       .eq("from_profile_id", otherId)
-      .filter("bout_id", "in", `(select id from bouts where event_id in (${eventIds.join(',')}))`)
+      .filter("bout_id", "in", `(select id from event_bouts where event_id in (${eventIds.map(id => `'${id}'`).join(',')}))`)
       .limit(1)
       .maybeSingle();
 
@@ -89,10 +89,10 @@ export async function canMessage(
 
     // Check if otherId sent an application
     const { data: appFromOther } = await supabase
-      .from("applications")
+      .from("event_applications")
       .select("id")
       .eq("fighter_profile_id", otherId)
-      .filter("bout_id", "in", `(select id from bouts where event_id in (${eventIds.join(',')}))`)
+      .filter("bout_id", "in", `(select id from event_bouts where event_id in (${eventIds.map(id => `'${id}'`).join(',')}))`)
       .limit(1)
       .maybeSingle();
 
@@ -103,26 +103,26 @@ export async function canMessage(
   const { data: otherEvents } = await supabase
     .from("events")
     .select("id")
-    .eq("owner_profile_id", otherId);
+    .or(`owner_profile_id.eq.${otherId},profile_id.eq.${otherId}`);
 
   if (otherEvents && otherEvents.length > 0) {
     const eventIds = otherEvents.map(e => e.id);
 
     const { data: myOfferToOther } = await supabase
-      .from("offers")
+      .from("event_bout_offers")
       .select("id")
       .eq("from_profile_id", myId)
-      .filter("bout_id", "in", `(select id from bouts where event_id in (${eventIds.join(',')}))`)
+      .filter("bout_id", "in", `(select id from event_bouts where event_id in (${eventIds.map(id => `'${id}'`).join(',')}))`)
       .limit(1)
       .maybeSingle();
 
     if (myOfferToOther) return { allowed: true };
 
     const { data: myAppToOther } = await supabase
-      .from("applications")
+      .from("event_applications")
       .select("id")
       .eq("fighter_profile_id", myId)
-      .filter("bout_id", "in", `(select id from bouts where event_id in (${eventIds.join(',')}))`)
+      .filter("bout_id", "in", `(select id from event_bouts where event_id in (${eventIds.map(id => `'${id}'`).join(',')}))`)
       .limit(1)
       .maybeSingle();
 

@@ -1195,7 +1195,144 @@ function EventResultRow({ event }: { event: EventResult }) {
         isFeatured ? "border-purple-300 bg-gradient-to-br from-purple-50/50 to-white" : ""
       }`}
     >
-      <div className="flex gap-6 items-center p-6">
+      {/* Mobile Layout */}
+      <div className="md:hidden p-5 space-y-4">
+        {isFeatured ? (
+          <>
+            {/* Featured Mobile Layout */}
+            <h3 className="text-lg font-bold text-slate-900 leading-tight">
+              {title}
+            </h3>
+            
+            <div className="aspect-[16/9] w-full rounded-xl bg-slate-200 overflow-hidden relative shadow-sm">
+              {event.banner_url ? (
+                <Image
+                  src={event.banner_url}
+                  alt={title}
+                  fill
+                  className="object-cover"
+                />
+              ) : (
+                <div className="h-full w-full flex flex-col items-center justify-center bg-gradient-to-br from-purple-100 to-slate-100">
+                  <ALogo size={40} className="opacity-20" />
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="badge badge-featured">
+                Featured
+              </span>
+              <span className="text-sm font-semibold text-purple-700 bg-purple-50 px-3 py-1.5 rounded-lg border border-purple-100">
+                {dateLabel}
+              </span>
+            </div>
+
+            {event.martial_art && (
+              <div className="text-sm font-bold text-purple-600 uppercase tracking-wide">
+                {event.martial_art}
+              </div>
+            )}
+
+            <div className="flex items-start gap-2 text-sm text-slate-600">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4 text-slate-400 mt-0.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+              <span className="flex-1">{locationLabel}</span>
+            </div>
+
+            <div className="text-sm text-purple-600 font-bold flex items-center gap-1 pt-1">
+              View event details
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Non-Featured Mobile Layout */}
+            <h3 className="text-lg font-bold text-slate-900 leading-tight">
+              {title}
+            </h3>
+            
+            <div className="aspect-[16/9] w-full rounded-xl bg-slate-200 overflow-hidden relative shadow-sm">
+              {event.banner_url ? (
+                <Image
+                  src={event.banner_url}
+                  alt={title}
+                  fill
+                  className="object-cover"
+                />
+              ) : (
+                <div className="h-full w-full flex flex-col items-center justify-center bg-gradient-to-br from-purple-100 to-slate-100">
+                  <ALogo size={40} className="opacity-20" />
+                </div>
+              )}
+            </div>
+
+            <div className="text-sm font-semibold text-purple-700 bg-purple-50 px-3 py-1.5 rounded-lg border border-purple-100 inline-block">
+              {dateLabel}
+            </div>
+
+            {event.martial_art && (
+              <div className="text-sm font-bold text-purple-600 uppercase tracking-wide">
+                {event.martial_art}
+              </div>
+            )}
+
+            <div className="flex items-start gap-2 text-sm text-slate-600">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4 text-slate-400 mt-0.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+              <span className="flex-1">{locationLabel}</span>
+            </div>
+
+            <div className="text-sm text-purple-600 font-bold flex items-center gap-1 pt-1">
+              View event details
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Desktop Layout */}
+      <div className="hidden md:flex gap-6 items-center p-6">
         <div className="h-20 w-28 rounded-lg bg-slate-200 overflow-hidden flex-shrink-0 relative">
           {event.banner_url ? (
             <Image

@@ -72,7 +72,7 @@ export default function Navbar() {
 
   return (
     <nav className="w-full border-b border-slate-200/80 bg-white/95 backdrop-blur-md sticky top-0 z-50 shadow-sm">
-      <div className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 py-4">
+      <div className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 py-4 relative">
         {/* Left side */}
         <div className="flex items-center gap-8">
           {/* Mobile burger */}
@@ -98,7 +98,7 @@ export default function Navbar() {
             </svg>
           </button>
 
-          <Link href="/" className="flex items-center group notranslate" translate="no">
+          <Link href="/" className="hidden md:flex items-center group notranslate" translate="no">
             <ApexLogo />
           </Link>
 
@@ -212,6 +212,13 @@ export default function Navbar() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Center: Apex Logo (Mobile Only) */}
+        <div className="md:hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+          <Link href="/" className="flex items-center group notranslate" translate="no">
+            <ApexLogo />
+          </Link>
         </div>
 
         {/* Right side */}
