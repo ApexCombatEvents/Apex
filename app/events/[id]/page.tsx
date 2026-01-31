@@ -288,7 +288,7 @@ export default async function EventPage({
       {false && fromStream && (
         <div className="mb-4">
           <Link
-            href={`/events/${event.id}/stream`}
+            href={`/events/${event?.id}/stream`}
             className="inline-flex items-center gap-2 text-sm text-purple-700 hover:text-purple-800 hover:underline"
           >
             <svg
