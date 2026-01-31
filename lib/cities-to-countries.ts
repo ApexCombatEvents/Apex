@@ -65,7 +65,6 @@ export const CITY_TO_COUNTRY: Record<string, string> = {
   ottawa: "Canada",
   winnipeg: "Canada",
   quebec: "Canada",
-  hamilton: "Canada",
   kitchener: "Canada",
   
   // Australia
@@ -419,7 +418,6 @@ export const CITY_TO_COUNTRY: Record<string, string> = {
   auckland: "New Zealand",
   wellington: "New Zealand",
   christchurch: "New Zealand",
-  hamilton: "New Zealand",
   napier: "New Zealand",
   dunedin: "New Zealand",
   palmerston: "New Zealand",
