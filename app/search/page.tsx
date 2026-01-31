@@ -1195,21 +1195,21 @@ function EventResultRow({ event }: { event: EventResult }) {
         isFeatured ? "border-purple-300 bg-gradient-to-br from-purple-50/50 to-white" : ""
       }`}
     >
-      <div className="flex gap-6 items-center p-6">
-        <div className="h-20 w-28 rounded-lg bg-slate-200 overflow-hidden flex-shrink-0 relative">
+      <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 p-4 sm:p-6">
+        <div className="h-40 sm:h-20 w-full sm:w-28 rounded-lg bg-slate-200 overflow-hidden flex-shrink-0 relative">
           {event.banner_url ? (
             <Image
               src={event.banner_url}
               alt={title}
               fill
-              sizes="112px"
+              sizes="(max-width: 640px) 100vw, 112px"
               className="object-cover"
             />
           ) : (
             <div className="h-full w-full flex flex-col items-center justify-center bg-gradient-to-br from-purple-100 to-slate-100">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 text-slate-400 mb-0.5"
+                className="h-8 w-8 sm:h-5 sm:w-5 text-slate-400 mb-0.5"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -1221,49 +1221,51 @@ function EventResultRow({ event }: { event: EventResult }) {
                   d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                 />
               </svg>
-              <div className="text-[8px] text-slate-500 text-center leading-tight px-1">
-                280×200px
+              <div className="text-[10px] sm:text-[8px] text-slate-500 text-center leading-tight px-1">
+                Event Image
               </div>
             </div>
           )}
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2 mb-1">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <h3 className="text-base font-semibold text-slate-900 truncate">
-                {title}
-              </h3>
-              {isFeatured && (
-                <span className="badge badge-featured whitespace-nowrap">
-                  Featured
-                </span>
-              )}
+        <div className="flex-1 min-w-0 flex flex-col">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 mb-2">
+            <div className="flex flex-col gap-1 flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base font-semibold text-slate-900 break-words line-clamp-2">
+                  {title}
+                </h3>
+                {isFeatured && (
+                  <span className="badge badge-featured whitespace-nowrap flex-shrink-0">
+                    Featured
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="flex flex-col items-end gap-1 flex-shrink-0">
-              <span className="text-xs font-medium text-purple-700 bg-purple-50 px-2 py-1 rounded-lg">
+            <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 sm:gap-1 flex-shrink-0 mt-1 sm:mt-0">
+              <span className="text-xs font-medium text-purple-700 bg-purple-50 px-2 py-1 rounded-lg whitespace-nowrap">
                 {dateLabel}
               </span>
               {event.event_time && (
-                <span className="text-[10px] text-slate-500">
+                <span className="text-[10px] text-slate-500 whitespace-nowrap">
                   {event.event_time}
                 </span>
               )}
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 mb-2">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 mb-3 mt-auto">
             {mapsUrl ? (
               <Link
                 href={mapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 hover:text-purple-600 transition-colors"
+                className="flex items-center gap-1 hover:text-purple-600 transition-colors max-w-full"
                 onClick={(e) => e.stopPropagation()}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-3.5 w-3.5 text-slate-400"
+                  className="h-3.5 w-3.5 text-slate-400 flex-shrink-0"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -1281,10 +1283,10 @@ function EventResultRow({ event }: { event: EventResult }) {
                     d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                   />
                 </svg>
-                <span className="underline">{locationLabel}</span>
+                <span className="underline truncate">{locationLabel}</span>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-3 w-3"
+                  className="h-3 w-3 flex-shrink-0"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -1298,10 +1300,10 @@ function EventResultRow({ event }: { event: EventResult }) {
                 </svg>
               </Link>
             ) : (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 max-w-full">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-3.5 w-3.5 text-slate-400"
+                  className="h-3.5 w-3.5 text-slate-400 flex-shrink-0"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -1319,11 +1321,11 @@ function EventResultRow({ event }: { event: EventResult }) {
                     d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                   />
                 </svg>
-                <span>{locationLabel}</span>
+                <span className="truncate">{locationLabel}</span>
               </div>
             )}
             {event.martial_art && (
-              <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-medium">
+              <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-medium whitespace-nowrap">
                 {event.martial_art}
               </span>
             )}
