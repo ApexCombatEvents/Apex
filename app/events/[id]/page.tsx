@@ -547,7 +547,7 @@ export default async function EventPage({
       </section>
 
       {/* BOUTS */}
-      <section className="card p-3 sm:p-6">
+      <section className="card p-3 sm:p-6 overflow-hidden">
         <div className="flex items-center justify-between text-xs sm:text-sm text-slate-600 mb-3 sm:mb-4">
           <div className="font-semibold">Red corner</div>
           <div className="text-[10px] sm:text-[11px] uppercase tracking-wide text-slate-400">
@@ -882,24 +882,24 @@ function BoutRow({
 
     if (redFighter || bout.red_name) {
       return (
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex flex-col items-end">
-            <span className="font-semibold text-xs sm:text-[13px] leading-tight">
+        <div className="flex items-center gap-2 sm:gap-3 max-w-full overflow-hidden">
+          <div className="flex flex-col items-end min-w-0 flex-shrink">
+            <span className="font-semibold text-xs sm:text-[13px] leading-tight truncate max-w-[80px] sm:max-w-[120px] lg:max-w-none">
               {redNameNode}
             </span>
             {redGymHandle && (
               <Link
                 href={`/profile/${redGymHandle}`}
-                className="text-[10px] sm:text-[11px] text-purple-700 hover:underline"
+                className="text-[10px] sm:text-[11px] text-purple-700 hover:underline truncate max-w-[80px] sm:max-w-[100px] lg:max-w-none"
               >
                 Gym: @{redGymHandle}
               </Link>
             )}
           </div>
 
-          <div className="flex flex-col items-center gap-0.5">
+          <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
             <div className="flex items-center gap-1.5">
-              <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-slate-200 overflow-hidden">
+              <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-slate-200 overflow-hidden flex-shrink-0">
                 {redFighter?.avatar_url && (
                   <Image
                     src={redFighter.avatar_url}
@@ -918,13 +918,13 @@ function BoutRow({
                   alt={redCountry || "Country flag"}
                   width={32}
                   height={24}
-                  className="w-5 h-4 sm:w-6 sm:h-5 object-cover rounded shadow-sm"
+                  className="w-5 h-4 sm:w-6 sm:h-5 object-cover rounded shadow-sm flex-shrink-0"
                   style={{ imageRendering: "crisp-edges" }}
                 />
               )}
             </div>
             {redCountry && (
-              <span className="text-[9px] sm:text-[10px] text-slate-500">{redCountry}</span>
+              <span className="text-[9px] sm:text-[10px] text-slate-500 truncate max-w-[60px]">{redCountry}</span>
             )}
           </div>
         </div>
@@ -958,8 +958,8 @@ function BoutRow({
 
     if (blueFighter || bout.blue_name) {
       return (
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex flex-col items-center gap-0.5">
+        <div className="flex items-center gap-2 sm:gap-3 max-w-full overflow-hidden">
+          <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
             <div className="flex items-center gap-1.5">
               {blueFlagUrl && (
                 <Image
@@ -967,11 +967,11 @@ function BoutRow({
                   alt={blueCountry || "Country flag"}
                   width={32}
                   height={24}
-                  className="w-5 h-4 sm:w-6 sm:h-5 object-cover rounded shadow-sm"
+                  className="w-5 h-4 sm:w-6 sm:h-5 object-cover rounded shadow-sm flex-shrink-0"
                   style={{ imageRendering: "crisp-edges" }}
                 />
               )}
-              <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-slate-200 overflow-hidden">
+              <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-slate-200 overflow-hidden flex-shrink-0">
                 {blueFighter?.avatar_url && (
                   <Image
                     src={blueFighter.avatar_url}
@@ -986,18 +986,18 @@ function BoutRow({
               </div>
             </div>
             {blueCountry && (
-              <span className="text-[9px] sm:text-[10px] text-slate-500">{blueCountry}</span>
+              <span className="text-[9px] sm:text-[10px] text-slate-500 truncate max-w-[60px]">{blueCountry}</span>
             )}
           </div>
 
-          <div className="flex flex-col items-start">
-            <span className="font-semibold text-xs sm:text-[13px] leading-tight">
+          <div className="flex flex-col items-start min-w-0 flex-shrink">
+            <span className="font-semibold text-xs sm:text-[13px] leading-tight truncate max-w-[80px] sm:max-w-[120px] lg:max-w-none">
               {blueNameNode}
             </span>
             {blueGymHandle && (
               <Link
                 href={`/profile/${blueGymHandle}`}
-                className="text-[10px] sm:text-[11px] text-purple-700 hover:underline"
+                className="text-[10px] sm:text-[11px] text-purple-700 hover:underline truncate max-w-[80px] sm:max-w-[100px] lg:max-w-none"
               >
                 Gym: @{blueGymHandle}
               </Link>
@@ -1016,7 +1016,7 @@ function BoutRow({
 
   return (
     <div
-      className={`rounded-xl border px-2 sm:px-3 py-2 min-h-[90px] sm:min-h-[120px] flex flex-col relative ${
+      className={`rounded-xl border px-2 sm:px-3 py-2 min-h-[90px] sm:min-h-[120px] flex flex-col relative overflow-hidden ${
         bout.is_live
           ? "border-red-500 bg-red-50/30 shadow-lg"
           : "border-slate-200 bg-slate-50"
@@ -1037,29 +1037,29 @@ function BoutRow({
         <span>{label}</span>
       </div>
 
-      <div className="grid grid-cols-[minmax(0,1fr),auto,minmax(0,1fr)] gap-2 sm:gap-4 items-center flex-1">
-        <div className="flex justify-center">{renderRedSide()}</div>
+      <div className="grid grid-cols-[minmax(0,1fr),auto,minmax(0,1fr)] gap-2 sm:gap-4 items-center flex-1 overflow-hidden">
+        <div className="flex justify-center overflow-hidden">{renderRedSide()}</div>
 
-        <div className="flex flex-col items-center justify-center text-[10px] sm:text-xs text-slate-600 px-1 sm:px-2">
+        <div className="flex flex-col items-center justify-center text-[10px] sm:text-xs text-slate-600 px-1 sm:px-2 min-w-[60px] sm:min-w-[80px] max-w-[100px] sm:max-w-[140px]">
           {bout.weight && (
             <span className="font-medium text-center">{bout.weight}</span>
           )}
-          <span className="mt-0.5 text-center">
+          <span className="mt-0.5 text-center line-clamp-2">
             {bout.bout_details || "Bout details TBC"}
           </span>
           {bout.notes && (
-            <span className="mt-1 text-[10px] sm:text-[11px] text-slate-500 text-center">
+            <span className="mt-1 text-[10px] sm:text-[11px] text-slate-500 text-center line-clamp-2">
               {bout.notes}
             </span>
           )}
           {resultText && (
-            <span className="mt-1 text-[10px] sm:text-[11px] text-purple-700 text-center">
+            <span className="mt-1 text-[10px] sm:text-[11px] text-purple-700 text-center line-clamp-2">
               {resultText}
             </span>
           )}
         </div>
 
-        <div className="flex justify-center">{renderBlueSide()}</div>
+        <div className="flex justify-center overflow-hidden">{renderBlueSide()}</div>
       </div>
     </div>
   );
