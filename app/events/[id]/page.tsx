@@ -1037,10 +1037,10 @@ function BoutRow({
         <span>{label}</span>
       </div>
 
-      <div className="grid grid-cols-[1fr,auto,1fr] gap-2 sm:gap-4 items-center flex-1">
-        <div className="flex justify-end">{renderRedSide()}</div>
+      <div className="flex items-center justify-between gap-2 sm:gap-4 flex-1">
+        <div className="flex-1 flex justify-end">{renderRedSide()}</div>
 
-        <div className="flex flex-col items-center justify-center text-[10px] sm:text-xs text-slate-600 px-1 sm:px-2">
+        <div className="flex-shrink-0 flex flex-col items-center justify-center text-[10px] sm:text-xs text-slate-600 px-1 sm:px-2 w-[80px] sm:w-[120px]">
           {bout.weight && (
             <span className="font-medium text-center">{bout.weight}</span>
           )}
@@ -1059,7 +1059,7 @@ function BoutRow({
           )}
         </div>
 
-        <div className="flex justify-start">{renderBlueSide()}</div>
+        <div className="flex-1 flex justify-start">{renderBlueSide()}</div>
       </div>
     </div>
   );
