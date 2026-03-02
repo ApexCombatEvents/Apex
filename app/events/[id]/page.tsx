@@ -17,6 +17,7 @@ import EventSponsorshipSlideshow from "@/components/events/EventSponsorshipSlide
 import StartEventButton from "@/components/events/StartEventButton";
 import OfferPaymentMessage from "@/components/events/OfferPaymentMessage";
 import ShareEventButton from "@/components/events/ShareEventButton";
+import ShareBoutButton from "@/components/events/ShareBoutButton";
 
 
 type Event = {
@@ -568,6 +569,8 @@ export default async function EventPage({
                     bout={bout}
                     label={`MAIN CARD • FIGHT ${fightNumber}`}
                     fightersById={fightersById}
+                    eventId={event.id}
+                    eventTitle={title}
                   />
                 );
               })}
@@ -587,6 +590,8 @@ export default async function EventPage({
                     bout={bout}
                     label={`UNDERCARD • FIGHT ${fightNumber}`}
                     fightersById={fightersById}
+                    eventId={event.id}
+                    eventTitle={title}
                   />
                 );
               })}
@@ -785,10 +790,14 @@ function BoutRow({
   bout,
   label,
   fightersById,
+  eventId,
+  eventTitle,
 }: {
   bout: Bout;
   label: string;
   fightersById: Record<string, ProfileLite>;
+  eventId: string;
+  eventTitle: string;
 }) {
   const redFighter = bout.red_fighter_id
     ? fightersById[bout.red_fighter_id]
@@ -1060,6 +1069,22 @@ function BoutRow({
         </div>
 
         <div className="flex-1 flex justify-start">{renderBlueSide()}</div>
+      </div>
+
+      {/* Share button — bottom right of every bout card */}
+      <div className="flex justify-end mt-2 pt-2 border-t border-slate-100">
+        <ShareBoutButton
+          boutId={bout.id}
+          eventId={eventId}
+          eventTitle={eventTitle}
+          redName={redNameBase}
+          blueName={blueNameBase}
+          weight={bout.weight}
+          boutDetails={bout.bout_details}
+          boutLabel={label}
+          redLookingForOpponent={bout.red_looking_for_opponent}
+          blueLookingForOpponent={bout.blue_looking_for_opponent}
+        />
       </div>
     </div>
   );
