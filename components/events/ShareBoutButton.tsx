@@ -33,13 +33,11 @@ export default function ShareBoutButton({
   const supabase = createSupabaseBrowser();
 
   const isLookingForOpponent = redLookingForOpponent || blueLookingForOpponent;
-  const lookingSide = redLookingForOpponent ? "Red corner" : blueLookingForOpponent ? "Blue corner" : null;
-  const lookingName = redLookingForOpponent ? redName : blueLookingForOpponent ? blueName : null;
-
-  const boutUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/events/${eventId}#bout-${boutId}`;
+  // The corner that is EMPTY needs a fighter to fill it
+  const openCorner = redLookingForOpponent ? "Red corner" : blueLookingForOpponent ? "Blue corner" : null;
 
   const defaultText = isLookingForOpponent
-    ? `🔍 ${lookingName} (${lookingSide}) needs an opponent — can you fill the spot?\n\n${redName} vs ${blueName}`
+    ? `🔍 ${openCorner} is open — looking for a fighter!\n\n${redName} vs ${blueName}`
     : `🥊 ${redName} vs ${blueName} — can't wait for this one!`;
 
   const [showModal, setShowModal] = useState(false);
@@ -47,12 +45,6 @@ export default function ShareBoutButton({
   const [sharing, setSharing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-
-  function buildPostContent(): string {
-    const boutUrl = `${window.location.origin}/events/${eventId}#bout-${boutId}`;
-    const text = description.trim() || defaultText;
-    return `${text}\n\n${boutUrl}`;
-  }
 
   async function handleShare() {
     setError(null);
@@ -81,7 +73,22 @@ export default function ShareBoutButton({
         return;
       }
 
-      const content = buildPostContent();
+      // Content is just the caption — the bout card (via post_metadata) provides the link
+      const content = description.trim() || defaultText;
+
+      const boutMetadata = {
+        type: "bout_share",
+        bout_id: boutId,
+        event_id: eventId,
+        red_name: redName,
+        blue_name: blueName,
+        weight: weight ?? null,
+        bout_details: boutDetails ?? null,
+        bout_label: boutLabel,
+        event_title: eventTitle,
+        red_looking_for_opponent: redLookingForOpponent ?? null,
+        blue_looking_for_opponent: blueLookingForOpponent ?? null,
+      };
 
       const { error: insertError } = await supabase
         .from("profile_posts")
@@ -90,6 +97,7 @@ export default function ShareBoutButton({
           content,
           image_url: null,
           image_urls: null,
+          post_metadata: boutMetadata,
         });
 
       if (insertError) {
@@ -190,7 +198,7 @@ export default function ShareBoutButton({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                     <span className="text-xs font-medium text-amber-700">
-                      {lookingSide} is looking for an opponent
+                      {openCorner} is open — fighter needed
                     </span>
                   </div>
                 )}
@@ -207,7 +215,7 @@ export default function ShareBoutButton({
                       {redName}
                     </p>
                     {redLookingForOpponent && (
-                      <span className="text-[10px] text-amber-500 font-medium">Needs opponent</span>
+                      <span className="text-[10px] text-amber-500 font-medium">Open spot</span>
                     )}
                   </div>
 
@@ -223,7 +231,7 @@ export default function ShareBoutButton({
                       {blueName}
                     </p>
                     {blueLookingForOpponent && (
-                      <span className="text-[10px] text-amber-500 font-medium">Needs opponent</span>
+                      <span className="text-[10px] text-amber-500 font-medium">Open spot</span>
                     )}
                   </div>
                 </div>

@@ -12,6 +12,7 @@ import CreatePostModal from "@/components/social/CreatePostModal";
 import PostActionsMenu from "@/components/social/PostActionsMenu";
 import PostImages from "@/components/social/PostImages";
 import PostContent from "@/components/social/PostContent";
+import BoutShareCard, { type BoutShareMetadata } from "@/components/social/BoutShareCard";
 import { useRouter, usePathname } from "next/navigation";
 
 type Profile = {
@@ -53,6 +54,7 @@ type Post = {
   created_at: string;
   image_url?: string | null;
   image_urls?: string[] | null;
+  post_metadata?: BoutShareMetadata | null;
 };
 
 type EventSummary = {
@@ -1070,6 +1072,15 @@ export default function GymProfile({
                       <span className="text-[10px] text-white font-medium">
                         {new Date(post.created_at).toLocaleDateString()}
                       </span>
+                    </div>
+                  </div>
+                ) : post.post_metadata?.type === "bout_share" ? (
+                  <div className="relative aspect-square overflow-hidden">
+                    <BoutShareCard metadata={post.post_metadata as BoutShareMetadata} compact />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                      <div className="absolute bottom-3 left-3 right-3 pointer-events-auto">
+                        <PostReactions postId={post.id} commentHref={`/posts/${post.id}`} />
+                      </div>
                     </div>
                   </div>
                 ) : (

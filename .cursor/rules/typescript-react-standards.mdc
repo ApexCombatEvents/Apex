@@ -1,0 +1,45 @@
+---
+description: TypeScript and React coding standards for this project
+globs: **/*.{ts,tsx}
+alwaysApply: false
+---
+
+# TypeScript
+
+- Always use **strict TypeScript**. Avoid `any`.
+- Prefer `interface` over `type` for object shapes.
+
+```typescript
+// ❌ BAD
+const getUser = (id: any) => { ... }
+
+// ✅ GOOD
+interface User {
+  id: string;
+  name: string;
+}
+const getUser = (id: string): Promise<User> => { ... }
+```
+
+# React Components
+
+- Use **functional components** and hooks only.
+- Keep components **small, modular, and single-purpose**.
+- Extract reusable logic into custom hooks.
+
+# Tailwind CSS
+
+- Use utility classes only. Group logically: layout → spacing → typography → colors.
+
+```tsx
+// ✅ GOOD
+<div className="flex flex-col gap-4 px-6 py-4 text-sm font-medium text-gray-700 bg-white">
+```
+
+# Naming Conventions
+
+| Target | Convention | Example |
+|--------|-----------|---------|
+| Variables & functions | `camelCase` | `getUserData` |
+| Components & filenames | `PascalCase` | `UserProfile.tsx` |
+| Global constants | `UPPER_SNAKE_CASE` | `MAX_RETRY_COUNT` |

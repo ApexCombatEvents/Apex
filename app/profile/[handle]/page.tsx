@@ -5,6 +5,7 @@ import FighterProfile from "@/components/profiles/FighterProfile";
 import CoachProfile from "@/components/profiles/CoachProfile";
 import GymProfile from "@/components/profiles/GymProfile";
 import PromotionProfile from "@/components/profiles/PromotionProfile";
+import { type BoutShareMetadata } from "@/components/social/BoutShareCard";
 
 type ProfileRole = "fighter" | "coach" | "gym" | "promotion" | null;
 
@@ -21,6 +22,7 @@ type Post = {
   created_at: string;
   image_url?: string | null;
   image_urls?: string[] | null;
+  post_metadata?: BoutShareMetadata | null;
 };
 
 export default async function ProfilePage({
@@ -90,7 +92,7 @@ export default async function ProfilePage({
   // 2) Load profile posts (used by fighter + gym feeds)
   const { data: postsData } = await supabase
     .from("profile_posts")
-    .select("id, content, created_at, image_url, image_urls")
+    .select("id, content, created_at, image_url, image_urls, post_metadata")
     .eq("profile_id", profile.id)
     .order("created_at", { ascending: false });
 

@@ -5,6 +5,7 @@ import PostReactions from "@/components/social/PostReactions";
 import PostActionsMenu from "@/components/social/PostActionsMenu";
 import PostImages from "@/components/social/PostImages";
 import PostContent from "@/components/social/PostContent";
+import BoutShareCard, { type BoutShareMetadata } from "@/components/social/BoutShareCard";
 
 type PostRow = {
   id: string;
@@ -13,6 +14,7 @@ type PostRow = {
   image_url: string | null;
   image_urls: string[] | null;
   created_at: string;
+  post_metadata?: BoutShareMetadata | null;
 };
 
 export default async function PostPage({
@@ -24,7 +26,7 @@ export default async function PostPage({
 
   const { data: post, error } = await supabase
     .from("profile_posts")
-    .select("id, profile_id, content, image_url, image_urls, created_at")
+    .select("id, profile_id, content, image_url, image_urls, created_at, post_metadata")
     .eq("id", params.id)
     .single<PostRow>();
 
@@ -125,6 +127,13 @@ export default async function PostPage({
         {post.content && (
           <div className="px-4 py-3">
             <PostContent content={post.content} />
+          </div>
+        )}
+
+        {/* Bout share card */}
+        {post.post_metadata?.type === "bout_share" && (
+          <div className="px-4 pb-3">
+            <BoutShareCard metadata={post.post_metadata as BoutShareMetadata} />
           </div>
         )}
 
