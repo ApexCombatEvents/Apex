@@ -32,5 +32,7 @@ If real credentials are not available, placeholder values allow `npm run dev`, `
 - The ESLint config extends `next/core-web-vitals` only. Lint passes with 0 errors (18 `react-hooks/exhaustive-deps` warnings are pre-existing).
 - There is no `.env.local.example` file in the repo. Refer to `README.md` for the required keys.
 - No automated test runner (jest/vitest/playwright) is configured. Quality verification is manual.
-- Protected routes (e.g. `/events`) redirect to `/login` when no Supabase session exists.
+- Protected routes (e.g. `/events`) redirect to `/login` when no Supabase session exists. When authenticated, `/events` redirects to the homepage (`/`).
 - The build produces some expected `DYNAMIC_SERVER_USAGE` warnings for API routes that use `cookies` — these are benign.
+- After signup, the app redirects to `/login` (users must log in after creating an account).
+- The `.env.local` file must be regenerated from environment secrets each session since it is gitignored. Use the shell env vars `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` to populate it.
