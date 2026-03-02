@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 
 export interface BoutShareMetadata {
@@ -39,31 +41,31 @@ export default function BoutShareCard({ metadata, compact = false }: BoutShareCa
 
   if (compact) {
     return (
-      <div className="h-full w-full flex flex-col bg-gradient-to-br from-slate-900 to-slate-800 p-3">
-        <p className="text-[9px] uppercase tracking-widest text-slate-500 mb-auto">
+      <div className="h-full w-full flex flex-col bg-white p-3 border-b border-slate-100">
+        <p className="text-[9px] uppercase tracking-widest text-slate-400 font-semibold mb-1">
           {bout_label}
         </p>
 
         {isLookingForOpponent && (
           <div className="flex items-center gap-1 mb-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5 text-amber-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <span className="text-[9px] text-amber-400 font-medium">
+            <span className="text-[9px] text-amber-600 font-semibold">
               {red_looking_for_opponent ? "Red" : "Blue"} corner open
             </span>
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-1 my-2">
-          <p className={`flex-1 text-center font-bold text-[11px] leading-tight truncate ${red_looking_for_opponent ? "text-amber-400" : "text-red-400"}`}>
+        <div className="flex items-center justify-between gap-1 my-2 flex-1">
+          <p className={`flex-1 text-center font-bold text-[11px] leading-tight truncate ${red_looking_for_opponent ? "text-amber-600" : "text-red-600"}`}>
             {red_name}
           </p>
           <div className="flex-shrink-0 flex flex-col items-center px-1">
-            <span className="text-[9px] font-bold text-slate-500 tracking-widest">VS</span>
-            {weight && <span className="text-[8px] text-slate-600 mt-0.5">{weight}</span>}
+            <span className="text-[9px] font-bold text-slate-400 tracking-widest">VS</span>
+            {weight && <span className="text-[8px] text-slate-500 mt-0.5">{weight}</span>}
           </div>
-          <p className={`flex-1 text-center font-bold text-[11px] leading-tight truncate ${blue_looking_for_opponent ? "text-amber-400" : "text-blue-400"}`}>
+          <p className={`flex-1 text-center font-bold text-[11px] leading-tight truncate ${blue_looking_for_opponent ? "text-amber-600" : "text-blue-600"}`}>
             {blue_name}
           </p>
         </div>
@@ -72,8 +74,8 @@ export default function BoutShareCard({ metadata, compact = false }: BoutShareCa
           <p className="text-[9px] text-slate-500 text-center truncate mb-1">{bout_details}</p>
         )}
 
-        <div className="flex items-center gap-1 mt-auto pt-2 border-t border-slate-700">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5 text-slate-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="flex items-center gap-1 mt-auto pt-2 border-t border-slate-100">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
           <p className="text-[9px] text-slate-500 truncate">{event_title}</p>
