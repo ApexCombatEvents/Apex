@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerForRoute } from "@/lib/supabaseServerForRoute";
 
+export const dynamic = "force-dynamic";
+
 // Calculate total earnings for a fighter across all events
 export async function GET(req: Request) {
   try {

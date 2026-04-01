@@ -1,6 +1,8 @@
 import { createSupabaseServer } from "@/lib/supabaseServer";
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 // GET all reports (admin only)
 export async function GET(request: NextRequest) {
   try {

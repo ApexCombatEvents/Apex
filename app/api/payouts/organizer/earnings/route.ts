@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerForRoute } from "@/lib/supabaseServerForRoute";
 import { calculatePlatformFee } from "@/lib/platformFees";
 
+export const dynamic = "force-dynamic";
+
 // Calculate organizer earnings (revenue minus fighter allocations) per event
 export async function GET(req: Request) {
   try {

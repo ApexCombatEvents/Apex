@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerForRoute } from "@/lib/supabaseServerForRoute";
 
+export const dynamic = "force-dynamic";
+
 // Get pending payout requests for an event organizer
 export async function GET(req: Request) {
   try {

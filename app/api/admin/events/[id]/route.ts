@@ -2,6 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { createSupabaseServer } from "@/lib/supabaseServer";
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 // Create admin client with service role key (bypasses RLS)
 function createSupabaseAdmin() {
   return createServerClient(

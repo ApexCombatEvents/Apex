@@ -2,6 +2,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerForRoute } from "@/lib/supabaseServerForRoute";
 
+export const dynamic = "force-dynamic";
+
 // PUT: Update a fight history entry
 export async function PUT(
   req: Request,
