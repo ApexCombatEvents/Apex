@@ -19,6 +19,15 @@ import { useRouter } from "next/navigation";
 import { useTranslation } from "@/hooks/useTranslation";
 import { countryToFlagUrl } from "@/lib/countries";
 
+function isBjjDiscipline(value: string): boolean {
+  const normalized = value.toLowerCase().replace(/[^a-z]/g, "");
+  return (
+    normalized === "bjj" ||
+    normalized === "brazilianjiujitsu" ||
+    normalized === "brazilianjitsu"
+  );
+}
+
 type Profile = {
   id: string;
   full_name?: string | null;
@@ -111,6 +120,18 @@ export default function FighterProfile({
 
   const arts = martial_arts && martial_arts.length ? martial_arts : [];
   const gymUsername = social_links?.gym_username || "";
+  const hasBjjDiscipline = arts.some((art) => isBjjDiscipline(art));
+  const bjjBelt = typeof social_links?.bjj_belt === "string" ? social_links.bjj_belt : "";
+  const bjjStripesRaw = social_links?.bjj_stripes;
+  const bjjStripes =
+    typeof bjjStripesRaw === "number"
+      ? bjjStripesRaw
+      : typeof bjjStripesRaw === "string"
+      ? parseInt(bjjStripesRaw, 10) || 0
+      : 0;
+  const displayBjjBelt = bjjBelt
+    ? `${bjjBelt} belt${bjjStripes > 0 ? ` • ${bjjStripes} stripe${bjjStripes === 1 ? "" : "s"}` : ""}`
+    : "–";
 
   // figure out if this is my own profile (so we can hide Message)
   const [myId, setMyId] = useState<string | null>(null);
@@ -516,6 +537,9 @@ export default function FighterProfile({
               ? martial_arts.join(", ")
               : "–"}
           </StatBox>
+          {hasBjjDiscipline && (
+            <StatBox label="BJJ Belt">{displayBjjBelt}</StatBox>
+          )}
         </div>
       </section>
       )}

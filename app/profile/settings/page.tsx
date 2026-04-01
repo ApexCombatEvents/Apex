@@ -15,6 +15,26 @@ import { COUNTRIES } from "@/lib/countries";
 import { useTranslation, type Language } from "@/hooks/useTranslation";
 import { ALL_LANGUAGES as SUPPORTED_LANGUAGES } from "@/lib/languages";
 
+const BJJ_BELT_OPTIONS = [
+  "White",
+  "Blue",
+  "Purple",
+  "Brown",
+  "Black",
+  "Coral (Red/Black)",
+  "Coral (Red/White)",
+  "Red",
+] as const;
+
+function isBjjDiscipline(value: string): boolean {
+  const normalized = value.toLowerCase().replace(/[^a-z]/g, "");
+  return (
+    normalized === "bjj" ||
+    normalized === "brazilianjiujitsu" ||
+    normalized === "brazilianjitsu"
+  );
+}
+
 export default function ProfileSettingsPage() {
   const supabase = createSupabaseBrowser();
   const router = useRouter();
@@ -66,8 +86,14 @@ export default function ProfileSettingsPage() {
   // Coach visibility settings
   const [hideStats, setHideStats] = useState(false);
   const [hideFights, setHideFights] = useState(false);
+  const [bjjBelt, setBjjBelt] = useState("");
+  const [bjjStripes, setBjjStripes] = useState("0");
 
   const isFighterOrCoach = role === "fighter" || role === "coach";
+  const hasBjjInMartialArts = martialArts
+    .split(",")
+    .map((entry) => entry.trim())
+    .some((entry) => isBjjDiscipline(entry));
 
   useEffect(() => {
     (async () => {
@@ -108,6 +134,12 @@ export default function ProfileSettingsPage() {
         setTiktok(social.tiktok ?? "");
         setYoutube(social.youtube ?? "");
         setGymUsername(social.gym_username ?? "");
+        setBjjBelt(typeof social.bjj_belt === "string" ? social.bjj_belt : "");
+        setBjjStripes(
+          typeof social.bjj_stripes === "number" || typeof social.bjj_stripes === "string"
+            ? String(social.bjj_stripes)
+            : "0"
+        );
         
         // Handle websites - support both old format (single website) and new format (array)
         if (social.websites && Array.isArray(social.websites)) {
@@ -262,6 +294,15 @@ export default function ProfileSettingsPage() {
         hide_stats: hideStats,
         hide_fights: hideFights,
       } : {}),
+      ...(isFighterOrCoach
+        ? {
+            bjj_belt: hasBjjInMartialArts && bjjBelt ? bjjBelt : null,
+            bjj_stripes:
+              hasBjjInMartialArts && bjjBelt
+                ? Math.max(0, Math.min(4, parseInt(bjjStripes, 10) || 0))
+                : null,
+          }
+        : {}),
     };
 
     // Convert role to uppercase for database constraint (database expects: FIGHTER, COACH, GYM, PROMOTION)
@@ -696,6 +737,42 @@ async function handleImageUpload(
                 />
               </label>
             </div>
+
+            {hasBjjInMartialArts && (
+              <div className="grid md:grid-cols-2 gap-3">
+                <label className="text-xs text-slate-600 space-y-1">
+                  BJJ belt
+                  <select
+                    className="w-full rounded-xl border px-3 py-2 text-sm bg-white"
+                    value={bjjBelt}
+                    onChange={(e) => setBjjBelt(e.target.value)}
+                  >
+                    <option value="">Select belt…</option>
+                    {BJJ_BELT_OPTIONS.map((belt) => (
+                      <option key={belt} value={belt}>
+                        {belt}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="text-xs text-slate-600 space-y-1">
+                  BJJ stripes
+                  <select
+                    className="w-full rounded-xl border px-3 py-2 text-sm bg-white"
+                    value={bjjStripes}
+                    onChange={(e) => setBjjStripes(e.target.value)}
+                    disabled={!bjjBelt}
+                  >
+                    <option value="0">0 stripes</option>
+                    <option value="1">1 stripe</option>
+                    <option value="2">2 stripes</option>
+                    <option value="3">3 stripes</option>
+                    <option value="4">4 stripes</option>
+                  </select>
+                </label>
+              </div>
+            )}
 
             <div className="grid md:grid-cols-2 gap-3">
               {/* Height */}
