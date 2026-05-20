@@ -272,8 +272,83 @@ export default function SearchPage() {
     setError(null);
 
     try {
+      const isProfileSearch = roleFilter !== "all";
+
+      const sortEvents = (events: EventResult[]) => {
+        return events.sort((a: EventResult, b: EventResult) => {
+          if (userLocation && (userLocation.country || userLocation.city)) {
+            const aCityMatch = userLocation.city && (
+              a.location_city?.toLowerCase() === userLocation.city.toLowerCase() ||
+              a.location?.toLowerCase().includes(userLocation.city.toLowerCase())
+            );
+            const bCityMatch = userLocation.city && (
+              b.location_city?.toLowerCase() === userLocation.city.toLowerCase() ||
+              b.location?.toLowerCase().includes(userLocation.city.toLowerCase())
+            );
+            const aCountryMatch = userLocation.country && (
+              a.location_country?.toLowerCase() === userLocation.country.toLowerCase() ||
+              a.location?.toLowerCase().includes(userLocation.country.toLowerCase())
+            );
+            const bCountryMatch = userLocation.country && (
+              b.location_country?.toLowerCase() === userLocation.country.toLowerCase() ||
+              b.location?.toLowerCase().includes(userLocation.country.toLowerCase())
+            );
+            if (aCityMatch && !bCityMatch) return -1;
+            if (!aCityMatch && bCityMatch) return 1;
+            if (aCountryMatch && !bCountryMatch) return -1;
+            if (!aCountryMatch && bCountryMatch) return 1;
+          }
+          const aTitle = (a.title || a.name || "").toLowerCase();
+          const bTitle = (b.title || b.name || "").toLowerCase();
+          return aTitle.localeCompare(bTitle);
+        });
+      };
+
+      const eventSelectFields =
+        "id, title, name, event_date, event_time, location, location_city, location_country, martial_art, banner_url, is_featured, featured_until";
+
+      // ---------- EVENTS: profile search shows featured only ----------
+      if (isProfileSearch) {
+        const now = new Date();
+        try {
+          const { data: featuredEventsData, error: featuredError } = await supabase
+            .from("events")
+            .select(eventSelectFields)
+            .eq("is_featured", true)
+            .or("featured_until.is.null,featured_until.gt." + now.toISOString())
+            .limit(20);
+
+          if (featuredError) {
+            console.error("Featured events error", featuredError);
+            setError((prev) => prev || featuredError.message);
+            setFeaturedEvents([]);
+            setRegularEvents([]);
+            setEventResults([]);
+          } else {
+            const validFeaturedEvents = ((featuredEventsData || []) as EventResult[])
+              .filter((event) => {
+                const featuredUntil = event.featured_until ? new Date(event.featured_until) : null;
+                return event.is_featured === true && (!featuredUntil || featuredUntil > now);
+              })
+              .map((event) => ({
+                ...event,
+                is_featured: true,
+              }));
+
+            const sortedFeatured = sortEvents(validFeaturedEvents);
+            setFeaturedEvents(sortedFeatured);
+            setRegularEvents([]);
+            setEventResults(sortedFeatured);
+          }
+        } catch (featuredError) {
+          console.warn("Error fetching featured events:", featuredError);
+          setFeaturedEvents([]);
+          setRegularEvents([]);
+          setEventResults([]);
+        }
+      } else {
       // ---------- EVENTS (Search first, main purpose) ----------
-      // Always search events - show all if no filters
+      // Show all matching events when no profile role filter is active
       let eventQuery = supabase
         .from("events")
         .select(
@@ -512,54 +587,14 @@ export default function SearchPage() {
         // Separate featured and regular events
         const featuredEvents = allEvents.filter(e => e.is_featured === true);
         const regularEvents = allEvents.filter(e => e.is_featured !== true);
-        
-        // Sort featured events alphabetically (or by location proximity)
-        const sortEvents = (events: EventResult[]) => {
-          return events.sort((a: EventResult, b: EventResult) => {
-            // If user location is available, prioritize nearby events
-            if (userLocation && (userLocation.country || userLocation.city)) {
-              // Check city match
-              const aCityMatch = userLocation.city && (
-                a.location_city?.toLowerCase() === userLocation.city.toLowerCase() ||
-                a.location?.toLowerCase().includes(userLocation.city.toLowerCase())
-              );
-              const bCityMatch = userLocation.city && (
-                b.location_city?.toLowerCase() === userLocation.city.toLowerCase() ||
-                b.location?.toLowerCase().includes(userLocation.city.toLowerCase())
-              );
-              
-              // Check country match
-              const aCountryMatch = userLocation.country && (
-                a.location_country?.toLowerCase() === userLocation.country.toLowerCase() ||
-                a.location?.toLowerCase().includes(userLocation.country.toLowerCase())
-              );
-              const bCountryMatch = userLocation.country && (
-                b.location_country?.toLowerCase() === userLocation.country.toLowerCase() ||
-                b.location?.toLowerCase().includes(userLocation.country.toLowerCase())
-              );
-              
-              // Priority: same city > same country > others
-              if (aCityMatch && !bCityMatch) return -1;
-              if (!aCityMatch && bCityMatch) return 1;
-              if (aCountryMatch && !bCountryMatch) return -1;
-              if (!aCountryMatch && bCountryMatch) return 1;
-            }
-            
-            // Then sort alphabetically by title (or name)
-            const aTitle = (a.title || a.name || "").toLowerCase();
-            const bTitle = (b.title || b.name || "").toLowerCase();
-            return aTitle.localeCompare(bTitle);
-          });
-        };
-        
+
         const sortedFeatured = sortEvents([...featuredEvents]);
         const sortedRegular = sortEvents([...regularEvents]);
-        
-        // Store featured and regular events separately for display
+
         setFeaturedEvents(sortedFeatured);
         setRegularEvents(sortedRegular);
-        // Also store combined for backward compatibility
         setEventResults([...sortedFeatured, ...sortedRegular]);
+      }
       }
 
       // ---------- PROFILES (Secondary search, only if role filter is set or query provided) ----------
@@ -1028,8 +1063,8 @@ export default function SearchPage() {
           </section>
         )}
 
-        {/* Regular Events - Show after featured events */}
-        {!loading && regularEvents.length > 0 && (
+        {/* Regular Events - only when searching events (not fighters/gyms/coaches/promotions) */}
+        {!loading && roleFilter === "all" && regularEvents.length > 0 && (
           <section className={`space-y-4 ${(featuredEvents.length > 0 || (profileResults.length > 0 && roleFilter !== "all")) ? 'border-t border-slate-200 pt-8' : ''}`}>
             <div className="section-header">
               <h2 className="section-title">Events ({regularEvents.length})</h2>
