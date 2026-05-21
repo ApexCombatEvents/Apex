@@ -19,11 +19,14 @@ type Profile = {
 
 type Event = {
   id: string;
-  name: string;
+  name?: string | null;
+  title?: string | null;
   event_date: string | null;
-  city: string | null;
-  country: string | null;
-  martial_arts: string[] | null;
+  location?: string | null;
+  location_city?: string | null;
+  location_country?: string | null;
+  martial_art?: string | null;
+  martial_arts?: string[] | null;
   is_featured?: boolean | null;
   featured_until?: string | null;
 };
@@ -36,11 +39,12 @@ function FightsNearYou() {
   useEffect(() => {
     async function loadEvents() {
       try {
-        // Try event_date first (newer column name), fallback to date_start if needed
         const { data, error } = await supabase
           .from("events")
-          .select("id, name, event_date, date_start, city, country, martial_arts, is_featured, featured_until")
-          .eq("status", "published");
+          .select(
+            "id, title, name, event_date, location, location_city, location_country, martial_art, is_featured, featured_until"
+          )
+          .limit(50);
 
         if (error) {
           console.error("Error loading events:", error);
@@ -50,15 +54,19 @@ function FightsNearYou() {
 
         if (data) {
           const now = new Date();
-          // Filter out expired featured events and check active featured status
-          // Use event_date if available, otherwise fallback to date_start
-          const eventsWithFeatured = (data as any[]).map(event => ({
+          const today = now.toISOString().slice(0, 10);
+          const eventsWithFeatured = (data as Event[]).map((event) => ({
             ...event,
-            event_date: event.event_date || event.date_start || null,
-            is_featured: event.is_featured && (!event.featured_until || new Date(event.featured_until) > now)
+            is_featured:
+              !!event.is_featured &&
+              (!event.featured_until || new Date(event.featured_until) > now),
           }));
 
-          const sorted = eventsWithFeatured.sort((a, b) => {
+          const upcoming = eventsWithFeatured.filter(
+            (event) => !event.event_date || event.event_date >= today
+          );
+
+          const sorted = upcoming.sort((a, b) => {
             // Featured events come first
             const aFeatured = a.is_featured === true;
             const bFeatured = b.is_featured === true;
@@ -97,7 +105,7 @@ function FightsNearYou() {
     return (
       <div className="space-y-2">
         <p className="text-sm text-slate-600">No upcoming events found.</p>
-        <Link href="/events" className="text-sm font-semibold text-purple-600">
+        <Link href="/search" className="text-sm font-semibold text-purple-600">
           View all events →
         </Link>
       </div>
@@ -111,9 +119,16 @@ function FightsNearYou() {
           const dateLabel = event.event_date
             ? new Date(event.event_date).toLocaleDateString()
             : "Date TBC";
-          const locationLabel = [event.city, event.country]
-            .filter(Boolean)
-            .join(", ") || "Location TBC";
+          const locationLabel =
+            event.location ||
+            [event.location_city, event.location_country].filter(Boolean).join(", ") ||
+            "Location TBC";
+          const eventTitle = event.title || event.name || "Untitled event";
+          const disciplineLabel =
+            event.martial_art ||
+            (event.martial_arts && event.martial_arts.length > 0
+              ? event.martial_arts.join(", ")
+              : null);
 
           return (
             <Link
@@ -129,7 +144,7 @@ function FightsNearYou() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-2">
                     <h3 className="text-sm font-bold text-slate-900 truncate">
-                      {event.name}
+                      {eventTitle}
                     </h3>
                     {event.is_featured && (
                       <span className="badge badge-featured">
@@ -145,11 +160,11 @@ function FightsNearYou() {
                         <span>{locationLabel}</span>
                       </>
                     )}
-                    {event.martial_arts && event.martial_arts.length > 0 && (
+                    {disciplineLabel && (
                       <>
                         <span>•</span>
                         <span className="font-medium text-purple-700">
-                          {event.martial_arts.join(", ")}
+                          {disciplineLabel}
                         </span>
                       </>
                     )}
@@ -160,7 +175,7 @@ function FightsNearYou() {
           );
         })}
       </div>
-      <Link href="/events" className="text-sm font-semibold text-purple-600">
+      <Link href="/search" className="text-sm font-semibold text-purple-600">
         View all events →
       </Link>
     </div>
@@ -229,11 +244,12 @@ export default function HomePage() {
         // Always include the welcome slide as the first slide
         const welcomeSlide = {
           id: "welcome-slide",
-          title: "Welcome to Apex",
-          description: "Connect fighters, coaches, gyms, and promotions. Find fights, manage events, and build your legacy in combat sports.",
-          link_url: "/search",
+          title: "Apex Combat Events",
+          description:
+            "Connect fighters, coaches, gyms, and promotions. Find fights, manage events, and build your legacy in combat sports.",
           placement: "homepage_hero",
           variant: "slideshow",
+          is_brand_slide: true,
         };
 
         // Add placeholder sponsorship slide if no sponsorships exist
@@ -263,11 +279,12 @@ export default function HomePage() {
         // Use fallback
         setHeroSponsorships([{
           id: "fallback",
-          title: "Welcome to Apex",
-          description: "Connect fighters, coaches, gyms, and promotions. Find fights, manage events, and build your legacy in combat sports.",
-          link_url: "/search",
+          title: "Apex Combat Events",
+          description:
+            "Connect fighters, coaches, gyms, and promotions. Find fights, manage events, and build your legacy in combat sports.",
           placement: "homepage_hero",
           variant: "slideshow",
+          is_brand_slide: true,
         }]);
       }
     }
@@ -286,31 +303,39 @@ export default function HomePage() {
         <div className="section-header">
           <h2 className="section-title">Explore Apex</h2>
           <p className="section-subtitle">
-            Browse events, discover fighters, or create your profile to get started.
+            {isGuest
+              ? "Browse events, discover fighters, or create your profile to get started."
+              : "Browse events and discover fighters on the platform."}
           </p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div
+          className={`grid grid-cols-1 gap-4 ${
+            isGuest ? "sm:grid-cols-3" : "sm:grid-cols-2"
+          }`}
+        >
           <HomeExploreCard
             title="Browse events"
             description="See upcoming shows, fight cards, and opportunities to compete."
             buttonLabel="View events"
-            href="/events"
+            href="/search"
             icon="events"
           />
           <HomeExploreCard
             title="Discover fighters"
             description="Explore fighter profiles already on the platform."
             buttonLabel="Find fighters"
-            href="/search"
+            href="/search?role=fighter"
             icon="fighters"
           />
-          <HomeExploreCard
-            title="Join the community"
-            description="Sign up as a fighter, coach, gym, or promotion and build your legacy."
-            buttonLabel="Sign up free"
-            href="/signup"
-            icon="signup"
-          />
+          {isGuest && (
+            <HomeExploreCard
+              title="Join the community"
+              description="Sign up as a fighter, coach, gym, or promotion and build your legacy."
+              buttonLabel="Sign up free"
+              href="/signup"
+              icon="signup"
+            />
+          )}
         </div>
       </section>
 
