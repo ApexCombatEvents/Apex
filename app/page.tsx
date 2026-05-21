@@ -105,7 +105,7 @@ function FightsNearYou() {
     return (
       <div className="space-y-2">
         <p className="text-sm text-slate-600">No upcoming events found.</p>
-        <Link href="/search" className="text-sm font-semibold text-purple-600">
+        <Link href="/events" className="text-sm font-semibold text-purple-600">
           View all events →
         </Link>
       </div>
@@ -175,7 +175,7 @@ function FightsNearYou() {
           );
         })}
       </div>
-      <Link href="/search" className="text-sm font-semibold text-purple-600">
+      <Link href="/events" className="text-sm font-semibold text-purple-600">
         View all events →
       </Link>
     </div>
@@ -317,7 +317,7 @@ export default function HomePage() {
             title="Browse events"
             description="See upcoming shows, fight cards, and opportunities to compete."
             buttonLabel="View events"
-            href="/search"
+            href="/events"
             icon="events"
           />
           <HomeExploreCard

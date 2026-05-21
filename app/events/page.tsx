@@ -1,369 +1,497 @@
-// app/events/page.tsx
+// app/events/page.tsx — public events listing, no auth required
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
-import { useRouter } from "next/navigation";
+import SponsorshipBanner from "@/components/sponsors/SponsorshipBanner";
+import { getSponsorshipsForPlacement, type Sponsorship } from "@/lib/sponsorships";
+import ALogo from "@/components/logos/ALogo";
+import { getGoogleMapsUrl } from "@/lib/location";
 
-type Event = {
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type EventRow = {
   id: string;
-  name: string;
-  title?: string | null;
+  title: string | null;
+  name: string | null;
   event_date: string | null;
-  date_end: string | null;
-  city: string | null;
-  country: string | null;
-  venue: string | null;
-  status: "draft" | "published" | "completed" | "cancelled";
-  martial_arts: string[] | null;
-  is_live?: boolean | null;
-  has_live_bout?: boolean; // Custom field to track if any bout is live
+  event_time: string | null;
+  location: string | null;
+  location_city: string | null;
+  location_country: string | null;
+  martial_art: string | null;
+  banner_url: string | null;
+  is_featured: boolean | null;
+  featured_until: string | null;
 };
 
-export default function EventsPage() {
-  const router = useRouter();
-  const supabase = createSupabaseBrowser();
-  const [loading, setLoading] = useState(true);
-  const [events, setEvents] = useState<Event[]>([]);
-  const [user, setUser] = useState<any>(null);
-  const [role, setRole] = useState<string | null>(null);
+type Tab = "upcoming" | "past" | "all";
 
-  const sortEventsByDateDescNullLast = (rows: any[]) => {
-    return [...rows].sort((a, b) => {
-      const aDate = a?.event_date ? new Date(a.event_date).getTime() : null;
-      const bDate = b?.event_date ? new Date(b.event_date).getTime() : null;
+const ART_FILTERS = [
+  { key: "all", label: "All disciplines" },
+  { key: "Muay Thai", label: "Muay Thai" },
+  { key: "Boxing", label: "Boxing" },
+  { key: "MMA", label: "MMA" },
+  { key: "BJJ", label: "BJJ" },
+  { key: "Kickboxing", label: "Kickboxing" },
+  { key: "K1", label: "K1" },
+];
 
-      if (aDate === null && bDate === null) return 0;
-      if (aDate === null) return 1;
-      if (bDate === null) return -1;
-      return bDate - aDate;
-    });
-  };
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    async function load() {
-      const { data: authData } = await supabase.auth.getUser();
-      const authUser = authData.user;
+function isFeaturedActive(event: EventRow): boolean {
+  if (!event.is_featured) return false;
+  if (!event.featured_until) return true;
+  return new Date(event.featured_until) > new Date();
+}
 
-      if (!authUser) {
-        router.push("/login");
-        return;
-      }
-
-      setUser(authUser);
-
-      // Get user role
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", authUser.id)
-        .single();
-
-      const userRole = profile?.role?.toLowerCase() || null;
-      setRole(userRole);
-
-      // Only gym and promotion can access this page
-      if (userRole !== "gym" && userRole !== "promotion") {
-        router.push("/");
-        return;
-      }
-
-      // Load events for this user - check both owner_profile_id and profile_id
-      // (some older events might use profile_id)
-      const { data: eventsData, error } = await supabase
-        .from("events")
-        .select("*, title")
-        .or(`owner_profile_id.eq.${authUser.id},profile_id.eq.${authUser.id}`)
-        .order("event_date", { ascending: false });
-
-      let eventsToSet: Event[] = [];
-
-      if (error) {
-        console.error("Error loading events:", error);
-        // If the OR query fails (maybe profile_id doesn't exist), try just owner_profile_id
-        const { data: eventsData2, error: error2 } = await supabase
-          .from("events")
-          .select("*, title")
-          .eq("owner_profile_id", authUser.id)
-          .order("event_date", { ascending: false });
-        
-        if (error2) {
-          console.error("Error loading events (fallback):", error2);
-        } else {
-          console.log("Loaded events (fallback):", eventsData2?.length || 0, "events for user", authUser.id);
-          eventsToSet = eventsData2 || [];
-        }
+function insertSponsorsBetween(
+  events: EventRow[],
+  sponsorships: Sponsorship[],
+  interval = 4
+): (EventRow | { __sponsor: Sponsorship } | { __sponsorPlaceholder: true })[] {
+  const result: (
+    | EventRow
+    | { __sponsor: Sponsorship }
+    | { __sponsorPlaceholder: true }
+  )[] = [];
+  let sIdx = 0;
+  events.forEach((event, i) => {
+    result.push(event);
+    if ((i + 1) % interval === 0 && i < events.length - 1) {
+      if (sponsorships.length > 0) {
+        result.push({ __sponsor: sponsorships[sIdx % sponsorships.length] });
+        sIdx++;
       } else {
-        console.log("Loaded events:", eventsData?.length || 0, "events for user", authUser.id);
-        eventsToSet = eventsData || [];
+        result.push({ __sponsorPlaceholder: true });
       }
-
-      // Check for live bouts for each event
-      if (eventsToSet.length > 0) {
-        const eventIds = eventsToSet.map(e => e.id);
-        const { data: liveBoutsData } = await supabase
-          .from("event_bouts")
-          .select("event_id")
-          .in("event_id", eventIds)
-          .eq("is_live", true);
-
-        const eventsWithLiveBouts = new Set(
-          (liveBoutsData || []).map((b: any) => b.event_id)
-        );
-
-        // Add has_live_bout flag to each event
-        const eventsWithLiveStatus = eventsToSet.map(event => ({
-          ...event,
-          has_live_bout: eventsWithLiveBouts.has(event.id)
-        }));
-
-        setEvents(sortEventsByDateDescNullLast(eventsWithLiveStatus));
-      } else {
-        setEvents([]);
-      }
-
-      setLoading(false);
     }
-
-    load();
-  }, [supabase, router]);
-
-  if (loading) {
-    return (
-      <div className="max-w-6xl mx-auto">
-        <p className="text-sm sm:text-base text-slate-600">Loading events...</p>
-      </div>
-    );
-  }
-
-  // Separate events into current/upcoming and past
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-
-  const currentEvents = events.filter((event) => {
-    if (event.status === "completed" || event.status === "cancelled") {
-      return false;
-    }
-    if (!event.event_date) {
-      return true; // Include events without dates (drafts)
-    }
-    const eventDate = new Date(event.event_date);
-    eventDate.setHours(0, 0, 0, 0);
-    return eventDate >= now;
   });
+  return result;
+}
 
-  const pastEvents = events.filter((event) => {
-    if (event.status === "completed" || event.status === "cancelled") {
-      return true;
-    }
-    if (!event.event_date) {
-      return false;
-    }
-    const eventDate = new Date(event.event_date);
-    eventDate.setHours(0, 0, 0, 0);
-    return eventDate < now;
-  });
+// ─── Event card ───────────────────────────────────────────────────────────────
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "Date TBC";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
-  const getStatusBadge = (status: string) => {
-    const statusColors: Record<string, string> = {
-      draft: "bg-slate-200 text-slate-700",
-      published: "bg-blue-100 text-blue-700",
-      completed: "bg-green-100 text-green-700",
-      cancelled: "bg-red-100 text-red-700",
-    };
-    const color = statusColors[status] || "bg-slate-200 text-slate-700";
-    return (
-      <span
-        className={`px-2 py-1 rounded-full text-[10px] font-medium uppercase ${color}`}
-      >
-        {status}
-      </span>
-    );
-  };
+function EventCard({ event }: { event: EventRow }) {
+  const title = event.title || event.name || "Untitled event";
+  const dateLabel = event.event_date
+    ? new Date(event.event_date).toLocaleDateString("en-US", {
+        weekday: "short",
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : "Date TBC";
+  const locationLabel =
+    event.location ||
+    [event.location_city, event.location_country].filter(Boolean).join(", ") ||
+    "Location TBC";
+  const mapsUrl = getGoogleMapsUrl(locationLabel !== "Location TBC" ? locationLabel : null);
+  const featured = isFeaturedActive(event);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-10">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">Events</h1>
-          <p className="text-base sm:text-lg text-slate-600 mt-3">
-            Manage your events and create new ones
-          </p>
+    <Link
+      href={`/events/${event.id}`}
+      className={`block card hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 ${
+        featured ? "border-purple-300 bg-gradient-to-br from-purple-50/50 to-white" : ""
+      }`}
+    >
+      {/* Mobile layout — always show banner */}
+      <div className="md:hidden p-4 space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="text-base font-bold text-slate-900 leading-tight">{title}</h3>
+          {featured && <span className="badge badge-featured shrink-0">Featured</span>}
         </div>
-        <Link
-          href="/create-event"
-          className="btn btn-primary"
-        >
-          + Create Event
-        </Link>
+        <div className="aspect-[16/9] w-full rounded-xl overflow-hidden relative shadow-sm bg-slate-100">
+          {event.banner_url ? (
+            <Image src={event.banner_url} alt={title} fill className="object-cover" />
+          ) : (
+            <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-purple-100 to-slate-100">
+              <ALogo size={40} className="opacity-20" />
+            </div>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs text-slate-600">
+          <span className="font-medium">{dateLabel}</span>
+          {event.event_time && <span>• {event.event_time}</span>}
+          {locationLabel !== "Location TBC" && <span>• {locationLabel}</span>}
+          {event.martial_art && (
+            <span className="font-medium text-purple-700">• {event.martial_art}</span>
+          )}
+        </div>
       </div>
 
-      {/* Current/Upcoming Events */}
-      <section className="space-y-6">
-        <div className="section-header">
-          <h2 className="section-title text-xl sm:text-2xl font-bold">Current & Upcoming Events</h2>
+      {/* Desktop layout — always show banner thumbnail */}
+      <div className="hidden md:flex gap-5 p-5">
+        <div className="w-48 h-32 rounded-xl overflow-hidden relative bg-slate-100 shrink-0 shadow-sm">
+          {event.banner_url ? (
+            <Image src={event.banner_url} alt={title} fill className="object-cover" />
+          ) : (
+            <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-purple-100 to-slate-100">
+              <ALogo size={36} className="opacity-20" />
+            </div>
+          )}
         </div>
-        {currentEvents.length === 0 ? (
-          <div className="card p-6">
-            <p className="text-sm sm:text-base text-slate-600">
-              No current or upcoming events. Create your first event to get
-              started.
-            </p>
+        <div className="flex-1 min-w-0 py-1">
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-base font-bold text-slate-900">{title}</h3>
+              {featured && <span className="badge badge-featured">Featured</span>}
+            </div>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 text-slate-400 shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
           </div>
-        ) : (
-          <div className="space-y-4">
-            {currentEvents.map((event) => (
-              <div
-                key={event.id}
-                className="card p-6 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
-              >
-                <Link
-                  href={`/events/${event.id}`}
-                  className="block"
-                >
-                  <div className="flex items-start justify-between gap-6">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
-                        <h3 className="text-lg sm:text-xl font-semibold text-slate-900">
-                          {event.title || event.name}
-                        </h3>
-                        {getStatusBadge(event.status)}
-                        {event.has_live_bout === true && (
-                          <span className="badge badge-live">
-                            <span className="flex h-2 w-2 rounded-full bg-white animate-pulse mr-1.5"></span>
-                            Live
-                          </span>
-                        )}
-                      </div>
-                    <div className="space-y-2 text-sm sm:text-base text-slate-600">
-                      <p>
-                        {formatDate(event.event_date)}
-                        {event.venue && ` • ${event.venue}`}
-                      </p>
-                      {event.city && event.country && (
-                        <p>
-                          {event.city}, {event.country}
-                        </p>
-                      )}
-                      {event.martial_arts && event.martial_arts.length > 0 && (
-                        <p className="text-sm text-slate-500">
-                          {event.martial_arts.join(", ")}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6 text-slate-400 flex-shrink-0"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+          <div className="flex flex-wrap gap-3 text-sm text-slate-600">
+            <span className="font-medium">{dateLabel}</span>
+            {event.event_time && <span>• {event.event_time}</span>}
+            {locationLabel !== "Location TBC" && (
+              <span>
+                •{" "}
+                {mapsUrl ? (
+                  <span
+                    onClick={(e) => {
+                      e.preventDefault();
+                      window.open(mapsUrl, "_blank", "noopener");
+                    }}
+                    className="hover:text-purple-700 hover:underline cursor-pointer"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                </div>
-                </Link>
-                {/* Watch Stream button hidden for initial rollout */}
-                {false && event.has_live_bout === true && (
-                  <div className="mt-4 pt-4 border-t border-slate-200">
-                    <Link
-                      href={`/events/${event.id}/stream`}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-purple-600 text-white text-sm sm:text-base font-medium hover:bg-purple-700 transition-colors w-full justify-center"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-4 w-4"
-                        fill="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                      Watch Stream
-                    </Link>
-                  </div>
+                    {locationLabel}
+                  </span>
+                ) : (
+                  locationLabel
                 )}
-              </div>
-            ))}
+              </span>
+            )}
+            {event.martial_art && (
+              <span className="font-medium text-purple-700">• {event.martial_art}</span>
+            )}
           </div>
-        )}
-      </section>
+        </div>
+      </div>
+    </Link>
+  );
+}
 
-      {/* Past Events */}
-      {pastEvents.length > 0 && (
-        <section className="space-y-6">
-          <div className="section-header">
-            <h2 className="section-title text-xl sm:text-2xl font-bold">Past Events</h2>
-          </div>
-          <div className="space-y-4">
-            {pastEvents.map((event) => (
-              <Link
-                key={event.id}
-                href={`/events/${event.id}`}
-                className="card p-6 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 block opacity-75 hover:opacity-100"
-              >
-                <div className="flex items-start justify-between gap-6">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-3">
-                      <h3 className="text-lg sm:text-xl font-semibold text-slate-900">
-                        {event.name}
-                      </h3>
-                      {getStatusBadge(event.status)}
-                    </div>
-                    <div className="space-y-2 text-sm sm:text-base text-slate-600">
-                      <p>
-                        {formatDate(event.event_date)}
-                        {event.venue && ` • ${event.venue}`}
-                      </p>
-                      {event.city && event.country && (
-                        <p>
-                          {event.city}, {event.country}
-                        </p>
-                      )}
-                      {event.martial_arts && event.martial_arts.length > 0 && (
-                        <p className="text-sm text-slate-500">
-                          {event.martial_arts.join(", ")}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6 text-slate-400 flex-shrink-0"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
+// ─── Sponsor placeholder ──────────────────────────────────────────────────────
+
+function SponsorPlaceholder() {
+  return (
+    <div className="rounded-2xl border-2 border-dashed border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50/30 p-4">
+      <div className="flex items-center gap-4">
+        <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center shrink-0">
+          <ALogo size={28} className="text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h4 className="font-bold text-sm text-slate-900 mb-0.5">Sponsor Placement Available</h4>
+          <p className="text-xs text-slate-600 mb-1">
+            High-visibility placement between event listings.
+          </p>
+          <a
+            href="mailto:sponsors@apexcombatevents.com"
+            className="text-xs text-purple-700 font-medium hover:underline"
+            onClick={(e) => e.stopPropagation()}
+          >
+            sponsors@apexcombatevents.com
+          </a>
+        </div>
+      </div>
     </div>
   );
 }
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function EventsPage() {
+  const supabase = createSupabaseBrowser();
+
+  const [allEvents, setAllEvents] = useState<EventRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sponsorships, setSponsorships] = useState<Sponsorship[]>([]);
+
+  // Filters / tab
+  const [searchQuery, setSearchQuery] = useState("");
+  const [artFilter, setArtFilter] = useState("all");
+  const [tab, setTab] = useState<Tab>("upcoming");
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [{ data: eventsData }, eventSponsorships] = await Promise.all([
+          supabase
+            .from("events")
+            .select(
+              "id, title, name, event_date, event_time, location, location_city, location_country, martial_art, banner_url, is_featured, featured_until"
+            )
+            .order("event_date", { ascending: true })
+            .limit(300),
+          getSponsorshipsForPlacement("events_page"),
+        ]);
+
+        setAllEvents((eventsData as EventRow[]) || []);
+        setSponsorships(eventSponsorships);
+      } catch (err) {
+        console.error("Failed to load events:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [supabase]);
+
+  // ── Derived lists ──────────────────────────────────────────────────────────
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return allEvents.filter((e) => {
+      // Art filter — use includes() to support comma-separated or multi-discipline values
+      if (artFilter !== "all" && !e.martial_art?.toLowerCase().includes(artFilter.toLowerCase())) {
+        return false;
+      }
+      // Search query
+      if (q) {
+        const titleMatch = (e.title || e.name || "").toLowerCase().includes(q);
+        const locMatch =
+          (e.location || "").toLowerCase().includes(q) ||
+          (e.location_city || "").toLowerCase().includes(q) ||
+          (e.location_country || "").toLowerCase().includes(q);
+        if (!titleMatch && !locMatch) return false;
+      }
+      return true;
+    });
+  }, [allEvents, searchQuery, artFilter]);
+
+  const tabFiltered = useMemo(() => {
+    if (tab === "all") return filtered;
+    if (tab === "upcoming") return filtered.filter((e) => !e.event_date || e.event_date >= todayStr);
+    return filtered.filter((e) => !!e.event_date && e.event_date < todayStr);
+  }, [filtered, tab, todayStr]);
+
+  const featuredEvents = useMemo(
+    () => tabFiltered.filter(isFeaturedActive),
+    [tabFiltered]
+  );
+  const regularEvents = useMemo(
+    () => tabFiltered.filter((e) => !isFeaturedActive(e)),
+    [tabFiltered]
+  );
+
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-8">
+      {/* Header */}
+      <div className="space-y-1">
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+          Events
+        </h1>
+        <p className="text-slate-600 text-sm sm:text-base">
+          Browse upcoming fights, shows, and combat sports events.
+        </p>
+      </div>
+
+      {/* Search + filters */}
+      <div className="card p-4 space-y-4">
+        {/* Search bar */}
+        <div className="relative">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by event name or location…"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              aria-label="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        {/* Martial art filter */}
+        <div className="flex flex-wrap gap-2">
+          {ART_FILTERS.map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setArtFilter(f.key)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all ${
+                artFilter === f.key
+                  ? "border-purple-400 bg-purple-100 text-purple-700 shadow-sm"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-purple-300 hover:bg-purple-50"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab toggle */}
+        <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">
+          {(["upcoming", "past", "all"] as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
+                tab === t
+                  ? "bg-white text-purple-700 shadow-sm"
+                  : "text-slate-600 hover:text-slate-800"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Main sponsor placement — prominent banner below filters */}
+      <section className="w-[95%] mx-auto">
+        {sponsorships.length > 0 ? (
+          sponsorships.slice(0, 1).map((s) => (
+            <SponsorshipBanner key={s.id} sponsorship={s} variant="vertical" />
+          ))
+        ) : (
+          <div className="card border-2 border-dashed border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50">
+            <div className="flex items-center gap-4 py-6 px-5">
+              <div className="w-16 h-16 rounded-xl bg-purple-200 flex items-center justify-center shrink-0">
+                <ALogo size={40} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-base text-slate-900 mb-1">Sponsor Placement Available</h3>
+                <p className="text-sm text-slate-600 mb-2">
+                  Your brand will appear here on the events page — high-visibility placement seen by every visitor.
+                </p>
+                <a
+                  href="mailto:sponsors@apexcombatevents.com"
+                  className="text-sm text-purple-700 font-medium hover:underline"
+                >
+                  sponsors@apexcombatevents.com
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* Loading skeleton */}
+      {loading && (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="card p-5 animate-pulse">
+              <div className="h-4 bg-slate-200 rounded w-1/3 mb-3" />
+              <div className="h-3 bg-slate-100 rounded w-1/2" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && tabFiltered.length === 0 && (
+        <div className="card p-8 text-center">
+          <p className="text-slate-600 mb-2">
+            {searchQuery || artFilter !== "all"
+              ? "No events match your filters. Try adjusting your search."
+              : tab === "past"
+              ? "No past events found."
+              : "No upcoming events yet. Check back soon!"}
+          </p>
+          {(searchQuery || artFilter !== "all") && (
+            <button
+              onClick={() => { setSearchQuery(""); setArtFilter("all"); }}
+              className="text-sm text-purple-600 font-medium hover:underline mt-1"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Featured events */}
+      {!loading && featuredEvents.length > 0 && (
+        <section className="space-y-4">
+          <div className="section-header">
+            <h2 className="section-title">
+              Featured Events
+              <span className="ml-2 text-sm font-normal text-slate-500">
+                ({featuredEvents.length})
+              </span>
+            </h2>
+            <p className="section-subtitle">Sponsored events — get maximum visibility</p>
+          </div>
+          <div className="space-y-4">
+            {insertSponsorsBetween(featuredEvents, sponsorships, 3).map((item, idx) => {
+              if ("__sponsor" in item)
+                return (
+                  <div key={`sp-f-${idx}`} className="my-2">
+                    <SponsorshipBanner
+                      sponsorship={item.__sponsor}
+                      variant={(item.__sponsor.variant as "horizontal" | "vertical" | "compact") || "horizontal"}
+                    />
+                  </div>
+                );
+              if ("__sponsorPlaceholder" in item)
+                return <SponsorPlaceholder key={`sph-f-${idx}`} />;
+              return <EventCard key={(item as EventRow).id} event={item as EventRow} />;
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* All / regular events */}
+      {!loading && regularEvents.length > 0 && (
+        <section className="space-y-4">
+          {featuredEvents.length > 0 && (
+            <div className="section-header">
+              <h2 className="section-title">
+                {tab === "past" ? "Past Events" : tab === "upcoming" ? "Upcoming Events" : "All Events"}
+                <span className="ml-2 text-sm font-normal text-slate-500">
+                  ({regularEvents.length})
+                </span>
+              </h2>
+            </div>
+          )}
+          <div className="space-y-4">
+            {insertSponsorsBetween(regularEvents, sponsorships, 3).map((item, idx) => {
+              if ("__sponsor" in item)
+                return (
+                  <div key={`sp-r-${idx}`} className="my-2">
+                    <SponsorshipBanner
+                      sponsorship={item.__sponsor}
+                      variant={(item.__sponsor.variant as "horizontal" | "vertical" | "compact") || "horizontal"}
+                    />
+                  </div>
+                );
+              if ("__sponsorPlaceholder" in item)
+                return <SponsorPlaceholder key={`sph-r-${idx}`} />;
+              return <EventCard key={(item as EventRow).id} event={item as EventRow} />;
+            })}
+          </div>
+        </section>
+      )}
+
+    </div>
+  );
+}

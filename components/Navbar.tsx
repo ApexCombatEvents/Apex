@@ -71,7 +71,7 @@ export default function Navbar() {
   }, []);
 
   return (
-    <nav className="w-full border-b border-slate-200/80 bg-white/95 backdrop-blur-md sticky top-0 z-50 shadow-sm">
+    <nav className="w-full border-b border-purple-100/80 bg-white/90 backdrop-blur-md sticky top-0 z-50 shadow-sm">
       <div className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 py-4 relative">
         {/* Left side */}
         <div className="flex items-center gap-8">
@@ -103,6 +103,12 @@ export default function Navbar() {
           </Link>
 
           <div className="hidden md:flex items-center gap-1">
+            <Link 
+              href="/events" 
+              className="px-4 py-2 rounded-lg text-sm font-medium text-slate-700 hover:text-purple-700 hover:bg-purple-50/50 transition-colors"
+            >
+              Events
+            </Link>
             <Link 
               href="/search" 
               className="px-4 py-2 rounded-lg text-sm font-medium text-slate-700 hover:text-purple-700 hover:bg-purple-50/50 transition-colors"
@@ -137,10 +143,10 @@ export default function Navbar() {
 
             {(role === "gym" || role === "promotion") && (
               <Link 
-                href="/events" 
+                href="/my-events" 
                 className="px-4 py-2 rounded-lg text-sm font-medium text-slate-700 hover:text-purple-700 hover:bg-purple-50/50 transition-colors"
               >
-                {t('Navbar.events')}
+                My Events
               </Link>
             )}
 
@@ -158,7 +164,7 @@ export default function Navbar() {
               <div className="relative">
                 <button
                   onClick={() => setAdminMenuOpen(!adminMenuOpen)}
-                  className="px-4 py-2 rounded-lg text-sm font-medium text-slate-700 hover:text-purple-700 hover:bg-purple-50/50 transition-colors flex items-center gap-1"
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-purple-300 hover:bg-purple-900/40 transition-colors flex items-center gap-1"
                 >
                   {t('Navbar.admin')}
                   <svg
@@ -315,14 +321,24 @@ export default function Navbar() {
               </div>
 
               <div className="mt-4 grid gap-2 text-sm">
-                {/* Events - only visible to gyms and promotions */}
-                {(role === "gym" || role === "promotion") && (
+                {/* Messages - always in burger for signed-in users */}
+                {user && (
                   <Link
-                    href="/events"
+                    href="/messages"
                     onClick={() => setMobileOpen(false)}
                     className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-800 hover:bg-slate-50"
                   >
-                    {t('Navbar.events')}
+                    {t('Navbar.messages')}
+                  </Link>
+                )}
+                {/* My Events - only visible to gyms and promotions */}
+                {(role === "gym" || role === "promotion") && (
+                  <Link
+                    href="/my-events"
+                    onClick={() => setMobileOpen(false)}
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-800 hover:bg-slate-50"
+                  >
+                    My Events
                   </Link>
                 )}
                 <Link

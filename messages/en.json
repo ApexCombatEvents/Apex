@@ -33,11 +33,11 @@
     "last5": "Last 5"
   },
   "Search": {
-    "title": "Search Events & Profiles",
-    "subtitle": "Find fighting events to participate in or watch. You can also search for fighters, coaches, gyms, and promotions.",
-    "placeholder": "Search events by title or location",
+    "title": "Find Fighters & Profiles",
+    "subtitle": "Search for fighters, coaches, gyms, and promotions on the platform.",
+    "placeholder": "Search by name or username…",
     "button": "Search",
-    "alsoSearch": "Also search:",
+    "alsoSearch": "Filter:",
     "all": "All",
     "fighters": "Fighters",
     "coaches": "Coaches",

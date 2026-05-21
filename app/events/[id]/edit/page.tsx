@@ -645,7 +645,7 @@ export default function EditEventPage() {
       setDeleting(false);
       setShowDeleteConfirm(false);
     } else {
-      router.push("/events");
+      router.push("/my-events");
     }
   }
 

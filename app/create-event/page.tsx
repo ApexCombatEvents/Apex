@@ -462,7 +462,7 @@ export default function CreateEventPage() {
           </p>
         </div>
         <Link
-          href="/events"
+          href="/my-events"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors whitespace-nowrap"
         >
           <svg
