@@ -73,6 +73,15 @@ const ROLE_FILTERS: { key: "all" | Role; label: string }[] = [
   { key: "promotion", label: "Promotions" },
 ];
 
+const VALID_ROLE_PARAMS = new Set<string>(["fighter", "coach", "gym", "promotion"]);
+
+function parseRoleFromUrl(): Role | null {
+  if (typeof window === "undefined") return null;
+  const role = new URLSearchParams(window.location.search).get("role");
+  if (!role || !VALID_ROLE_PARAMS.has(role)) return null;
+  return role as Role;
+}
+
 const ART_FILTERS = [
   { key: "all", label: "All disciplines" },
   { key: "Muay Thai", label: "Muay Thai" },
@@ -115,12 +124,22 @@ export default function SearchPage() {
   const { t } = useTranslation();
 
   const [query, setQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState<"all" | Role>("all");
+  const [roleFilter, setRoleFilter] = useState<"all" | Role>(() => {
+    return parseRoleFromUrl() ?? "all";
+  });
   const [artFilter, setArtFilter] = useState<string>("all");
   const [locationFilter, setLocationFilter] = useState("");
   const [upcomingOnly, setUpcomingOnly] = useState(true);
 
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Apply ?role=fighter (etc.) from deep links (e.g. homepage "Find fighters")
+  useEffect(() => {
+    const roleFromUrl = parseRoleFromUrl();
+    if (roleFromUrl) {
+      setRoleFilter(roleFromUrl);
+    }
+  }, []);
 
   // Auto-show advanced filters when fighter filter is selected
   useEffect(() => {

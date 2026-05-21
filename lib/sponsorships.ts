@@ -15,6 +15,8 @@ export type Sponsorship = {
   display_order?: number | null;
   placement: string;
   variant: string;
+  /** Homepage hero: show Apex Combat Events branding */
+  is_brand_slide?: boolean;
 };
 
 export async function getSponsorshipsForPlacement(

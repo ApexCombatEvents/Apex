@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import ApexLogo from "@/components/logos/ApexLogo";
 
 type Sponsorship = {
   id: string;
@@ -14,6 +15,8 @@ type Sponsorship = {
   background_color?: string | null;
   text_color?: string | null;
   display_order?: number | null;
+  /** Show Apex Combat Events branding (navbar style) */
+  is_brand_slide?: boolean;
 };
 
 type SponsorshipSlideshowProps = {
@@ -68,34 +71,62 @@ export default function SponsorshipSlideshow({
     setCurrentIndex(index);
   };
 
+  const isBrandSlide = !!currentSponsorship.is_brand_slide;
   const bgColor = currentSponsorship.background_color || "from-purple-600 via-indigo-600 to-purple-800";
   const textColor = currentSponsorship.text_color || "text-white";
 
+  const linkUrl = currentSponsorship.link_url;
+  const isInternalLink = !!linkUrl && linkUrl.startsWith("/");
+
   const content = (
-    <div className={`relative z-10 h-full flex flex-col items-center justify-center text-center px-6 ${textColor} ${currentSponsorship.link_url ? "cursor-pointer hover:opacity-95 transition-opacity" : ""}`}>
-      {currentSponsorship.description && (
-        <p className="text-base sm:text-lg md:text-xl mb-4 max-w-2xl drop-shadow-md opacity-95">
-          {currentSponsorship.description}
-        </p>
-      )}
-      {currentSponsorship.button_text && (
-        <span className="inline-flex items-center text-base sm:text-lg md:text-xl font-semibold drop-shadow-md">
-          {currentSponsorship.button_text}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5 ml-2"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
-        </span>
+    <div
+      className={`relative z-10 h-full flex flex-col items-center justify-center text-center px-6 ${textColor} ${linkUrl ? "cursor-pointer hover:opacity-95 transition-opacity" : ""}`}
+    >
+      {isBrandSlide ? (
+        <>
+          <ApexLogo
+            light
+            size="hero"
+            className="mb-5 sm:mb-8"
+          />
+          {currentSponsorship.description && (
+            <p className="text-sm sm:text-base md:text-lg max-w-2xl drop-shadow-md opacity-95">
+              {currentSponsorship.description}
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          {currentSponsorship.title && (
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-3 drop-shadow-md">
+              {currentSponsorship.title}
+            </h2>
+          )}
+          {currentSponsorship.description && (
+            <p className="text-base sm:text-lg md:text-xl mb-4 max-w-2xl drop-shadow-md opacity-95">
+              {currentSponsorship.description}
+            </p>
+          )}
+          {currentSponsorship.button_text && (
+            <span className="inline-flex items-center text-base sm:text-lg md:text-xl font-semibold drop-shadow-md">
+              {currentSponsorship.button_text}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 ml-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </span>
+          )}
+        </>
       )}
     </div>
   );
@@ -116,7 +147,6 @@ export default function SponsorshipSlideshow({
             className="object-cover"
             priority={currentIndex === 0}
           />
-          {/* No overlay - let the photo brightness show through naturally */}
         </div>
       ) : (
         <div className={`absolute inset-0 bg-gradient-to-br ${bgColor}`}>
@@ -125,15 +155,19 @@ export default function SponsorshipSlideshow({
       )}
 
       {/* Content */}
-      {currentSponsorship.link_url ? (
-        <Link
-          href={currentSponsorship.link_url}
+      {linkUrl && isInternalLink ? (
+        <Link href={linkUrl} className="block h-full">
+          {content}
+        </Link>
+      ) : linkUrl ? (
+        <a
+          href={linkUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="block h-full"
         >
           {content}
-        </Link>
+        </a>
       ) : (
         content
       )}
