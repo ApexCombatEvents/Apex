@@ -225,12 +225,10 @@ export default function MyEventsPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-10">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-            My Events
-          </h1>
-          <p className="text-base text-slate-600 mt-2">
+          <h1 className="text-xl font-bold text-slate-900">My Events</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
             Manage your events, track bouts, and feature your shows.
           </p>
         </div>

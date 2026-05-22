@@ -292,13 +292,13 @@ export default function EventsPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       {/* Header */}
-      <div className="space-y-1">
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-          Events
-        </h1>
-        <p className="text-slate-600 text-sm sm:text-base">
-          Browse upcoming fights, shows, and combat sports events.
-        </p>
+      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900">Events</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Browse upcoming fights, shows, and combat sports events.
+          </p>
+        </div>
       </div>
 
       {/* Search + filters */}

@@ -287,10 +287,12 @@ export default function SearchPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-10">
-      <header className="section-header">
-        <h1 className="section-title">{t("Search.title")}</h1>
-        <p className="section-subtitle">{t("Search.subtitle")}</p>
-      </header>
+      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900">{t("Search.title")}</h1>
+          <p className="text-sm text-slate-500 mt-0.5">{t("Search.subtitle")}</p>
+        </div>
+      </div>
 
       {/* Search + filters */}
       <section className="card space-y-5 p-6">
