@@ -9,6 +9,7 @@ import SponsorshipBanner from "@/components/sponsors/SponsorshipBanner";
 import { getSponsorshipsForPlacement, type Sponsorship } from "@/lib/sponsorships";
 import ALogo from "@/components/logos/ALogo";
 import { getGoogleMapsUrl } from "@/lib/location";
+import { DISCIPLINES } from "@/lib/disciplines";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,12 +32,7 @@ type Tab = "upcoming" | "past" | "all";
 
 const ART_FILTERS = [
   { key: "all", label: "All disciplines" },
-  { key: "Muay Thai", label: "Muay Thai" },
-  { key: "Boxing", label: "Boxing" },
-  { key: "MMA", label: "MMA" },
-  { key: "BJJ", label: "BJJ" },
-  { key: "Kickboxing", label: "Kickboxing" },
-  { key: "K1", label: "K1" },
+  ...DISCIPLINES.map((d) => ({ key: d, label: d })),
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
