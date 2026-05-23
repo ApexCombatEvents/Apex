@@ -8,6 +8,7 @@ import Image from "next/image";
 import Link from "next/link";
 import FightHistoryManager from "@/components/fighters/FightHistoryManager";
 import FighterBeltsManager from "@/components/fighters/FighterBeltsManager";
+import DisciplineMultiSelect from "@/components/ui/DisciplineMultiSelect";
 
 type Role = "fighter" | "coach" | "gym" | "promotion" | "";
 
@@ -56,7 +57,7 @@ export default function ProfileSettingsPage() {
   const [role, setRole] = useState<Role>("");
   const [country, setCountry] = useState("");
   const [bio, setBio] = useState("");
-  const [martialArts, setMartialArts] = useState("");
+  const [martialArts, setMartialArts] = useState<string[]>([]);
 
   // Gym username (used to link fighter/coach to gym profile)
   const [gymUsername, setGymUsername] = useState("");
@@ -90,10 +91,7 @@ export default function ProfileSettingsPage() {
   const [bjjStripes, setBjjStripes] = useState("0");
 
   const isFighterOrCoach = role === "fighter" || role === "coach";
-  const hasBjjInMartialArts = martialArts
-    .split(",")
-    .map((entry) => entry.trim())
-    .some((entry) => isBjjDiscipline(entry));
+  const hasBjjInMartialArts = martialArts.some((entry) => isBjjDiscipline(entry));
 
   useEffect(() => {
     (async () => {
@@ -123,7 +121,7 @@ export default function ProfileSettingsPage() {
         setRole((roleFromDb === "fighter" || roleFromDb === "coach" || roleFromDb === "gym" || roleFromDb === "promotion") ? roleFromDb as Role : "");
         setCountry(profile.country ?? "");
         setBio(profile.bio ?? "");
-        setMartialArts(profile.martial_arts?.join(", ") ?? "");
+        setMartialArts(profile.martial_arts ?? []);
         setAvatarUrl(profile.avatar_url ?? null);
         setBannerUrl(profile.banner_url ?? null);
 
@@ -189,10 +187,7 @@ export default function ProfileSettingsPage() {
       return;
     }
 
-    const martialArtsArray = martialArts
-      .split(",")
-      .map((m) => m.trim())
-      .filter(Boolean);
+    const martialArtsArray = martialArts.filter(Boolean);
 
     // Basic validation for stats
     if (record && !/^\d{1,3}-\d{1,3}-\d{1,3}$/.test(record)) {
@@ -633,15 +628,13 @@ async function handleImageUpload(
             />
           </label>
 
-          <label className="text-xs text-slate-600 space-y-1 block">
-            Martial arts (comma separated)
-            <input
-              className="w-full rounded-xl border px-3 py-2 text-sm"
-              value={martialArts}
-              onChange={(e) => setMartialArts(e.target.value)}
-              placeholder="Muay Thai, Boxing, MMA"
+          <div className="relative">
+            <DisciplineMultiSelect
+              selected={martialArts}
+              onChange={setMartialArts}
+              label="Martial arts"
             />
-          </label>
+          </div>
 
           {/* Coach visibility settings */}
           {role === "coach" && (

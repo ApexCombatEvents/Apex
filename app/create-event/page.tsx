@@ -7,6 +7,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import { getGoogleMapsUrl } from "@/lib/location";
+import DisciplineMultiSelect from "@/components/ui/DisciplineMultiSelect";
 
 type CardType = "main" | "undercard";
 
@@ -50,7 +51,7 @@ export default function CreateEventPage() {
   const [eventDate, setEventDate] = useState("");
   const [eventTime, setEventTime] = useState("");
   const [location, setLocation] = useState("");
-  const [martialArt, setMartialArt] = useState("");
+  const [martialArt, setMartialArt] = useState<string[]>([]);
 
   // Banner upload
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -205,7 +206,7 @@ export default function CreateEventPage() {
         event_date: eventDate || null,
         event_time: eventTime || null,
         location: location || null,
-        martial_art: martialArt || null,
+        martial_art: martialArt.length ? martialArt.join(", ") : null,
         banner_url: bannerUrl,
         will_stream: false,
         stream_price: null,
@@ -500,15 +501,13 @@ export default function CreateEventPage() {
               />
             </label>
 
-            <label className="text-xs text-slate-600 space-y-1 block">
-              Martial art / discipline
-              <input
-                className="w-full rounded-xl border px-3 py-2 text-sm"
-                value={martialArt}
-                onChange={(e) => setMartialArt(e.target.value)}
-                placeholder="e.g. Muay Thai"
+            <div className="relative">
+              <DisciplineMultiSelect
+                selected={martialArt}
+                onChange={setMartialArt}
+                label="Martial art / discipline"
               />
-            </label>
+            </div>
           </div>
 
           <div className="grid md:grid-cols-3 gap-3">

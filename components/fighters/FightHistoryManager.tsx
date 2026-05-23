@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
+import DisciplineSelect from "@/components/ui/DisciplineSelect";
 
 type FightHistoryEntry = {
   id: string;
@@ -370,16 +371,11 @@ export default function FightHistoryManager({ fighterId }: FightHistoryManagerPr
               />
             </label>
 
-            <label className="text-xs text-slate-600 space-y-1 block">
-              Martial Art
-              <input
-                type="text"
-                value={martialArt}
-                onChange={(e) => setMartialArt(e.target.value)}
-                placeholder="e.g. Muay Thai, MMA, Boxing"
-                className="w-full rounded-xl border px-3 py-2 text-sm"
-              />
-            </label>
+            <DisciplineSelect
+              label="Martial Art"
+              value={martialArt}
+              onChange={setMartialArt}
+            />
           </div>
 
           <label className="text-xs text-slate-600 space-y-1 block">
