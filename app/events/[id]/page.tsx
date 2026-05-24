@@ -321,7 +321,7 @@ export default async function EventPage({
             <div className="flex-1">
               <div className="mb-3">
                 <Link
-                  href="/events"
+                  href={canEdit ? "/my-events" : "/events"}
                   className="inline-flex items-center gap-2 text-sm text-purple-700 hover:text-purple-800 hover:underline"
                 >
                   <svg
@@ -338,7 +338,7 @@ export default async function EventPage({
                       d="M15 19l-7-7 7-7"
                     />
                   </svg>
-                  <span>Back to events</span>
+                  <span>{canEdit ? "Back to My Events" : "Back to events"}</span>
                 </Link>
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold">{title}</h1>
