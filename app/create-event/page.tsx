@@ -41,9 +41,14 @@ function createEmptyBout(cardType: CardType): BoutForm {
   };
 }
 
+type EventType = "fight" | "general" | null;
+
 export default function CreateEventPage() {
   const router = useRouter();
   const supabase = createSupabaseBrowser();
+
+  // Event type selection
+  const [eventType, setEventType] = useState<EventType>(null);
 
   // Event basics
   const [title, setTitle] = useState("");
@@ -64,6 +69,7 @@ export default function CreateEventPage() {
     link_url: string;
     display_order: number;
   };
+  const [showSponsorSection, setShowSponsorSection] = useState(true);
   const [sponsorships, setSponsorships] = useState<SponsorshipForm[]>([]);
   const [uploadingSponsorship, setUploadingSponsorship] = useState<string | null>(null);
 
@@ -207,6 +213,8 @@ export default function CreateEventPage() {
         event_time: eventTime || null,
         location: location || null,
         martial_art: martialArt.length ? martialArt.join(", ") : null,
+        event_type: eventType === "general" ? "general" : "fight",
+        hide_sponsor_section: !showSponsorSection,
         banner_url: bannerUrl,
         will_stream: false,
         stream_price: null,
@@ -224,106 +232,83 @@ export default function CreateEventPage() {
 
     const eventId = eventInsert.id as string;
 
-    // 4) Resolve fighter usernames → profile ids / names
-    // Collect all non-empty handles (strip @, trim)
-    const allHandles = Array.from(
-      new Set(
-        bouts
-          .flatMap((b) => [b.redHandle, b.blueHandle])
-          .map((h) => h.trim())
-          .filter(Boolean)
-          .map((h) => h.replace(/^@/, ""))
-      )
-    );
+    // 4) Resolve fighter usernames → profile ids / names (fight events only)
+    let boutRows: object[] = [];
 
-    let fightersByUsername: Record<
-      string,
-      { id: string; full_name?: string | null; username?: string | null }
-    > = {};
+    if (eventType === "fight") {
+      const allHandles = Array.from(
+        new Set(
+          bouts
+            .flatMap((b) => [b.redHandle, b.blueHandle])
+            .map((h) => h.trim())
+            .filter(Boolean)
+            .map((h) => h.replace(/^@/, ""))
+        )
+      );
 
-    if (allHandles.length > 0) {
-      // Query with case-insensitive role check (database stores as "FIGHTER")
-      const { data: fightersData, error: fightersError } = await supabase
-        .from("profiles")
-        .select("id, username, full_name, role")
-        .or("role.eq.FIGHTER,role.eq.fighter")
-        .in("username", allHandles);
+      let fightersByUsername: Record<
+        string,
+        { id: string; full_name?: string | null; username?: string | null }
+      > = {};
 
-      if (fightersError) {
-        console.error("fighters lookup error", fightersError);
-        // We still continue; we just won't link fighters.
-      } else {
-        fightersByUsername = Object.fromEntries(
-          (fightersData || []).map((f) => [
-            // Store with lowercase username for case-insensitive lookup
-            ((f.username as string) || "").toLowerCase(),
-            {
-              id: f.id as string,
-              full_name: f.full_name,
-              username: f.username,
-            },
-          ])
-        );
+      if (allHandles.length > 0) {
+        const { data: fightersData, error: fightersError } = await supabase
+          .from("profiles")
+          .select("id, username, full_name, role")
+          .or("role.eq.FIGHTER,role.eq.fighter")
+          .in("username", allHandles);
+
+        if (fightersError) {
+          console.error("fighters lookup error", fightersError);
+        } else {
+          fightersByUsername = Object.fromEntries(
+            (fightersData || []).map((f) => [
+              ((f.username as string) || "").toLowerCase(),
+              {
+                id: f.id as string,
+                full_name: f.full_name,
+                username: f.username,
+              },
+            ])
+          );
+        }
       }
+
+      const normaliseHandle = (raw: string) => raw.trim().replace(/^@/, "");
+
+      boutRows = bouts.map((bout, index) => {
+        const redKey = normaliseHandle(bout.redHandle);
+        const blueKey = normaliseHandle(bout.blueHandle);
+
+        const redProfile = redKey ? fightersByUsername[redKey.toLowerCase()] : undefined;
+        const blueProfile = blueKey ? fightersByUsername[blueKey.toLowerCase()] : undefined;
+
+        const redHandleClean = bout.redHandle.trim().replace(/^@/, "") || "";
+        const blueHandleClean = bout.blueHandle.trim().replace(/^@/, "") || "";
+
+        const redNameFromProfile = (redProfile?.full_name || redProfile?.username || "").trim();
+        const blueNameFromProfile = (blueProfile?.full_name || blueProfile?.username || "").trim();
+
+        const redNameFinal = redNameFromProfile || bout.redName.trim() || redHandleClean || null;
+        const blueNameFinal = blueNameFromProfile || bout.blueName.trim() || blueHandleClean || null;
+
+        return {
+          event_id: eventId,
+          card_type: bout.cardType,
+          order_index: index,
+          red_name: redNameFinal,
+          blue_name: blueNameFinal,
+          weight: bout.weight.trim() || null,
+          bout_details: bout.boutDetails.trim() || null,
+          red_looking_for_opponent: bout.redLooking,
+          blue_looking_for_opponent: bout.blueLooking,
+          red_fighter_id: redProfile?.id || null,
+          blue_fighter_id: blueProfile?.id || null,
+        };
+      });
     }
 
-    const normaliseHandle = (raw: string) =>
-      raw.trim().replace(/^@/, "");
-
-    // 5) Build bout rows for insert (always, even if usernames don't match)
-    const boutRows = bouts.map((bout, index) => {
-      const redKey = normaliseHandle(bout.redHandle);
-      const blueKey = normaliseHandle(bout.blueHandle);
-
-      // Lookup with case-insensitive username matching
-      const redProfile = redKey ? fightersByUsername[redKey.toLowerCase()] : undefined;
-      const blueProfile = blueKey ? fightersByUsername[blueKey.toLowerCase()] : undefined;
-
-      // What the user actually typed in the handle boxes (without @)
-      const redHandleClean =
-        bout.redHandle.trim().replace(/^@/, "") || "";
-      const blueHandleClean =
-        bout.blueHandle.trim().replace(/^@/, "") || "";
-
-      // Names coming from linked profiles, if any
-      const redNameFromProfile =
-        (redProfile?.full_name || redProfile?.username || "").trim();
-      const blueNameFromProfile =
-        (blueProfile?.full_name || blueProfile?.username || "").trim();
-
-      // Final names we store in event_bouts.red_name / blue_name
-      const redNameFinal =
-        redNameFromProfile ||
-        bout.redName.trim() ||
-        redHandleClean ||
-        null;
-
-      const blueNameFinal =
-        blueNameFromProfile ||
-        bout.blueName.trim() ||
-        blueHandleClean ||
-        null;
-
-      return {
-        event_id: eventId,
-        card_type: bout.cardType,
-        order_index: index,
-
-        red_name: redNameFinal,
-        blue_name: blueNameFinal,
-
-        weight: bout.weight.trim() || null,
-        bout_details: bout.boutDetails.trim() || null,
-
-        red_looking_for_opponent: bout.redLooking,
-        blue_looking_for_opponent: bout.blueLooking,
-
-        red_fighter_id: redProfile?.id || null,
-        blue_fighter_id: blueProfile?.id || null,
-      };
-    });
-
-    // 6) Insert sponsorships if any
+    // 5) Insert sponsorships if any
     if (sponsorships.length > 0) {
       const sponsorshipRows = sponsorships.map((sponsor, index) => ({
         event_id: eventId,
@@ -347,7 +332,7 @@ export default function CreateEventPage() {
       }
     }
 
-    if (boutRows.length > 0) {
+    if (eventType === "fight" && boutRows.length > 0) {
       const { data: insertedBouts, error: boutsError } = await supabase
         .from("event_bouts")
         .insert(boutRows)
@@ -458,8 +443,11 @@ export default function CreateEventPage() {
         <div>
           <h1 className="text-xl font-semibold mb-2">Create event</h1>
           <p className="text-sm text-slate-600">
-            Set your event details, upload a display picture, and build your fight
-            card.
+            {eventType === "fight"
+              ? "Set your event details, upload a display picture, and build your fight card."
+              : eventType === "general"
+              ? "Set your event details and announce it to the community."
+              : "Choose the type of event you want to create."}
           </p>
         </div>
         <Link
@@ -480,11 +468,68 @@ export default function CreateEventPage() {
               d="M15 19l-7-7 7-7"
             />
           </svg>
-          <span>Back to events</span>
+          <span>Back to My Events</span>
         </Link>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      {/* EVENT TYPE PICKER */}
+      <div className="grid sm:grid-cols-2 gap-4 mb-8">
+        <button
+          type="button"
+          onClick={() => setEventType("fight")}
+          className={`text-left rounded-2xl border-2 p-5 transition-all ${
+            eventType === "fight"
+              ? "border-purple-500 bg-purple-50 shadow-sm"
+              : "border-slate-200 bg-white hover:border-purple-300 hover:bg-purple-50/50"
+          }`}
+        >
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-sm font-semibold text-slate-900">Fight Event</span>
+            {eventType === "fight" && (
+              <span className="ml-auto inline-flex h-5 w-5 items-center justify-center rounded-full bg-purple-600">
+                <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Build a full fight card with bouts, corners and matchmaking. Fighters can be linked to their Apex profiles.
+          </p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setEventType("general")}
+          className={`text-left rounded-2xl border-2 p-5 transition-all ${
+            eventType === "general"
+              ? "border-purple-500 bg-purple-50 shadow-sm"
+              : "border-slate-200 bg-white hover:border-purple-300 hover:bg-purple-50/50"
+          }`}
+        >
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-sm font-semibold text-slate-900">General Event</span>
+            {eventType === "general" && (
+              <span className="ml-auto inline-flex h-5 w-5 items-center justify-center rounded-full bg-purple-600">
+                <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Sparathons, interclubs, seminars, open mats and any other community event — no fight card needed.
+          </p>
+        </button>
+      </div>
+
+      {!eventType && (
+        <p className="text-sm text-slate-400 text-center py-8">
+          Select an event type above to get started.
+        </p>
+      )}
+
+      {eventType && <form onSubmit={handleSubmit} className="space-y-6">
         {/* EVENT INFO */}
         <section className="card space-y-3">
           <h2 className="text-sm font-semibold">Event details</h2>
@@ -618,28 +663,51 @@ export default function CreateEventPage() {
               )}
             </div>
 
-            <label className="text-xs text-slate-600 space-y-1 block">
-              Choose image
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleBannerChange}
-                className="block w-full text-xs"
-              />
-            </label>
+            <div className="space-y-1">
+              <label className="text-xs text-slate-600 space-y-1 block">
+                Choose image
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleBannerChange}
+                  className="block w-full text-xs"
+                />
+              </label>
+              <p className="text-[10px] text-slate-400">
+                {showSponsorSection
+                  ? "With sponsor section visible: recommended 1920×640px (3:1)"
+                  : "Without sponsor section: recommended 1920×480px (4:1 or 16:9)"}
+              </p>
+            </div>
           </div>
         </section>
 
         {/* EVENT SPONSORSHIPS */}
         <section className="card space-y-3">
-          <h2 className="text-sm font-semibold">Event Sponsorships</h2>
-          <p className="text-xs text-slate-600">
-            Add sponsor logos/banners that will be displayed on your event page
-            in a slideshow format.
-          </p>
-          <p className="text-[10px] text-slate-500">
-            Recommended image size: 600×400px (3:2 ratio) - Images will fill the promotional box
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold">Event Sponsorships</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Sponsor logos displayed in a slideshow on your event page.
+              </p>
+            </div>
+            <label className="inline-flex items-center gap-2 cursor-pointer flex-shrink-0 pt-0.5">
+              <input
+                type="checkbox"
+                checked={!showSponsorSection}
+                onChange={(e) => setShowSponsorSection(!e.target.checked)}
+                className="rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+              />
+              <span className="text-xs text-slate-600">Hide sponsor section</span>
+            </label>
+          </div>
+
+          {showSponsorSection && <>
+          <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 space-y-1">
+            <p className="text-[10px] text-slate-500 font-medium">Banner image tips</p>
+            <p className="text-[10px] text-slate-500">• <span className="font-medium">With sponsors showing:</span> use a taller banner — recommended <span className="font-medium">1920×640px (3:1 ratio)</span></p>
+            <p className="text-[10px] text-slate-500">• <span className="font-medium">Sponsor images:</span> recommended <span className="font-medium">600×200px (3:1 ratio)</span> — displayed smaller beneath the banner</p>
+          </div>
 
           {sponsorships.length > 0 && (
             <div className="space-y-3">
@@ -711,6 +779,7 @@ export default function CreateEventPage() {
               </span>
             </label>
           </div>
+          </>}
         </section>
 
         {/* STREAM SETTINGS - Temporarily hidden until streaming feature is ready */}
@@ -811,8 +880,8 @@ export default function CreateEventPage() {
         </section>
         )}
 
-        {/* BOUTS */}
-        <section className="card space-y-3">
+        {/* BOUTS — fight events only */}
+        {eventType === "fight" && <section className="card space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm font-semibold">Create bracket</h2>
@@ -885,7 +954,7 @@ export default function CreateEventPage() {
               No bouts added yet. Use the buttons above to add your first fight.
             </p>
           )}
-        </section>
+        </section>}
 
         {message && (
           <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
@@ -900,7 +969,7 @@ export default function CreateEventPage() {
         >
           {saving ? "Creating event…" : "Create event"}
         </button>
-      </form>
+      </form>}
     </div>
   );
 }

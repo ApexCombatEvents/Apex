@@ -37,6 +37,8 @@ type Event = {
   is_live?: boolean | null;
   is_started?: boolean | null;
   will_stream?: boolean | null;
+  event_type?: "fight" | "general" | null;
+  hide_sponsor_section?: boolean | null;
 };
 
 type GymProfileLite = {
@@ -189,6 +191,10 @@ export default async function EventPage({
   const { data: userData } = await supabase.auth.getUser();
   const user = userData.user ?? null;
   const canEdit = !!user && user.id === ownerId;
+  // Treat null/undefined event_type as 'fight' for backward compatibility with existing events
+  const isFightEvent = event.event_type !== "general";
+  // Sponsor section is visible unless organiser explicitly hid it
+  const showSponsorSection = !event.hide_sponsor_section;
 
   // 5) Load fighter profiles for bouts
   let fightersById: Record<string, ProfileLite> = {};
@@ -380,7 +386,7 @@ export default async function EventPage({
               )}
             </div>
           </div>
-          {canEdit && (
+          {canEdit && isFightEvent && (
             <div className="mt-5">
               {event.is_live ? (
                 <LiveEventControls eventId={event.id} />
@@ -490,9 +496,9 @@ export default async function EventPage({
         </div>
 
         {/* Right column: Banner and Sponsorships */}
-        <div className="flex flex-col gap-6 h-full">
-          {/* Banner Image */}
-          <div className="rounded-2xl border border-slate-200 bg-slate-100 overflow-hidden h-56 flex-shrink-0">
+        <div className="flex flex-col gap-4 h-full">
+          {/* Banner Image — taller when sponsor section is hidden, shorter when sharing column */}
+          <div className={`rounded-2xl border border-slate-200 bg-slate-100 overflow-hidden flex-shrink-0 ${showSponsorSection ? "h-64" : "flex-1 min-h-[260px]"}`}>
             {event.banner_url ? (
               <div className="relative w-full h-full">
                 <Image
@@ -521,90 +527,86 @@ export default async function EventPage({
                 </svg>
                 <div className="text-sm font-medium mb-1">No banner image</div>
                 <div className="text-xs opacity-75 text-center max-w-xs">
-                  Recommended: 1600×560px (16:9 ratio)
+                  {showSponsorSection ? "Recommended: 1920×640px (3:1 ratio)" : "Recommended: 1920×480px (4:1 ratio)"}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Event Sponsorships Slideshow */}
-          <div className="flex-1 min-h-[300px] md:min-h-0">
-            {sponsorships.length > 0 ? (
-              <div className="h-full min-h-[300px] md:min-h-0">
+          {/* Sponsor section — shown unless organiser hid it; placeholder visible to owner only */}
+          {showSponsorSection && (sponsorships.length > 0 || canEdit) && (
+            <div className="h-44 flex-shrink-0">
+              {sponsorships.length > 0 ? (
                 <EventSponsorshipSlideshow sponsorships={sponsorships} autoRotateInterval={5000} />
-              </div>
-            ) : (
-              <div className="h-full min-h-[300px] md:min-h-0 rounded-xl border-2 border-dashed border-purple-300 bg-purple-50 flex flex-col items-center justify-center text-center p-4 text-purple-700">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mb-2 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V3m0 9v3m0 3.01V21M21 12h-3.01M3 12H6m15.364-6.364l-2.122-2.122M5.636 18.364l-2.122 2.122M18.364 18.364l-2.122 2.122M5.636 5.636l-2.122-2.122" />
-                </svg>
-                <p className="font-semibold text-sm">Add sponsorships here</p>
-                <p className="text-xs mt-1">These will appear in a rotating display.</p>
-                <p className="text-[10px] mt-2 text-purple-600">Recommended: 600×400px (3:2 ratio)</p>
-              </div>
-            )}
-          </div>
+              ) : (
+                <div className="h-full rounded-xl border-2 border-dashed border-purple-300 bg-purple-50 flex flex-col items-center justify-center text-center p-4 text-purple-700">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mb-2 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V3m0 9v3m0 3.01V21M21 12h-3.01M3 12H6m15.364-6.364l-2.122-2.122M5.636 18.364l-2.122 2.122M18.364 18.364l-2.122 2.122M5.636 5.636l-2.122-2.122" />
+                  </svg>
+                  <p className="font-semibold text-sm">Add sponsorships here</p>
+                  <p className="text-xs mt-1">These will appear in a rotating display.</p>
+                  <p className="text-[10px] mt-2 text-purple-600">Recommended: 600×200px (3:1 ratio)</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
-      {/* BOUTS */}
-      <section className="card p-3 sm:p-6">
-        <div className="flex items-center justify-between text-xs sm:text-sm text-slate-600 mb-3 sm:mb-4">
-          <div className="font-semibold">Red corner</div>
-          <div className="text-[10px] sm:text-[11px] uppercase tracking-wide text-slate-400">
-            VS
-          </div>
-          <div className="font-semibold text-right">Blue corner</div>
-        </div>
-
-        {mainCard.length > 0 && (
-          <div className="mt-2 sm:mt-4">
-            <h2 className="text-sm sm:text-base lg:text-lg font-bold mb-3 sm:mb-4">Main card</h2>
-            <div className="space-y-3 sm:space-y-4">
-              {mainCard.map((bout, index) => {
-                const fightNumber = mainCard.length - index;
-                return (
-                  <BoutRow
-                    key={bout.id}
-                    bout={bout}
-                    label={`MAIN CARD • FIGHT ${fightNumber}`}
-                    fightersById={fightersById}
-                    eventId={event.id}
-                    eventTitle={title}
-                  />
-                );
-              })}
+      {/* BOUTS — only shown for fight events that have at least one bout */}
+      {isFightEvent && bouts.length > 0 && (
+        <section className="card p-3 sm:p-6">
+          <div className="flex items-center justify-between text-xs sm:text-sm text-slate-600 mb-3 sm:mb-4">
+            <div className="font-semibold">Red corner</div>
+            <div className="text-[10px] sm:text-[11px] uppercase tracking-wide text-slate-400">
+              VS
             </div>
+            <div className="font-semibold text-right">Blue corner</div>
           </div>
-        )}
 
-        {undercard.length > 0 && (
-          <div className="mt-6 sm:mt-8">
-            <h2 className="text-sm sm:text-base lg:text-lg font-bold mb-3 sm:mb-4">Undercard</h2>
-            <div className="space-y-3 sm:space-y-4">
-              {undercard.map((bout, index) => {
-                const fightNumber = undercard.length - index;
-                return (
-                  <BoutRow
-                    key={bout.id}
-                    bout={bout}
-                    label={`UNDERCARD • FIGHT ${fightNumber}`}
-                    fightersById={fightersById}
-                    eventId={event.id}
-                    eventTitle={title}
-                  />
-                );
-              })}
+          {mainCard.length > 0 && (
+            <div className="mt-2 sm:mt-4">
+              <h2 className="text-sm sm:text-base lg:text-lg font-bold mb-3 sm:mb-4">Main card</h2>
+              <div className="space-y-3 sm:space-y-4">
+                {mainCard.map((bout, index) => {
+                  const fightNumber = mainCard.length - index;
+                  return (
+                    <BoutRow
+                      key={bout.id}
+                      bout={bout}
+                      label={`MAIN CARD • FIGHT ${fightNumber}`}
+                      fightersById={fightersById}
+                      eventId={event.id}
+                      eventTitle={title}
+                    />
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {bouts.length === 0 && (
-          <p className="text-base text-slate-600 mt-4">
-            No bouts added yet. Edit this event to add the first fight.
-          </p>
-        )}
-      </section>
+          {undercard.length > 0 && (
+            <div className="mt-6 sm:mt-8">
+              <h2 className="text-sm sm:text-base lg:text-lg font-bold mb-3 sm:mb-4">Undercard</h2>
+              <div className="space-y-3 sm:space-y-4">
+                {undercard.map((bout, index) => {
+                  const fightNumber = undercard.length - index;
+                  return (
+                    <BoutRow
+                      key={bout.id}
+                      bout={bout}
+                      label={`UNDERCARD • FIGHT ${fightNumber}`}
+                      fightersById={fightersById}
+                      eventId={event.id}
+                      eventTitle={title}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* EVENT DISCUSSION */}
       <section className="card p-6">
@@ -621,8 +623,8 @@ export default async function EventPage({
 
 
 
-      {/* OFFERS – organiser only (pending only) */}
-      {canEdit && (
+      {/* OFFERS – organiser only, fight events only (pending only) */}
+      {canEdit && isFightEvent && (
         <section className="card p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex flex-col gap-2">

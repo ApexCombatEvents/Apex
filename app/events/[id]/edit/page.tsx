@@ -103,6 +103,8 @@ type EventRow = {
   fighter_percentage?: number | null;
   is_featured?: boolean | null;
   featured_until?: string | null;
+  event_type?: "fight" | "general" | null;
+  hide_sponsor_section?: boolean | null;
 };
 
 type BoutDb = {
@@ -194,6 +196,7 @@ export default function EditEventPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   const [event, setEvent] = useState<EventRow | null>(null);
+  const [isFightEvent, setIsFightEvent] = useState(true);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -232,6 +235,7 @@ export default function EditEventPage() {
     isNew?: boolean; // Track if this needs to be inserted
     existingId?: string; // Track existing ID for updates/deletes
   };
+  const [showSponsorSection, setShowSponsorSection] = useState(true);
   const [sponsorships, setSponsorships] = useState<SponsorshipForm[]>([]);
   const [uploadingSponsorship, setUploadingSponsorship] = useState<string | null>(null);
   
@@ -375,6 +379,8 @@ export default function EditEventPage() {
       }
 
       setEvent(eventData);
+      setIsFightEvent(eventData.event_type !== "general");
+      setShowSponsorSection(!eventData.hide_sponsor_section);
       setTitle(eventData.title || eventData.name || "");
       setDescription(eventData.description || "");
       setEventDate(eventData.event_date || "");
@@ -736,6 +742,8 @@ export default function EditEventPage() {
         event_time: eventTime || null,
         location: location || null,
         martial_art: martialArt.length ? martialArt.join(", ") : null,
+        event_type: isFightEvent ? "fight" : "general",
+        hide_sponsor_section: !showSponsorSection,
         banner_url: newBannerUrl,
         will_stream: willStream,
         stream_price: willStream && streamPrice ? Math.round(parseFloat(streamPrice) * 100) : null,
@@ -1168,7 +1176,18 @@ export default function EditEventPage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* EVENT INFO */}
         <section className="card space-y-3">
-          <h2 className="text-sm font-semibold">Event details</h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold">Event details</h2>
+            <label className="inline-flex items-center gap-2 cursor-pointer flex-shrink-0">
+              <input
+                type="checkbox"
+                checked={isFightEvent}
+                onChange={(e) => setIsFightEvent(e.target.checked)}
+                className="rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+              />
+              <span className="text-xs text-slate-600">Fight event (includes bout card)</span>
+            </label>
+          </div>
 
           <div className="grid md:grid-cols-2 gap-3">
             <label className="text-xs text-slate-600 space-y-1 block">
@@ -1291,14 +1310,29 @@ export default function EditEventPage() {
 
         {/* EVENT SPONSORSHIPS */}
         <section className="card space-y-3">
-          <div>
-            <h2 className="text-sm font-semibold">Event Sponsorships</h2>
-            <p className="text-xs text-slate-600 mt-1">
-              Add sponsor logos/banners that will be displayed on your event page in a slideshow format.
-            </p>
-            <p className="text-[10px] text-slate-500 mt-1">
-              Recommended image size: 600×400px (3:2 ratio) - Images will fill the promotional box
-            </p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold">Event Sponsorships</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Sponsor logos displayed in a slideshow on your event page.
+              </p>
+            </div>
+            <label className="inline-flex items-center gap-2 cursor-pointer flex-shrink-0 pt-0.5">
+              <input
+                type="checkbox"
+                checked={!showSponsorSection}
+                onChange={(e) => setShowSponsorSection(!e.target.checked)}
+                className="rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+              />
+              <span className="text-xs text-slate-600">Hide sponsor section</span>
+            </label>
+          </div>
+
+          {showSponsorSection && <>
+          <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 space-y-1">
+            <p className="text-[10px] text-slate-500 font-medium">Banner image tips</p>
+            <p className="text-[10px] text-slate-500">• <span className="font-medium">With sponsors showing:</span> use a taller banner — recommended <span className="font-medium">1920×640px (3:1 ratio)</span></p>
+            <p className="text-[10px] text-slate-500">• <span className="font-medium">Sponsor images:</span> recommended <span className="font-medium">600×200px (3:1 ratio)</span> — displayed smaller beneath the banner</p>
           </div>
 
           {/* Existing Sponsorships */}
@@ -1372,6 +1406,7 @@ export default function EditEventPage() {
               </span>
             </label>
           </div>
+          </>}
         </section>
 
         {/* FEATURED EVENT */}
@@ -1500,8 +1535,8 @@ export default function EditEventPage() {
         </section>
         )}
 
-        {/* BOUTS (card builder) */}
-        <section className="card space-y-3">
+        {/* BOUTS (card builder) — fight events only */}
+        {isFightEvent && <section className="card space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm font-semibold">Create bracket</h2>
@@ -1588,10 +1623,10 @@ export default function EditEventPage() {
               No bouts added yet. Use the buttons above to add your first fight.
             </p>
           )}
-        </section>
+        </section>}
 
-        {/* BOUT RESULTS SECTION */}
-        <section className="card space-y-3">
+        {/* BOUT RESULTS SECTION — fight events only */}
+        {isFightEvent && <section className="card space-y-3">
           <button
             type="button"
             onClick={() => setBoutResultsExpanded(!boutResultsExpanded)}
@@ -1669,7 +1704,7 @@ export default function EditEventPage() {
               )}
             </div>
           )}
-        </section>
+        </section>}
 
 
         {message && (

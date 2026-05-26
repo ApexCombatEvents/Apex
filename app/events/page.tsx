@@ -26,7 +26,10 @@ type EventRow = {
   banner_url: string | null;
   is_featured: boolean | null;
   featured_until: string | null;
+  event_type: "fight" | "general" | null;
 };
+
+type EventTypeFilter = "all" | "fight" | "general";
 
 type Tab = "upcoming" | "past" | "all";
 
@@ -217,6 +220,7 @@ export default function EventsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [artFilter, setArtFilter] = useState("all");
   const [tab, setTab] = useState<Tab>("upcoming");
+  const [eventTypeFilter, setEventTypeFilter] = useState<EventTypeFilter>("all");
 
   useEffect(() => {
     async function load() {
@@ -225,7 +229,7 @@ export default function EventsPage() {
           supabase
             .from("events")
             .select(
-              "id, title, name, event_date, event_time, location, location_city, location_country, martial_art, banner_url, is_featured, featured_until"
+              "id, title, name, event_date, event_time, location, location_city, location_country, martial_art, banner_url, is_featured, featured_until, event_type"
             )
             .order("event_date", { ascending: true })
             .limit(300),
@@ -277,10 +281,19 @@ export default function EventsPage() {
     () => tabFiltered.filter(isFeaturedActive),
     [tabFiltered]
   );
+
+  // Regular events respect the event type filter; featured always show regardless
   const regularEvents = useMemo(
     () => tabFiltered.filter((e) => !isFeaturedActive(e)),
     [tabFiltered]
   );
+
+  const filteredRegular = useMemo(() => {
+    if (eventTypeFilter === "all") return regularEvents;
+    return regularEvents.filter(
+      (e) => (e.event_type ?? "fight") === eventTypeFilter
+    );
+  }, [regularEvents, eventTypeFilter]);
 
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -345,6 +358,24 @@ export default function EventsPage() {
           ))}
         </div>
 
+        {/* Event type filter */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-slate-500 font-medium">Event type:</span>
+          {(["all", "fight", "general"] as EventTypeFilter[]).map((type) => (
+            <button
+              key={type}
+              onClick={() => setEventTypeFilter(type)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all ${
+                eventTypeFilter === type
+                  ? "border-purple-400 bg-purple-100 text-purple-700 shadow-sm"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-purple-300 hover:bg-purple-50"
+              }`}
+            >
+              {type === "all" ? "All events" : type === "fight" ? "Fight events" : "General events"}
+            </button>
+          ))}
+        </div>
+
         {/* Tab toggle */}
         <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">
           {(["upcoming", "past", "all"] as Tab[]).map((t) => (
@@ -405,21 +436,21 @@ export default function EventsPage() {
       )}
 
       {/* Empty state */}
-      {!loading && tabFiltered.length === 0 && (
+      {!loading && featuredEvents.length === 0 && filteredRegular.length === 0 && (
         <div className="card p-8 text-center">
           <p className="text-slate-600 mb-2">
-            {searchQuery || artFilter !== "all"
+            {searchQuery || artFilter !== "all" || eventTypeFilter !== "all"
               ? "No events match your filters. Try adjusting your search."
               : tab === "past"
               ? "No past events found."
               : "No upcoming events yet. Check back soon!"}
           </p>
-          {(searchQuery || artFilter !== "all") && (
+          {(searchQuery || artFilter !== "all" || eventTypeFilter !== "all") && (
             <button
-              onClick={() => { setSearchQuery(""); setArtFilter("all"); }}
+              onClick={() => { setSearchQuery(""); setArtFilter("all"); setEventTypeFilter("all"); }}
               className="text-sm text-purple-600 font-medium hover:underline mt-1"
             >
-              Clear filters
+              View all events
             </button>
           )}
         </div>
@@ -457,20 +488,28 @@ export default function EventsPage() {
       )}
 
       {/* All / regular events */}
-      {!loading && regularEvents.length > 0 && (
+      {!loading && filteredRegular.length > 0 && (
         <section className="space-y-4">
           {featuredEvents.length > 0 && (
             <div className="section-header">
               <h2 className="section-title">
-                {tab === "past" ? "Past Events" : tab === "upcoming" ? "Upcoming Events" : "All Events"}
+                {eventTypeFilter === "fight"
+                  ? "Fight Events"
+                  : eventTypeFilter === "general"
+                  ? "General Events"
+                  : tab === "past"
+                  ? "Past Events"
+                  : tab === "upcoming"
+                  ? "Upcoming Events"
+                  : "All Events"}
                 <span className="ml-2 text-sm font-normal text-slate-500">
-                  ({regularEvents.length})
+                  ({filteredRegular.length})
                 </span>
               </h2>
             </div>
           )}
           <div className="space-y-4">
-            {insertSponsorsBetween(regularEvents, sponsorships, 3).map((item, idx) => {
+            {insertSponsorsBetween(filteredRegular, sponsorships, 3).map((item, idx) => {
               if ("__sponsor" in item)
                 return (
                   <div key={`sp-r-${idx}`} className="my-2">
