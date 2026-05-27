@@ -522,7 +522,7 @@ export default function FighterProfile({
           <h2 className="section-title text-lg">{t('Profile.stats')}</h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-          <StatBox label="Rank">{displayRank}</StatBox>
+          <StatBox label="Level">{displayRank}</StatBox>
           <StatBox label="Country">
             {country && country.trim() !== "" ? country : "–"}
           </StatBox>

@@ -11,6 +11,7 @@ import SponsorshipBanner from "@/components/sponsors/SponsorshipBanner";
 import { getSponsorshipsForPlacement, type Sponsorship } from "@/lib/sponsorships";
 import ALogo from "@/components/logos/ALogo";
 import { useTranslation } from "@/hooks/useTranslation";
+import { DISCIPLINES } from "@/lib/disciplines";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,7 @@ type ProfileResult = {
   martial_arts: string[] | null;
   social_links: any | null;
   record: string | null;
+  rank: string | null;
   weight: number | null;
   weight_unit: "kg" | "lb" | null;
 };
@@ -58,13 +60,18 @@ function parseRoleFromUrl(): "all" | Role | null {
 
 const ART_FILTERS = [
   { key: "all", label: "All disciplines" },
-  { key: "Muay Thai", label: "Muay Thai" },
-  { key: "Boxing", label: "Boxing" },
-  { key: "MMA", label: "MMA" },
-  { key: "BJJ", label: "BJJ" },
-  { key: "Kickboxing", label: "Kickboxing" },
-  { key: "K1", label: "K1" },
+  ...DISCIPLINES.map((d) => ({ key: d, label: d })),
 ];
+
+const LEVEL_OPTIONS = [
+  "Amateur",
+  "Pro-Am",
+  "C Class",
+  "B Class",
+  "A Class",
+  "Semi-Pro",
+  "Professional",
+] as const;
 
 const RECENTS_KEY = "legacy_recent_searches";
 
@@ -102,7 +109,7 @@ export default function SearchPage() {
     if (roleFilter === "fighter") setShowAdvanced(true);
   }, [roleFilter]);
 
-  const [minWins, setMinWins] = useState("");
+  const [levelFilter, setLevelFilter] = useState("");
   const [maxWeight, setMaxWeight] = useState("");
   const [weightUnitFilter, setWeightUnitFilter] = useState<"any" | "kg" | "lb">("any");
 
@@ -189,7 +196,7 @@ export default function SearchPage() {
     const handler = setTimeout(() => { runSearch("auto"); }, 300);
     return () => clearTimeout(handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, roleFilter, artFilter, locationFilter, minWins, maxWeight, weightUnitFilter]);
+  }, [query, roleFilter, artFilter, locationFilter, levelFilter, maxWeight, weightUnitFilter]);
 
   async function runSearch(source: "auto" | "submit" = "auto") {
     const trimmed = query.trim();
@@ -201,7 +208,7 @@ export default function SearchPage() {
     try {
       let profileQuery = supabase
         .from("profiles")
-        .select("id, full_name, username, role, avatar_url, country, martial_arts, social_links, record, weight, weight_unit")
+        .select("id, full_name, username, role, avatar_url, country, martial_arts, social_links, record, rank, weight, weight_unit")
         .not("role", "is", null);
 
       if (trimmed) {
@@ -234,16 +241,12 @@ export default function SearchPage() {
         })) as ProfileResult[];
 
         // Advanced fighter filters (client-side)
-        const minWinsNum = minWins.trim() === "" ? null : Math.max(0, parseInt(minWins, 10) || 0);
         const maxWeightNum = maxWeight.trim() === "" ? null : Math.max(0, parseFloat(maxWeight) || 0);
 
-        if (minWinsNum !== null || (maxWeightNum !== null && weightUnitFilter !== "any")) {
+        if (levelFilter || (maxWeightNum !== null && weightUnitFilter !== "any")) {
           profiles = profiles.filter((p) => {
             if (p.role !== "fighter") return true;
-            if (minWinsNum !== null) {
-              const { wins } = parseRecord(p.record);
-              if (wins === null || wins < minWinsNum) return false;
-            }
+            if (levelFilter && p.rank !== levelFilter) return false;
             if (maxWeightNum !== null && weightUnitFilter !== "any" && p.weight !== null && p.weight_unit) {
               let w = p.weight;
               if (weightUnitFilter === "kg" && p.weight_unit === "lb") w = w / 2.20462;
@@ -340,8 +343,17 @@ export default function SearchPage() {
             {showAdvanced && (
               <div className="grid gap-3 md:grid-cols-3 text-xs text-slate-600">
                 <label className="space-y-1">
-                  <span>Minimum wins</span>
-                  <input type="number" min={0} className="w-full rounded-xl border px-3 py-2 text-sm" value={minWins} onChange={(e) => setMinWins(e.target.value)} placeholder="e.g. 5" />
+                  <span>Level</span>
+                  <select
+                    className="w-full rounded-xl border px-3 py-2 text-sm bg-white"
+                    value={levelFilter}
+                    onChange={(e) => setLevelFilter(e.target.value)}
+                  >
+                    <option value="">Any level</option>
+                    {LEVEL_OPTIONS.map((l) => (
+                      <option key={l} value={l}>{l}</option>
+                    ))}
+                  </select>
                 </label>
                 <label className="space-y-1 md:col-span-2">
                   <span>Maximum weight</span>
@@ -465,7 +477,7 @@ export default function SearchPage() {
 // ─── Profile card (larger, richer layout) ─────────────────────────────────────
 
 function ProfileCard({ profile }: { profile: ProfileResult }) {
-  const { full_name, username, role, avatar_url, country, martial_arts, social_links, record, weight, weight_unit } = profile;
+  const { full_name, username, role, avatar_url, country, martial_arts, social_links, record, rank, weight, weight_unit } = profile;
   const flag = countryToFlag(country);
   const mainArts = martial_arts?.slice(0, 3).join(" · ");
   const gymHandle = typeof social_links === "object" && social_links?.gym_username ? social_links.gym_username : null;
@@ -526,6 +538,16 @@ function ProfileCard({ profile }: { profile: ProfileResult }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
             <span className="font-medium text-slate-700">{mainArts}</span>
+          </div>
+        )}
+
+        {/* Level — fighters only */}
+        {role === "fighter" && rank && (
+          <div className="flex items-center gap-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-purple-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <span className="font-medium text-purple-700">{rank}</span>
           </div>
         )}
 

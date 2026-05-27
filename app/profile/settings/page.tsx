@@ -699,13 +699,21 @@ async function handleImageUpload(
 
             <div className="grid md:grid-cols-3 gap-3">
               <label className="text-xs text-slate-600 space-y-1">
-                Rank
-                <input
-                  className="w-full rounded-xl border px-3 py-2 text-sm"
+                Level
+                <select
+                  className="w-full rounded-xl border px-3 py-2 text-sm bg-white"
                   value={rank}
                   onChange={(e) => setRank(e.target.value)}
-                  placeholder="e.g. A-class"
-                />
+                >
+                  <option value="">Select level…</option>
+                  <option value="Amateur">Amateur</option>
+                  <option value="Pro-Am">Pro-Am</option>
+                  <option value="C Class">C Class</option>
+                  <option value="B Class">B Class</option>
+                  <option value="A Class">A Class</option>
+                  <option value="Semi-Pro">Semi-Pro</option>
+                  <option value="Professional">Professional</option>
+                </select>
               </label>
 
               <label className="text-xs text-slate-600 space-y-1">
