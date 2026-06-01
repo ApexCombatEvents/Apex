@@ -18,6 +18,7 @@ import BoutShareCard, { type BoutShareMetadata } from "@/components/social/BoutS
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@/hooks/useTranslation";
 import { countryToFlagUrl } from "@/lib/countries";
+import FightModal from "@/components/fighters/FightModal";
 
 function isBjjDiscipline(value: string): boolean {
   const normalized = value.toLowerCase().replace(/[^a-z]/g, "");
@@ -145,11 +146,15 @@ export default function FighterProfile({
 
   const isMe = myId === profile.id;
 
+  // Fight management modal
+  const [fightModalOpen, setFightModalOpen] = useState(false);
+
   // --- Fights pulled from events / bouts ---
   const [upcomingFights, setUpcomingFights] = useState<any[]>([]);
   const [pastFights, setPastFights] = useState<any[]>([]);
   const [manualFights, setManualFights] = useState<any[]>([]); // Manual fight history entries
   const [loadingFights, setLoadingFights] = useState(true);
+  const [fightRefreshKey, setFightRefreshKey] = useState(0);
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
   // Start at page 0 (newest posts)
   const [postPage, setPostPage] = useState(0);
@@ -172,33 +177,37 @@ export default function FighterProfile({
         const historyResponse = await fetch(`/api/fighters/fight-history?fighter_id=${profile.id}`);
         if (historyResponse.ok) {
           const historyData = await historyResponse.json();
-          manualEntries = (historyData.fights || []).map((f: any) => ({
-            boutId: null,
-            eventId: null,
-            eventTitle: f.event_name,
-            dateLabel: new Date(f.event_date).toLocaleDateString(),
-            isPast: true, // Manual entries are always past fights
-            cardType: null,
-            weight: f.weight_class || null,
-            boutDetails: null,
-            opponentName: f.opponent_name,
-            locationLabel: f.location || "",
-            resultSummary: (() => {
-              const resultLabels: Record<string, string> = {
-                win: "Win",
-                loss: "Loss",
-                draw: "Draw",
-                no_contest: "No Contest",
-              };
-              const parts: string[] = [resultLabels[f.result] || f.result];
-              if (f.result_method) parts.push(f.result_method);
-              if (f.result_round) parts.push(`R${f.result_round}`);
-              if (f.result_time) parts.push(f.result_time);
-              return parts.join(" • ");
-            })(),
-            outcomeLetter: f.result === "win" ? "W" : f.result === "loss" ? "L" : f.result === "draw" ? "D" : "",
-            isManual: true, // Flag to identify manual entries
-          }));
+          manualEntries = (historyData.fights || []).map((f: any) => {
+            const fightDate = new Date(f.event_date);
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            const isPast = fightDate < now;
+            const resultLabels: Record<string, string> = {
+              win: "Win",
+              loss: "Loss",
+              draw: "Draw",
+              no_contest: "No Contest",
+            };
+            const resultParts: string[] = f.result ? [resultLabels[f.result] || f.result] : [];
+            if (f.result_method) resultParts.push(f.result_method);
+            if (f.result_round) resultParts.push(`R${f.result_round}`);
+            if (f.result_time) resultParts.push(f.result_time);
+            return {
+              boutId: null,
+              eventId: null,
+              eventTitle: f.event_name,
+              dateLabel: fightDate.toLocaleDateString(),
+              isPast,
+              cardType: null,
+              weight: f.weight_class || null,
+              boutDetails: null,
+              opponentName: f.opponent_name,
+              locationLabel: f.location || "",
+              resultSummary: resultParts.join(" • "),
+              outcomeLetter: f.result === "win" ? "W" : f.result === "loss" ? "L" : f.result === "draw" ? "D" : "",
+              isManual: true,
+            };
+          });
         }
       } catch (err) {
         console.error("Error loading manual fight history:", err);
@@ -342,20 +351,29 @@ export default function FighterProfile({
         .filter((f) => f.isPast)
         .sort((a, b) => b.dateLabel.localeCompare(a.dateLabel));
 
-      // Combine past Apex fights with manual fight history entries
-      const allPastFights = [...past, ...manualEntries].sort((a, b) => {
-        // Sort by date (most recent first)
+      // Merge manual entries into upcoming / past based on their date
+      const manualPast = manualEntries.filter((f) => f.isPast);
+      const manualUpcoming = manualEntries.filter((f) => !f.isPast);
+
+      const sortByDateDesc = (a: any, b: any) => {
         const dateA = new Date(a.dateLabel).getTime();
         const dateB = new Date(b.dateLabel).getTime();
-        if (isNaN(dateA) || isNaN(dateB)) {
-          // Fallback to string comparison if date parsing fails
-          return b.dateLabel.localeCompare(a.dateLabel);
-        }
+        if (isNaN(dateA) || isNaN(dateB)) return b.dateLabel.localeCompare(a.dateLabel);
         return dateB - dateA;
-      });
+      };
+
+      const sortByDateAsc = (a: any, b: any) => {
+        const dateA = new Date(a.dateLabel).getTime();
+        const dateB = new Date(b.dateLabel).getTime();
+        if (isNaN(dateA) || isNaN(dateB)) return a.dateLabel.localeCompare(b.dateLabel);
+        return dateA - dateB;
+      };
+
+      const allPastFights = [...past, ...manualPast].sort(sortByDateDesc);
+      const allUpcomingFights = [...upcoming, ...manualUpcoming].sort(sortByDateAsc);
 
       if (!cancelled) {
-        setUpcomingFights(upcoming);
+        setUpcomingFights(allUpcomingFights);
         setPastFights(allPastFights);
         setManualFights(manualEntries);
         setLoadingFights(false);
@@ -367,7 +385,7 @@ export default function FighterProfile({
     return () => {
       cancelled = true;
     };
-  }, [profile.id]);
+  }, [profile.id, fightRefreshKey]);
 
   const displayRank =
     rank && String(rank).trim() !== "" ? rank : "–";
@@ -573,6 +591,19 @@ export default function FighterProfile({
               Past Fights
             </button>
           </div>
+          {isMe && (
+            <button
+              type="button"
+              onClick={() => setFightModalOpen(true)}
+              aria-label="Manage fights"
+              className="mb-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 text-white text-xs font-medium hover:bg-purple-700 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Fight
+            </button>
+          )}
         </div>
 
         {loadingFights ? (
@@ -977,6 +1008,16 @@ export default function FighterProfile({
                 )}
           </div>
         </section>
+      )}
+
+      {/* Fight management modal — only mounted for own profile */}
+      {isMe && (
+        <FightModal
+          fighterId={profile.id}
+          isOpen={fightModalOpen}
+          onClose={() => setFightModalOpen(false)}
+          onUpdate={() => setFightRefreshKey((k) => k + 1)}
+        />
       )}
     </div>
   );

@@ -78,6 +78,8 @@ export async function POST(req: Request) {
     let weight_class: string | undefined;
     let martial_art: string | undefined;
     let notes: string | undefined;
+    let is_upcoming: boolean;
+
     try {
       const body = await req.json();
       event_name = body.event_name;
@@ -91,6 +93,7 @@ export async function POST(req: Request) {
       weight_class = body.weight_class;
       martial_art = body.martial_art;
       notes = body.notes;
+      is_upcoming = Boolean(body.is_upcoming);
     } catch (jsonError) {
       return NextResponse.json(
         { error: "Invalid request body" },
@@ -98,29 +101,17 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validation
-    if (!event_name || !event_date || !opponent_name || !result) {
+    if (!event_name || !event_date || !opponent_name) {
       return NextResponse.json(
-        { error: "event_name, event_date, opponent_name, and result are required" },
+        { error: "event_name, event_date, and opponent_name are required" },
         { status: 400 }
       );
     }
 
-    if (!["win", "loss", "draw", "no_contest"].includes(result)) {
+    // Past fights must have a result
+    if (!is_upcoming && (!result || !["win", "loss", "draw", "no_contest"].includes(result))) {
       return NextResponse.json(
-        { error: "result must be win, loss, draw, or no_contest" },
-        { status: 400 }
-      );
-    }
-
-    // Validate that event_date is not in the future
-    const eventDateObj = new Date(event_date);
-    const today = new Date();
-    today.setHours(23, 59, 59, 999); // End of today
-    
-    if (eventDateObj > today) {
-      return NextResponse.json(
-        { error: "Fight history dates cannot be in the future" },
+        { error: "A result (win/loss/draw/no_contest) is required for past fights" },
         { status: 400 }
       );
     }
@@ -133,7 +124,7 @@ export async function POST(req: Request) {
         event_date,
         opponent_name,
         location: location || null,
-        result,
+        result: result || null,
         result_method: result_method || null,
         result_round: result_round || null,
         result_time: result_time || null,
@@ -152,10 +143,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // NOTE: Manual fight history does NOT auto-update the record anymore
-    // Users should manually update their record in settings if they want to include manual fights
-    // Manual fights are for profile display (fight history section) only
-    
     return NextResponse.json({ fight: data }, { status: 201 });
   } catch (err) {
     console.error("Unexpected error:", err);
@@ -165,4 +152,3 @@ export async function POST(req: Request) {
     );
   }
 }
-

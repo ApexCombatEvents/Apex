@@ -6,7 +6,6 @@ import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import FightHistoryManager from "@/components/fighters/FightHistoryManager";
 import FighterBeltsManager from "@/components/fighters/FighterBeltsManager";
 import DisciplineMultiSelect from "@/components/ui/DisciplineMultiSelect";
 
@@ -970,10 +969,23 @@ async function handleImageUpload(
         </button>
       </form>
 
-      {/* Fight History Section - Only for fighters (outside main form to avoid nested forms) */}
-      {role === "fighter" && !loading && userId && (
-        <div className="card">
-          <FightHistoryManager fighterId={userId} />
+      {/* Fight history is now managed from your public profile page */}
+      {role === "fighter" && !loading && (
+        <div className="card p-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-slate-900">Fight History</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Add upcoming fights or log past results from your profile page using the <strong>Add Fight</strong> button in the Fights section.
+            </p>
+          </div>
+          {currentUsername && (
+            <a
+              href={`/profile/${currentUsername}`}
+              className="shrink-0 px-3 py-1.5 rounded-lg bg-purple-600 text-white text-xs font-medium hover:bg-purple-700 transition-colors"
+            >
+              Go to my profile
+            </a>
+          )}
         </div>
       )}
 

@@ -20,11 +20,9 @@ export async function PUT(
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    // Handle params as Promise (Next.js 15+) or direct object
     const resolvedParams = typeof params === 'object' && 'then' in params ? await params : params;
     const fightId = resolvedParams.id;
 
-    // Verify the fight history entry belongs to the user
     const { data: existingFight } = await supabase
       .from("fighter_fight_history")
       .select("fighter_profile_id")
@@ -49,26 +47,29 @@ export async function PUT(
     let event_date: string | undefined;
     let opponent_name: string | undefined;
     let location: string | undefined;
-    let result: string | undefined;
+    let result: string | null | undefined;
     let result_method: string | undefined;
     let result_round: number | undefined;
     let result_time: string | undefined;
     let weight_class: string | undefined;
     let martial_art: string | undefined;
     let notes: string | undefined;
+    let is_upcoming: boolean | undefined;
+
     try {
       const body = await req.json();
       event_name = body.event_name;
       event_date = body.event_date;
       opponent_name = body.opponent_name;
       location = body.location;
-      result = body.result;
+      result = body.result ?? null;
       result_method = body.result_method;
       result_round = body.result_round;
       result_time = body.result_time;
       weight_class = body.weight_class;
       martial_art = body.martial_art;
       notes = body.notes;
+      is_upcoming = body.is_upcoming !== undefined ? Boolean(body.is_upcoming) : undefined;
     } catch (jsonError) {
       return NextResponse.json(
         { error: "Invalid request body" },
@@ -76,7 +77,14 @@ export async function PUT(
       );
     }
 
-    // Validation
+    // If explicitly marking as past, result is required
+    if (is_upcoming === false && (!result || !["win", "loss", "draw", "no_contest"].includes(result))) {
+      return NextResponse.json(
+        { error: "A result (win/loss/draw/no_contest) is required for past fights" },
+        { status: 400 }
+      );
+    }
+
     if (result && !["win", "loss", "draw", "no_contest"].includes(result)) {
       return NextResponse.json(
         { error: "result must be win, loss, draw, or no_contest" },
@@ -84,21 +92,7 @@ export async function PUT(
       );
     }
 
-    // Validate that event_date is not in the future (if provided)
-    if (event_date) {
-      const eventDateObj = new Date(event_date);
-      const today = new Date();
-      today.setHours(23, 59, 59, 999); // End of today
-      
-      if (eventDateObj > today) {
-        return NextResponse.json(
-          { error: "Fight history dates cannot be in the future" },
-          { status: 400 }
-        );
-      }
-    }
-
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (event_name !== undefined) updateData.event_name = event_name;
     if (event_date !== undefined) updateData.event_date = event_date;
     if (opponent_name !== undefined) updateData.opponent_name = opponent_name;
@@ -126,9 +120,6 @@ export async function PUT(
       );
     }
 
-    // NOTE: Manual fight history does NOT auto-update the record anymore
-    // Users should manually update their record in settings if they want to include manual fights
-    
     return NextResponse.json({ fight: data });
   } catch (err) {
     console.error("Unexpected error:", err);
@@ -155,11 +146,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    // Handle params as Promise (Next.js 15+) or direct object
     const resolvedParams = typeof params === 'object' && 'then' in params ? await params : params;
     const fightId = resolvedParams.id;
 
-    // Verify the fight history entry belongs to the user
     const { data: existingFight } = await supabase
       .from("fighter_fight_history")
       .select("fighter_profile_id")
@@ -193,9 +182,6 @@ export async function DELETE(
       );
     }
 
-    // NOTE: Manual fight history does NOT auto-update the record anymore
-    // Users should manually update their record in settings if they want to reflect changes
-    
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("Unexpected error:", err);
@@ -205,4 +191,3 @@ export async function DELETE(
     );
   }
 }
-
