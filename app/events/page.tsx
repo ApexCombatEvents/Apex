@@ -196,7 +196,7 @@ function SponsorPlaceholder() {
           </p>
           <a
             href="mailto:sponsors@apexcombatevents.com"
-            className="text-xs text-purple-700 font-medium hover:underline"
+            className="text-xs text-purple-700 font-medium hover:underline break-all"
             onClick={(e) => e.stopPropagation()}
           >
             sponsors@apexcombatevents.com
@@ -413,7 +413,7 @@ export default function EventsPage() {
                 </p>
                 <a
                   href="mailto:sponsors@apexcombatevents.com"
-                  className="text-sm text-purple-700 font-medium hover:underline"
+                  className="text-sm text-purple-700 font-medium hover:underline break-all"
                 >
                   sponsors@apexcombatevents.com
                 </a>

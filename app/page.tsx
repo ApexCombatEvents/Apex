@@ -411,7 +411,7 @@ export default function HomePage() {
                   </p>
                   <a 
                     href="mailto:sponsors@apexcombatevents.com" 
-                    className="text-xs text-purple-700 font-medium hover:underline"
+                    className="text-xs text-purple-700 font-medium hover:underline break-all"
                   >
                     Contact: sponsors@apexcombatevents.com
                   </a>

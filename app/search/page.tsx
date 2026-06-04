@@ -420,7 +420,7 @@ export default function SearchPage() {
               <div className="flex-1">
                 <h3 className="font-bold text-lg text-slate-900 mb-1">Sponsor Placement Available</h3>
                 <p className="text-sm text-slate-600 mb-2">Your sponsor will appear here — high-visibility placement above search results.</p>
-                <a href="mailto:sponsors@apexcombatevents.com" className="text-sm text-purple-700 font-medium hover:underline block">
+                <a href="mailto:sponsors@apexcombatevents.com" className="text-sm text-purple-700 font-medium hover:underline block break-all">
                   sponsors@apexcombatevents.com
                 </a>
               </div>

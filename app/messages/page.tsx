@@ -452,7 +452,7 @@ export default function MessagesPage() {
                 </p>
                 <a 
                   href="mailto:sponsors@apexcombatevents.com" 
-                  className="text-sm text-purple-700 font-medium hover:underline block"
+                  className="text-sm text-purple-700 font-medium hover:underline block break-all"
                 >
                   Contact: sponsors@apexcombatevents.com
                 </a>
