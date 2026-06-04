@@ -4,7 +4,7 @@ import { stripe } from '@/lib/stripe';
 
 // Featured event pricing - adjust as needed
 // Price is higher because featured events are shown worldwide, not just per country
-const FEATURED_EVENT_PRICE_CENTS = 15000; // $150.00
+const FEATURED_EVENT_PRICE_CENTS = 5000; // £50.00
 const FEATURED_DURATION_DAYS = 30; // 30 days
 
 export async function POST(req: Request) {
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
       line_items: [
         {
           price_data: {
-            currency: 'usd',
+            currency: 'gbp',
             product_data: {
               name: `Feature Event - ${eventName}`,
               description: `Feature your event for ${FEATURED_DURATION_DAYS} days`,
