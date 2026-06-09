@@ -86,6 +86,7 @@ export default function ProfileSettingsPage() {
   // Coach visibility settings
   const [hideStats, setHideStats] = useState(false);
   const [hideFights, setHideFights] = useState(false);
+  const [hideGymEvents, setHideGymEvents] = useState(false);
   const [bjjBelt, setBjjBelt] = useState("");
   const [bjjStripes, setBjjStripes] = useState("0");
 
@@ -151,6 +152,9 @@ export default function ProfileSettingsPage() {
         // Load coach visibility settings
         setHideStats(social.hide_stats ?? false);
         setHideFights(social.hide_fights ?? false);
+
+        // Load gym display settings
+        setHideGymEvents(profile.hide_gym_events ?? false);
 
         // Stats fields – these assume matching columns exist in profiles
         setRank(profile.rank ?? "");
@@ -323,6 +327,8 @@ export default function ProfileSettingsPage() {
       weight_unit: weightUnit,
       weight: weightNum,
       updated_at: new Date().toISOString(),
+      // Gym display preferences
+      ...(role === "gym" ? { hide_gym_events: hideGymEvents } : {}),
     };
     
     // Only update record_base if user explicitly provided a record value
@@ -663,6 +669,27 @@ async function handleImageUpload(
                   </span>
                 </label>
               </div>
+            </div>
+          )}
+
+          {/* Gym display settings */}
+          {role === "gym" && (
+            <div className="space-y-3 pt-2 border-t border-slate-200">
+              <h3 className="text-xs font-semibold text-slate-700">Profile display</h3>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={hideGymEvents}
+                  onChange={(e) => setHideGymEvents(e.target.checked)}
+                  className="mt-0.5 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                />
+                <span className="text-xs text-slate-600">
+                  Hide my Events tab — only show Fighter Events on my profile
+                  <span className="block text-slate-400 mt-0.5">
+                    Use this if your gym doesn&apos;t run its own events on Apex and you only want to showcase your fighters&apos; upcoming bouts.
+                  </span>
+                </span>
+              </label>
             </div>
           )}
         </div>

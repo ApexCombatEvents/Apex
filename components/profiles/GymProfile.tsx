@@ -14,6 +14,7 @@ import PostImages from "@/components/social/PostImages";
 import PostContent from "@/components/social/PostContent";
 import BoutShareCard, { type BoutShareMetadata } from "@/components/social/BoutShareCard";
 import { useRouter, usePathname } from "next/navigation";
+import GymFighterBoutModal, { type GymFighterBout } from "@/components/gym/GymFighterBoutModal";
 
 type Profile = {
   id: string;
@@ -28,6 +29,7 @@ type Profile = {
   role?: string | null;
   follower_count?: number | null;
   following_count?: number | null;
+  hide_gym_events?: boolean | null;
 
   social_links?: {
     instagram?: string;
@@ -115,13 +117,20 @@ export default function GymProfile({
   const [fighterEventsLoading, setFighterEventsLoading] = useState(true);
   const [fighterEventsFilter, setFighterEventsFilter] = useState<"upcoming" | "past">("upcoming");
   const [fighterEventsDisplayCount, setFighterEventsDisplayCount] = useState(5);
-  const [activeEventTab, setActiveEventTab] = useState<"events" | "fighter-events">("events");
+  const hideGymEvents = profile.hide_gym_events === true;
+  const [activeEventTab, setActiveEventTab] = useState<"events" | "fighter-events">(
+    hideGymEvents ? "fighter-events" : "events"
+  );
 
   const [coaches, setCoaches] = useState<FighterSummary[]>([]);
   const [coachesLoading, setCoachesLoading] = useState(true);
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
-  // Start at page 0 (newest posts)
   const [postPage, setPostPage] = useState(0);
+
+  // Manual gym fighter bouts
+  const [manualBouts, setManualBouts] = useState<GymFighterBout[]>([]);
+  const [boutModalOpen, setBoutModalOpen] = useState(false);
+  const [boutsRefreshKey, setBoutsRefreshKey] = useState(0);
 
   // figure out if this is my own profile (hide Message on my own gym)
   const [myId, setMyId] = useState<string | null>(null);
@@ -134,6 +143,21 @@ export default function GymProfile({
   }, []);
 
   const isMe = myId === profile.id;
+
+  // Load manually-added gym fighter bouts
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`/api/gym/fighter-bouts?gym_id=${profile.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setManualBouts(data.bouts || []);
+        }
+      } catch {
+        // non-critical — silently ignore
+      }
+    })();
+  }, [profile.id, boutsRefreshKey]);
 
   // Helper function to check if event is upcoming
   const isEventUpcoming = (eventDate: string | null) => {
@@ -704,41 +728,58 @@ export default function GymProfile({
       {/* SECTION – Events & Fighter Events */}
       <section className="card">
         <div className="mb-4">
-          <div className="flex items-center gap-4 border-b border-slate-200">
-            <button
-              onClick={() => {
-                setActiveEventTab("events");
-                setEventsDisplayCount(5); // Reset pagination when switching tabs
-              }}
-              className={`pb-3 px-1 text-sm font-medium transition-all duration-200 ${
-                activeEventTab === "events"
-                  ? "text-purple-700 border-b-2 border-purple-700"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Events
-            </button>
-            <button
-              onClick={() => {
-                setActiveEventTab("fighter-events");
-                setFighterEventsDisplayCount(5); // Reset pagination when switching tabs
-              }}
-              className={`pb-3 px-1 text-sm font-medium transition-all duration-200 ${
-                activeEventTab === "fighter-events"
-                  ? "text-purple-700 border-b-2 border-purple-700"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Fighter Events
-            </button>
+          <div className="flex items-center justify-between border-b border-slate-200">
+            <div className="flex items-center gap-4">
+              {!hideGymEvents && (
+                <button
+                  onClick={() => {
+                    setActiveEventTab("events");
+                    setEventsDisplayCount(5);
+                  }}
+                  className={`pb-3 px-1 text-sm font-medium transition-all duration-200 ${
+                    activeEventTab === "events"
+                      ? "text-purple-700 border-b-2 border-purple-700"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Events
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setActiveEventTab("fighter-events");
+                  setFighterEventsDisplayCount(5);
+                }}
+                className={`pb-3 px-1 text-sm font-medium transition-all duration-200 ${
+                  activeEventTab === "fighter-events"
+                    ? "text-purple-700 border-b-2 border-purple-700"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Fighter Events
+              </button>
+            </div>
+            {isMe && activeEventTab === "fighter-events" && (
+              <button
+                type="button"
+                onClick={() => setBoutModalOpen(true)}
+                aria-label="Add fighter bout"
+                className="mb-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 text-white text-xs font-medium hover:bg-purple-700 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                </svg>
+                Add Fight
+              </button>
+            )}
           </div>
         </div>
 
         <div className="relative min-h-[200px]">
-          {/* Events (created by gym) */}
+          {/* Events (created by gym) — hidden when gym has opted out */}
           <div
             className={`transition-opacity duration-300 ${
-              activeEventTab === "events" ? "opacity-100" : "opacity-0 absolute inset-0 pointer-events-none"
+              !hideGymEvents && activeEventTab === "events" ? "opacity-100" : "opacity-0 absolute inset-0 pointer-events-none"
             }`}
           >
             {eventsLoading ? (
@@ -844,7 +885,7 @@ export default function GymProfile({
             )}
           </div>
 
-          {/* Fighter Events (fighters fighting on other promotions) */}
+          {/* Fighter Events (fighters fighting on other promotions + manually added) */}
           <div
             className={`transition-opacity duration-300 ${
               activeEventTab === "fighter-events" ? "opacity-100" : "opacity-0 absolute inset-0 pointer-events-none"
@@ -852,71 +893,123 @@ export default function GymProfile({
           >
             {fighterEventsLoading ? (
               <p className="text-sm text-slate-600">Loading fighter events…</p>
-            ) : fighterEvents.length === 0 ? (
-              <p className="text-sm text-slate-600">
-                No fights for your fighters on other promotions.
-              </p>
             ) : (
-              <>
-                {getFilteredFighterEvents().length === 0 ? (
-                  <p className="text-sm text-slate-600">
-                    No upcoming fights for your fighters.
-                  </p>
-                ) : (
-                  <>
-                    <div className="space-y-2">
-                      {getFilteredFighterEvents().map((ev: any) => {
-                        const title = ev.title || ev.name || "Untitled event";
-                        const dateLabel = ev.event_date
-                          ? new Date(ev.event_date).toLocaleDateString()
-                          : "Date TBC";
-                        const fightersLabel = ev.fighters && ev.fighters.length > 0
-                          ? ev.fighters.join(", ")
-                          : "Fighters";
+              (() => {
+                const apexEvents = getFilteredFighterEvents();
+                const upcomingManual = manualBouts.filter((b) => {
+                  const d = new Date(b.event_date);
+                  d.setHours(0, 0, 0, 0);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  return d >= today;
+                }).sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
 
-                        return (
-                          <Link
-                            key={ev.id}
-                            href={`/events/${ev.id}`}
-                            className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs hover:border-purple-400 hover:bg-purple-50"
-                          >
-                            <div className="flex flex-col">
-                              {/* Fighter name first */}
-                              {ev.fighters && ev.fighters.length > 0 && (
-                                <span className="text-sm font-semibold text-slate-900 mb-0.5">
-                                  {fightersLabel}
-                                </span>
-                              )}
-                              {/* Event name */}
-                              <span className="text-sm font-medium text-slate-900">
-                                {title}
+                const hasAny = apexEvents.length > 0 || upcomingManual.length > 0;
+
+                if (!hasAny) {
+                  return (
+                    <p className="text-sm text-slate-600">
+                      No upcoming fights yet.{isMe ? " Use the Add Fight button to add one." : ""}
+                    </p>
+                  );
+                }
+
+                return (
+                  <div className="space-y-2">
+                    {/* Manual bouts (gym-added) */}
+                    {upcomingManual.map((bout) => (
+                      <div
+                        key={`manual-${bout.id}`}
+                        className="rounded-xl border border-purple-200 bg-purple-50/40 px-3 py-2.5 space-y-1"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-semibold">
+                                <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                                Upcoming
                               </span>
-                              {/* Date and location */}
-                              <span className="text-[11px] text-slate-600">
-                                {dateLabel}
-                                {ev.location ? ` • ${ev.location}` : ""}
-                              </span>
+                              <span className="font-semibold text-sm text-slate-900">{bout.fighter_name}</span>
                             </div>
-
-                            {ev.banner_url && (
-                              <div className="h-10 w-16 rounded-md overflow-hidden bg-slate-200 flex-shrink-0">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={ev.banner_url}
-                                  alt={title}
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
+                            <p className="text-sm text-slate-700 mt-0.5">{bout.event_name}</p>
+                            <p className="text-[11px] text-slate-500">
+                              {new Date(bout.event_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                              {bout.location ? ` · ${bout.location}` : ""}
+                            </p>
+                            {bout.opponent_name && (
+                              <p className="text-xs text-slate-600">vs <span className="font-medium">{bout.opponent_name}</span></p>
                             )}
-                          </Link>
-                        );
-                      })}
-                    </div>
+                            {(bout.weight_class || bout.discipline) && (
+                              <p className="text-xs text-slate-400">{[bout.weight_class, bout.discipline].filter(Boolean).join(" · ")}</p>
+                            )}
+                            <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                              {bout.tickets_url && (
+                                <a
+                                  href={bout.tickets_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-600 text-white text-[11px] font-medium hover:bg-purple-700 transition-colors"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                                  </svg>
+                                  Buy Tickets
+                                </a>
+                              )}
+                              {bout.fighter_social && (
+                                <a
+                                  href={bout.fighter_social.startsWith("http") ? bout.fighter_social : `https://instagram.com/${bout.fighter_social.replace("@", "")}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[11px] text-purple-600 hover:underline"
+                                >
+                                  Fighter profile
+                                </a>
+                              )}
+                            </div>
+                            {bout.notes && <p className="text-xs text-slate-500 italic mt-0.5">{bout.notes}</p>}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
 
-                    {/* Infinite scroll trigger */}
-                    {fighterEvents.filter((ev: any) => {
-                      return isEventUpcoming(ev.event_date);
-                    }).length > fighterEventsDisplayCount && (
+                    {/* Apex-linked events */}
+                    {apexEvents.map((ev: any) => {
+                      const title = ev.title || ev.name || "Untitled event";
+                      const dateLabel = ev.event_date
+                        ? new Date(ev.event_date).toLocaleDateString()
+                        : "Date TBC";
+                      const fightersLabel = ev.fighters && ev.fighters.length > 0
+                        ? ev.fighters.join(", ")
+                        : "Fighters";
+
+                      return (
+                        <Link
+                          key={ev.id}
+                          href={`/events/${ev.id}`}
+                          className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs hover:border-purple-400 hover:bg-purple-50"
+                        >
+                          <div className="flex flex-col">
+                            {ev.fighters && ev.fighters.length > 0 && (
+                              <span className="text-sm font-semibold text-slate-900 mb-0.5">{fightersLabel}</span>
+                            )}
+                            <span className="text-sm font-medium text-slate-900">{title}</span>
+                            <span className="text-[11px] text-slate-600">
+                              {dateLabel}{ev.location ? ` • ${ev.location}` : ""}
+                            </span>
+                          </div>
+                          {ev.banner_url && (
+                            <div className="h-10 w-16 rounded-md overflow-hidden bg-slate-200 flex-shrink-0">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={ev.banner_url} alt={title} className="w-full h-full object-cover" />
+                            </div>
+                          )}
+                        </Link>
+                      );
+                    })}
+
+                    {/* Load more (Apex events) */}
+                    {fighterEvents.filter((ev: any) => isEventUpcoming(ev.event_date)).length > fighterEventsDisplayCount && (
                       <div className="mt-4 flex justify-center">
                         <button
                           onClick={() => setFighterEventsDisplayCount(prev => prev + 5)}
@@ -926,9 +1019,9 @@ export default function GymProfile({
                         </button>
                       </div>
                     )}
-                  </>
-                )}
-              </>
+                  </div>
+                );
+              })()
             )}
           </div>
         </div>
@@ -1113,6 +1206,16 @@ export default function GymProfile({
             </div>
           </div>
         )}
+        {/* Gym Fighter Bout Modal */}
+        {isMe && (
+          <GymFighterBoutModal
+            gymId={profile.id}
+            isOpen={boutModalOpen}
+            onClose={() => setBoutModalOpen(false)}
+            onUpdate={() => setBoutsRefreshKey((k) => k + 1)}
+          />
+        )}
+
         {isOwnProfile && (
           <CreatePostModal
             isOpen={isCreatePostModalOpen}
