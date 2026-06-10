@@ -49,6 +49,9 @@ type Profile = {
   last_5_form?: string | null;
   current_win_streak?: number | null;
 
+  years_training?: number | null;
+  interclub_count?: number | null;
+
   social_links?: {
     instagram?: string;
     twitter?: string;
@@ -105,6 +108,8 @@ export default function FighterProfile({
     weight_unit,
     last_5_form,
     current_win_streak,
+    years_training,
+    interclub_count,
   } = profile;
 
   const arts = martial_arts && martial_arts.length ? martial_arts : [];
@@ -387,6 +392,36 @@ export default function FighterProfile({
       ? `${current_win_streak}W`
       : "–";
 
+  const displayYearsTraining =
+    years_training != null && years_training > 0
+      ? years_training % 1 === 0 ? `${years_training} yrs` : `${years_training} yrs`
+      : "–";
+
+  const displayInterclubs =
+    typeof interclub_count === "number" && interclub_count >= 0
+      ? String(interclub_count)
+      : "–";
+
+  // Discipline records
+  const [disciplineRecords, setDisciplineRecords] = useState<Array<{
+    id: string; discipline: string; wins: number; losses: number; draws: number;
+  }>>([]);
+
+  useEffect(() => {
+    async function loadDisciplineRecords() {
+      try {
+        const res = await fetch(`/api/fighters/discipline-records?fighter_id=${profile.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setDisciplineRecords(data.records || []);
+        }
+      } catch (err) {
+        console.error("Error loading discipline records:", err);
+      }
+    }
+    loadDisciplineRecords();
+  }, [profile.id]);
+
   const flagUrl = countryToFlagUrl(country);
 
   return (
@@ -514,7 +549,29 @@ export default function FighterProfile({
               ? martial_arts.join(", ")
               : "–"}
           </StatBox>
+          <StatBox label="Yrs Training">{displayYearsTraining}</StatBox>
+          <StatBox label="Interclubs">{displayInterclubs}</StatBox>
         </div>
+
+        {/* Discipline Record Breakdown */}
+        {disciplineRecords.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <h3 className="text-xs font-semibold text-slate-700 mb-2">Record by Discipline</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {disciplineRecords.map((rec) => (
+                <div
+                  key={rec.id}
+                  className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2"
+                >
+                  <div className="text-xs font-medium text-slate-800">{rec.discipline}</div>
+                  <div className="text-sm font-semibold text-slate-900">
+                    {rec.wins}-{rec.losses}-{rec.draws}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
       )}
 

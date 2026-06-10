@@ -8,6 +8,7 @@ import Image from "next/image";
 import Link from "next/link";
 import FightHistoryManager from "@/components/fighters/FightHistoryManager";
 import FighterBeltsManager from "@/components/fighters/FighterBeltsManager";
+import DisciplineRecordsManager from "@/components/fighters/DisciplineRecordsManager";
 
 type Role = "fighter" | "coach" | "gym" | "promotion" | "";
 
@@ -66,6 +67,10 @@ export default function ProfileSettingsPage() {
   // Coach visibility settings
   const [hideStats, setHideStats] = useState(false);
   const [hideFights, setHideFights] = useState(false);
+
+  // Fighter experience fields
+  const [yearsTraining, setYearsTraining] = useState("");
+  const [interclubCount, setInterclubCount] = useState("");
 
   const isFighterOrCoach = role === "fighter" || role === "coach";
 
@@ -138,6 +143,10 @@ export default function ProfileSettingsPage() {
 
         setWeightUnit((profile.weight_unit as "kg" | "lb") || "kg");
         setWeight(profile.weight ? String(profile.weight) : "");
+
+        // Fighter experience
+        setYearsTraining(profile.years_training != null ? String(profile.years_training) : "");
+        setInterclubCount(profile.interclub_count != null ? String(profile.interclub_count) : "");
       }
 
       setLoading(false);
@@ -287,6 +296,8 @@ export default function ProfileSettingsPage() {
       height_inches: heightInchesInt,
       weight_unit: weightUnit,
       weight: weightNum,
+      years_training: yearsTraining.trim() === "" ? null : Math.max(0, parseFloat(yearsTraining) || 0),
+      interclub_count: interclubCount.trim() === "" ? null : Math.max(0, parseInt(interclubCount, 10) || 0),
       updated_at: new Date().toISOString(),
     };
     
@@ -697,6 +708,38 @@ async function handleImageUpload(
               </label>
             </div>
 
+            {/* Fighter experience fields */}
+            {role === "fighter" && (
+              <div className="grid md:grid-cols-2 gap-3">
+                <label className="text-xs text-slate-600 space-y-1">
+                  Years Training
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.5"
+                    className="w-full rounded-xl border px-3 py-2 text-sm"
+                    value={yearsTraining}
+                    onChange={(e) => setYearsTraining(e.target.value)}
+                    placeholder="e.g. 3.5"
+                  />
+                  <span className="text-[10px] text-slate-500">How long you&apos;ve been actively training</span>
+                </label>
+
+                <label className="text-xs text-slate-600 space-y-1">
+                  Interclubs / Smokers
+                  <input
+                    type="number"
+                    min={0}
+                    className="w-full rounded-xl border px-3 py-2 text-sm"
+                    value={interclubCount}
+                    onChange={(e) => setInterclubCount(e.target.value)}
+                    placeholder="e.g. 5"
+                  />
+                  <span className="text-[10px] text-slate-500">Unsanctioned but supervised competitive bouts</span>
+                </label>
+              </div>
+            )}
+
             <div className="grid md:grid-cols-2 gap-3">
               {/* Height */}
               <div className="space-y-1 text-xs text-slate-600">
@@ -770,6 +813,16 @@ async function handleImageUpload(
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Discipline Record Breakdown - Fighter only */}
+        {role === "fighter" && !loading && userId && (
+          <div className="card">
+            <DisciplineRecordsManager
+              fighterId={userId}
+              martialArtsSuggestions={martialArts.split(",").map(s => s.trim()).filter(Boolean)}
+            />
           </div>
         )}
 
