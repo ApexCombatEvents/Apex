@@ -726,7 +726,7 @@ async function handleImageUpload(
                 </label>
 
                 <label className="text-xs text-slate-600 space-y-1">
-                  Interclubs / Smokers
+                  Interclubs / Exhibitions
                   <input
                     type="number"
                     min={0}
@@ -735,7 +735,7 @@ async function handleImageUpload(
                     onChange={(e) => setInterclubCount(e.target.value)}
                     placeholder="e.g. 5"
                   />
-                  <span className="text-[10px] text-slate-500">Unsanctioned but supervised competitive bouts</span>
+                  <span className="text-[10px] text-slate-500">Unsanctioned competitive bouts and exhibition matches</span>
                 </label>
               </div>
             )}
