@@ -26,6 +26,8 @@ export default function OfferActions({
 }: OfferActionsProps) {
   const [busy, setBusy] = useState<"none" | "accept" | "decline">("none");
   const [error, setError] = useState<string | null>(null);
+  const [showWaiverModal, setShowWaiverModal] = useState(false);
+  const [waiverChecked, setWaiverChecked] = useState(false);
   const router = useRouter();
 
   const sameGymConflict =
@@ -34,15 +36,15 @@ export default function OfferActions({
     offeredFighterGymUsername.trim().toLowerCase() ===
       opponentGymUsername.trim().toLowerCase();
 
-  async function handleDecision(decision: "accepted" | "declined") {
-    if (busy !== "none") return;
+  async function processAcceptance() {
+    setBusy("accept");
+    setShowWaiverModal(false);
     setError(null);
-    setBusy(decision === "accepted" ? "accept" : "decline");
 
     const supabase = createSupabaseBrowser();
 
-    // 0) Guard: prevent same-gym matchups (and accidentally matching a fighter to themselves)
-    if (decision === "accepted" && fighterProfileId) {
+    // Guard: prevent same-gym matchups
+    if (fighterProfileId) {
       try {
         const { data: boutRow, error: boutFetchError } = await supabase
           .from("event_bouts")
@@ -51,7 +53,6 @@ export default function OfferActions({
           .single();
 
         if (boutFetchError) {
-          console.error("bout fetch error", boutFetchError);
           setError("Could not validate this matchup. Please try again.");
           setBusy("none");
           return;
@@ -61,7 +62,7 @@ export default function OfferActions({
           side === "red" ? boutRow?.blue_fighter_id : boutRow?.red_fighter_id;
 
         if (opponentId && opponentId === fighterProfileId) {
-          setError("You can’t match a fighter against themselves.");
+          setError("You can't match a fighter against themselves.");
           setBusy("none");
           return;
         }
@@ -73,7 +74,6 @@ export default function OfferActions({
             .in("id", [fighterProfileId, opponentId]);
 
           if (profilesError) {
-            console.error("profiles fetch error", profilesError);
             setError("Could not validate gyms for this matchup. Please try again.");
             setBusy("none");
             return;
@@ -104,136 +104,40 @@ export default function OfferActions({
           }
         }
       } catch (e) {
-        console.error("same-gym guard error", e);
         setError("Could not validate this matchup. Please try again.");
         setBusy("none");
         return;
       }
     }
 
-    // 1) Update offer status
+    // Record waiver acceptance
+    try {
+      await fetch("/api/waivers/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          waiver_type: "bout-acceptance",
+          metadata: { offer_id: offerId, bout_id: boutId, side },
+        }),
+      });
+    } catch {
+      // Non-blocking
+    }
+
+    // Update offer status to accepted
     const { error: offerError } = await supabase
       .from("event_bout_offers")
-      .update({ status: decision })
+      .update({ status: "accepted" })
       .eq("id", offerId);
 
     if (offerError) {
-      console.error("offer update error", offerError);
       setError(offerError.message);
       setBusy("none");
       return;
     }
 
-    // 1b) If declined, process refund for offer fee (if payment was made) and notify sender
-    if (decision === "declined") {
-      try {
-        // Find the payment record for this offer
-        const { data: paymentRecord, error: paymentError } = await supabase
-          .from("offer_payments")
-          .select("id, amount_paid, payment_status, refund_status, payer_profile_id")
-          .eq("offer_id", offerId)
-          .eq("payment_status", "paid")
-          .maybeSingle();
-
-        if (paymentError) {
-          console.error("payment lookup error", paymentError);
-          // Don't fail the decline action if payment lookup fails
-        } else if (paymentRecord && paymentRecord.refund_status !== "refunded") {
-          // Process refund via API route
-          try {
-            const refundResponse = await fetch('/api/stripe/refund-offer-payment', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ offerId }),
-            });
-
-            const refundData = await refundResponse.json();
-
-            if (refundResponse.ok && refundData.success) {
-              console.log(`✅ Refund processed for offer ${offerId}: $${(paymentRecord.amount_paid / 100).toFixed(2)}`);
-              
-              // Get offer details for notification
-              const { data: offerData } = await supabase
-                .from("event_bout_offers")
-                .select("bout_id, fighter_profile_id")
-                .eq("id", offerId)
-                .single();
-
-              if (offerData) {
-                const { data: bout } = await supabase
-                  .from("event_bouts")
-                  .select("event_id")
-                  .eq("id", offerData.bout_id)
-                  .single();
-
-                if (bout) {
-                  const { data: event } = await supabase
-                    .from("events")
-                    .select("id, name, title")
-                    .eq("id", bout.event_id)
-                    .single();
-
-                  if (event && paymentRecord.payer_profile_id) {
-                    // Get fighter name
-                    const { data: fighter } = await supabase
-                      .from("profiles")
-                      .select("full_name, username")
-                      .eq("id", offerData.fighter_profile_id)
-                      .single();
-
-                    const fighterName = fighter?.full_name || fighter?.username || "A fighter";
-                    const eventName = event.title || event.name || "Event";
-
-                    // Get current user (event organizer) for notification
-                    const { data: currentUser } = await supabase.auth.getUser();
-                    const organizerId = currentUser?.user?.id;
-
-                    // Notify the sender that their offer was declined and refunded
-                    if (organizerId) {
-                      try {
-                        await fetch('/api/notifications/create', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            profile_id: paymentRecord.payer_profile_id,
-                            type: "offer_declined",
-                            actor_profile_id: organizerId,
-                            data: {
-                              offer_id: offerId,
-                              bout_id: offerData.bout_id,
-                              event_id: bout.event_id,
-                              event_name: eventName,
-                              fighter_profile_id: offerData.fighter_profile_id,
-                              fighter_name: fighterName,
-                              refund_amount: paymentRecord.amount_paid,
-                              refunded: true,
-                            },
-                          }),
-                        });
-                      } catch (notifError) {
-                        console.error("Failed to create declined notification:", notifError);
-                      }
-                    }
-                  }
-                }
-              }
-            } else {
-              console.error("Refund failed:", refundData.error);
-            }
-          } catch (refundApiError) {
-            console.error("Refund API error:", refundApiError);
-            // Don't fail the decline action if refund API call fails
-          }
-        }
-      } catch (refundError) {
-        console.error("refund processing error", refundError);
-        // Don't fail the decline action if refund processing fails
-      }
-    }
-
-    // 2) If accepted, charge platform fee and link fighter to bout
-    if (decision === "accepted" && fighterProfileId) {
-      // Charge 5% platform fee when offer is accepted
+    // Charge platform fee and link fighter to bout
+    if (fighterProfileId) {
       try {
         const { data: paymentRecord } = await supabase
           .from("offer_payments")
@@ -243,48 +147,28 @@ export default function OfferActions({
           .maybeSingle();
 
         if (paymentRecord && paymentRecord.platform_fee === 0) {
-          // Calculate and update platform fee (5% of amount_paid)
           const platformFee = Math.round((paymentRecord.amount_paid * 5) / 100);
-          
           const { error: updateError } = await supabase
             .from("offer_payments")
-            .update({
-              platform_fee: platformFee,
-              updated_at: new Date().toISOString(),
-            })
+            .update({ platform_fee: platformFee, updated_at: new Date().toISOString() })
             .eq("id", paymentRecord.id);
 
           if (!updateError) {
-            console.log(`✅ Platform fee charged for accepted offer ${offerId}: $${(platformFee / 100).toFixed(2)}`);
-            
-            // Transfer platform fee to platform owner's account
             try {
-              const transferResponse = await fetch('/api/stripe/transfer-platform-fee', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  paymentId: paymentRecord.id,
-                  offerId: offerId,
-                }),
+              await fetch("/api/stripe/transfer-platform-fee", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ paymentId: paymentRecord.id, offerId }),
               });
-
-              const transferData = await transferResponse.json();
-              if (transferResponse.ok && transferData.success) {
-                console.log(`✅ Platform fee transferred to platform account: $${(platformFee / 100).toFixed(2)}`);
-              } else {
-                console.error("Platform fee transfer failed:", transferData.error);
-              }
-            } catch (transferError) {
-              console.error("Platform fee transfer error:", transferError);
-              // Don't fail the acceptance if transfer fails
+            } catch {
+              // Non-blocking
             }
           }
         }
-      } catch (feeError) {
-        console.error("Platform fee calculation error:", feeError);
-        // Don't fail the acceptance if fee calculation fails
+      } catch {
+        // Non-blocking
       }
-      // Fetch fighter to get display name
+
       const { data: fighter, error: fighterError } = await supabase
         .from("profiles")
         .select("full_name, username")
@@ -292,12 +176,9 @@ export default function OfferActions({
         .single();
 
       if (fighterError) {
-        console.error("fighter fetch error", fighterError);
         setError("Offer accepted, but failed to link fighter details.");
       } else {
-        const displayName =
-          fighter.full_name || fighter.username || "Fighter";
-
+        const displayName = fighter.full_name || fighter.username || "Fighter";
         const update: Record<string, any> = {};
         if (side === "red") {
           update.red_fighter_id = fighterProfileId;
@@ -315,61 +196,50 @@ export default function OfferActions({
           .eq("id", boutId);
 
         if (boutError) {
-          console.error("bout update error", boutError);
           setError("Offer accepted, but failed to update the bout.");
         } else {
-          // Create notifications for the fighter being assigned AND event followers
           try {
             const { data: bout } = await supabase
               .from("event_bouts")
               .select("event_id")
               .eq("id", boutId)
               .single();
-            
+
             if (bout) {
               const { data: event } = await supabase
                 .from("events")
                 .select("name, title, owner_profile_id, martial_art")
                 .eq("id", bout.event_id)
                 .single();
-              
+
               if (event) {
                 const eventName = event.title || event.name || "Event";
-                
-                // Get offer sender info
                 const { data: offerData } = await supabase
                   .from("event_bout_offers")
                   .select("from_profile_id")
                   .eq("id", offerId)
                   .single();
 
-                // 1. Notify the fighter being assigned
                 try {
-                  await fetch('/api/notifications/create', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                  await fetch("/api/notifications/create", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                       profile_id: fighterProfileId,
                       type: "bout_assigned",
                       actor_profile_id: event.owner_profile_id,
-                      data: {
-                        bout_id: boutId,
-                        event_id: bout.event_id,
-                        event_name: eventName,
-                        side: side,
-                      },
+                      data: { bout_id: boutId, event_id: bout.event_id, event_name: eventName, side },
                     }),
                   });
-                } catch (notifError) {
-                  console.error("Failed to create bout_assigned notification:", notifError);
+                } catch {
+                  // Non-blocking
                 }
 
-                // 2. Notify the offer sender that their offer was accepted
                 if (offerData?.from_profile_id) {
                   try {
-                    await fetch('/api/notifications/create', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
+                    await fetch("/api/notifications/create", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
                         profile_id: offerData.from_profile_id,
                         type: "offer_accepted",
@@ -381,17 +251,15 @@ export default function OfferActions({
                           event_name: eventName,
                           fighter_profile_id: fighterProfileId,
                           fighter_name: displayName,
-                          side: side,
+                          side,
                         },
                       }),
                     });
-                  } catch (notifError) {
-                    console.error("Failed to create offer_accepted notification:", notifError);
+                  } catch {
+                    // Non-blocking
                   }
                 }
 
-                // 3. Notify all event followers that a bout has been matched
-                // Use API route to bypass RLS restrictions
                 try {
                   const { data: fighterProfile } = await supabase
                     .from("profiles")
@@ -399,85 +267,255 @@ export default function OfferActions({
                     .eq("id", fighterProfileId)
                     .single();
 
-                  const fighterName = fighterProfile?.full_name || fighterProfile?.username || "A fighter";
+                  const fighterName =
+                    fighterProfile?.full_name || fighterProfile?.username || "A fighter";
 
-                  const response = await fetch(`/api/events/${bout.event_id}/notify-followers`, {
+                  await fetch(`/api/events/${bout.event_id}/notify-followers`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      boutId,
-                      fighterName,
-                      side,
-                      martialArt: event.martial_art,
-                    }),
+                    body: JSON.stringify({ boutId, fighterName, side, martialArt: event.martial_art }),
                   });
-
-                  const result = await response.json();
-                  
-                  if (response.ok) {
-                    console.log("✅ Successfully notified", result.notified, "followers");
-                  } else {
-                    console.error("Error notifying followers:", result.error);
-                  }
-                } catch (notifError) {
-                  console.error("Error calling notify-followers API:", notifError);
-                  // Don't throw - the assignment succeeded
+                } catch {
+                  // Non-blocking
                 }
               }
             }
-          } catch (notifError) {
-            console.error("Bout assignment notification error", notifError);
-            // Don't throw - the assignment succeeded
+          } catch {
+            // Non-blocking
           }
         }
       }
-
-      // (Optional) You could also auto-decline other pending offers for the same bout+side.
     }
 
     setBusy("none");
-    router.refresh(); // refresh server data on the event page
+    router.refresh();
+  }
+
+  async function handleDecline() {
+    if (busy !== "none") return;
+    setError(null);
+    setBusy("decline");
+
+    const supabase = createSupabaseBrowser();
+
+    const { error: offerError } = await supabase
+      .from("event_bout_offers")
+      .update({ status: "declined" })
+      .eq("id", offerId);
+
+    if (offerError) {
+      setError(offerError.message);
+      setBusy("none");
+      return;
+    }
+
+    // Process refund if applicable
+    try {
+      const { data: paymentRecord, error: paymentError } = await supabase
+        .from("offer_payments")
+        .select("id, amount_paid, payment_status, refund_status, payer_profile_id")
+        .eq("offer_id", offerId)
+        .eq("payment_status", "paid")
+        .maybeSingle();
+
+      if (!paymentError && paymentRecord && paymentRecord.refund_status !== "refunded") {
+        try {
+          const refundResponse = await fetch("/api/stripe/refund-offer-payment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ offerId }),
+          });
+
+          const refundData = await refundResponse.json();
+
+          if (refundResponse.ok && refundData.success) {
+            const { data: offerData } = await supabase
+              .from("event_bout_offers")
+              .select("bout_id, fighter_profile_id")
+              .eq("id", offerId)
+              .single();
+
+            if (offerData) {
+              const { data: bout } = await supabase
+                .from("event_bouts")
+                .select("event_id")
+                .eq("id", offerData.bout_id)
+                .single();
+
+              if (bout) {
+                const { data: event } = await supabase
+                  .from("events")
+                  .select("id, name, title")
+                  .eq("id", bout.event_id)
+                  .single();
+
+                if (event && paymentRecord.payer_profile_id) {
+                  const { data: fighter } = await supabase
+                    .from("profiles")
+                    .select("full_name, username")
+                    .eq("id", offerData.fighter_profile_id)
+                    .single();
+
+                  const { data: currentUser } = await supabase.auth.getUser();
+                  const organizerId = currentUser?.user?.id;
+
+                  if (organizerId) {
+                    try {
+                      await fetch("/api/notifications/create", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          profile_id: paymentRecord.payer_profile_id,
+                          type: "offer_declined",
+                          actor_profile_id: organizerId,
+                          data: {
+                            offer_id: offerId,
+                            bout_id: offerData.bout_id,
+                            event_id: bout.event_id,
+                            event_name: event.title || event.name || "Event",
+                            fighter_profile_id: offerData.fighter_profile_id,
+                            fighter_name: fighter?.full_name || fighter?.username || "A fighter",
+                            refund_amount: paymentRecord.amount_paid,
+                            refunded: true,
+                          },
+                        }),
+                      });
+                    } catch {
+                      // Non-blocking
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch {
+          // Non-blocking
+        }
+      }
+    } catch {
+      // Non-blocking
+    }
+
+    setBusy("none");
+    router.refresh();
+  }
+
+  function handleAcceptClick() {
+    if (busy !== "none" || !fighterProfileId || sameGymConflict) return;
+    setWaiverChecked(false);
+    setShowWaiverModal(true);
   }
 
   const disabled = busy !== "none";
   const acceptDisabled = disabled || !fighterProfileId || sameGymConflict;
 
   return (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        disabled={acceptDisabled}
-        onClick={() => handleDecision("accepted")}
-        title={
-          sameGymConflict
-            ? "Can't accept: both fighters are from the same gym."
-            : opponentFighterProfileId && !opponentGymUsername
-            ? "Opponent gym is unknown; allowing acceptance."
-            : undefined
-        }
-        className="rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700 hover:bg-green-100 disabled:opacity-60"
-      >
-        {busy === "accept" ? "Accepting..." : "Accept"}
-      </button>
+    <>
+      {/* Waiver confirmation modal */}
+      {showWaiverModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowWaiverModal(false);
+          }}
+        >
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-slate-900">
+                Confirm bout acceptance
+              </h2>
+              <button
+                onClick={() => setShowWaiverModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-lg leading-none"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
 
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => handleDecision("declined")}
-        className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-slate-600 hover:bg-slate-100 disabled:opacity-60"
-      >
-        {busy === "decline" ? "Declining..." : "Decline"}
-      </button>
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
+              <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide">
+                ⚠ Liability Waiver
+              </p>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={waiverChecked}
+                  onChange={(e) => setWaiverChecked(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 flex-shrink-0 accent-purple-600"
+                />
+                <span className="text-xs text-slate-700 leading-relaxed">
+                  I acknowledge that by accepting this bout I confirm this is a valid match-up to the best of my knowledge. The platform is not liable for any injury, harm, or dispute arising from this bout. I have read and agree to the Bout Acceptance Agreement.
+                </span>
+              </label>
+              <a
+                href="/waiver/bout-acceptance"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] text-purple-600 hover:underline ml-7 inline-block"
+              >
+                Read the full waiver →
+              </a>
+            </div>
 
-      {error && (
-        <span className="text-[10px] text-red-600 max-w-xs">{error}</span>
+            <div className="flex items-center justify-end gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowWaiverModal(false)}
+                className="rounded-full border border-slate-200 bg-slate-50 px-4 py-1.5 text-xs text-slate-600 hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!waiverChecked}
+                onClick={processAcceptance}
+                className="rounded-full bg-green-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Confirm acceptance
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
-      {!error && sameGymConflict && (
-        <span className="text-[10px] text-amber-700 max-w-xs">
-          Same gym matchup blocked
-        </span>
-      )}
-    </div>
+      {/* Inline accept / decline buttons */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={acceptDisabled}
+          onClick={handleAcceptClick}
+          title={
+            sameGymConflict
+              ? "Can't accept: both fighters are from the same gym."
+              : opponentFighterProfileId && !opponentGymUsername
+              ? "Opponent gym is unknown; allowing acceptance."
+              : undefined
+          }
+          className="rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700 hover:bg-green-100 disabled:opacity-60"
+        >
+          {busy === "accept" ? "Accepting..." : "Accept"}
+        </button>
+
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={handleDecline}
+          className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-slate-600 hover:bg-slate-100 disabled:opacity-60"
+        >
+          {busy === "decline" ? "Declining..." : "Decline"}
+        </button>
+
+        {error && (
+          <span className="text-[10px] text-red-600 max-w-xs">{error}</span>
+        )}
+
+        {!error && sameGymConflict && (
+          <span className="text-[10px] text-amber-700 max-w-xs">
+            Same gym matchup blocked
+          </span>
+        )}
+      </div>
+    </>
   );
 }

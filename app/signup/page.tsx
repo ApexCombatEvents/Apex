@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import WaiverCheckbox from "@/components/ui/WaiverCheckbox";
 
 type Role = "fighter" | "coach" | "gym" | "promotion" | "";
 
@@ -11,13 +12,13 @@ export default function SignupPage() {
   const [surname, setSurname] = useState("");
   const [username, setUsername] = useState("");
   const [role, setRole] = useState<Role>("");
+  const [waiverAccepted, setWaiverAccepted] = useState(false);
   const [msg, setMsg] = useState("");
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setMsg("");
 
-    // Validation
     if (!role) {
       setMsg("Please select a profile type");
       return;
@@ -53,15 +54,26 @@ export default function SignupPage() {
       return;
     }
 
+    if (!waiverAccepted) {
+      setMsg("You must read and accept the Platform Participation Agreement to continue.");
+      return;
+    }
+
     setMsg("Creating account...");
 
-    // Combine firstName and surname to form full_name
     const fullName = `${firstName.trim()} ${surname.trim()}`.trim();
 
     const res = await fetch("/api/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, full_name: fullName, username, role }),
+      body: JSON.stringify({
+        email,
+        password,
+        full_name: fullName,
+        username,
+        role,
+        waiver_accepted: true,
+      }),
     });
 
     const data = await res.json();
@@ -142,9 +154,18 @@ export default function SignupPage() {
           onChange={e => setConfirmPassword(e.target.value)}
           required
         />
-        <button 
+
+        {/* Waiver acknowledgement — must be checked before account can be created */}
+        <WaiverCheckbox
+          type="signup"
+          checked={waiverAccepted}
+          onChange={setWaiverAccepted}
+        />
+
+        <button
           type="submit"
-          className="btn btn-primary w-full"
+          disabled={!waiverAccepted}
+          className="btn btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Create Account
         </button>
@@ -158,4 +179,3 @@ export default function SignupPage() {
     </div>
   );
 }
-

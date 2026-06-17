@@ -8,6 +8,7 @@ import Image from "next/image";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import { getGoogleMapsUrl } from "@/lib/location";
 import DisciplineMultiSelect from "@/components/ui/DisciplineMultiSelect";
+import WaiverCheckbox from "@/components/ui/WaiverCheckbox";
 
 type CardType = "main" | "undercard";
 
@@ -85,6 +86,7 @@ export default function CreateEventPage() {
 
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [waiverAccepted, setWaiverAccepted] = useState(false);
 
   function handleBannerChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -166,6 +168,12 @@ export default function CreateEventPage() {
     e.preventDefault();
     setSaving(true);
     setMessage(null);
+
+    if (!waiverAccepted) {
+      setMessage("You must read and accept the Event Organiser Liability Waiver before publishing.");
+      setSaving(false);
+      return;
+    }
 
     // 1) Make sure user is logged in
     const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -427,6 +435,20 @@ export default function CreateEventPage() {
           // Don't throw - the event creation succeeded
         }
       }
+    }
+
+    // Record waiver acceptance before navigating away
+    try {
+      await fetch("/api/waivers/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          waiver_type: "event-creation",
+          metadata: { event_id: eventId },
+        }),
+      });
+    } catch {
+      // Non-blocking — event was created successfully regardless
     }
 
     setSaving(false);
@@ -962,10 +984,17 @@ export default function CreateEventPage() {
           </div>
         )}
 
+        <WaiverCheckbox
+          type="event-creation"
+          checked={waiverAccepted}
+          onChange={setWaiverAccepted}
+          disabled={saving}
+        />
+
         <button
           type="submit"
-          disabled={saving}
-          className="rounded-xl bg-purple-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+          disabled={saving || !waiverAccepted}
+          className="rounded-xl bg-purple-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {saving ? "Creating event…" : "Create event"}
         </button>

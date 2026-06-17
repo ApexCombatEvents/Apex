@@ -47,6 +47,7 @@ export async function POST(req: Request) {
     let full_name: string | undefined;
     let username: string | undefined;
     let role: string | undefined;
+    let waiver_accepted: boolean | undefined;
     try {
       const json = await req.json();
       email = json.email;
@@ -54,6 +55,7 @@ export async function POST(req: Request) {
       full_name = json.full_name;
       username = json.username;
       role = json.role;
+      waiver_accepted = json.waiver_accepted;
     } catch (jsonError) {
       return NextResponse.json(
         { error: "Invalid request body" },
@@ -149,6 +151,18 @@ export async function POST(req: Request) {
         );
       }
       return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    // Record waiver acceptance using the admin client (user is not yet authenticated)
+    if (waiver_accepted && data.user) {
+      const ip = getClientIP(req);
+      await supabaseAdmin.from("waiver_acceptances").insert({
+        user_id: data.user.id,
+        waiver_type: "signup",
+        waiver_version: "v1.0",
+        ip_address: ip || null,
+        metadata: { accepted_during: "signup" },
+      });
     }
 
     return NextResponse.json(
