@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerForRoute } from "@/lib/supabaseServerForRoute";
 import { stripe } from "@/lib/stripe";
+import { createClient } from "@supabase/supabase-js";
+import { sendNotificationEmail } from "@/lib/email";
 
 // Process a payout request (approve and transfer funds via Stripe)
 export async function POST(req: Request) {
@@ -157,6 +159,8 @@ export async function POST(req: Request) {
               recipient_type: payoutRequest.recipient_type,
             },
           });
+          const adminClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+          sendNotificationEmail({ supabaseAdmin: adminClient, recipientProfileId: notifyId, type: "payout_rejected", data: {} }).catch(() => {});
         } catch (notifError) {
           console.error("Notification error", notifError);
         }
@@ -255,6 +259,8 @@ export async function POST(req: Request) {
               recipient_name: recipientName,
             },
         });
+        const adminClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+        sendNotificationEmail({ supabaseAdmin: adminClient, recipientProfileId: notifyId, type: "payout_processed", data: {} }).catch(() => {});
       } catch (notifError) {
         console.error("Notification error", notifError);
         // Don't fail the payout if notification fails
@@ -302,6 +308,8 @@ export async function POST(req: Request) {
               error: stripeError?.message || "Stripe transfer failed",
             },
           });
+          const adminClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+          sendNotificationEmail({ supabaseAdmin: adminClient, recipientProfileId: notifyId, type: "payout_failed", data: {} }).catch(() => {});
         }
       } catch (updateFailErr) {
         console.error("Failed to mark payout request as failed", updateFailErr);

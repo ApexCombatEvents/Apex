@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerForRoute } from "@/lib/supabaseServerForRoute";
 import { createClient } from "@supabase/supabase-js";
+import { sendNotificationEmail } from "@/lib/email";
 
 export async function POST(req: Request) {
   try {
@@ -123,6 +124,16 @@ export async function POST(req: Request) {
 
       // RLS on notifications allows insert with check(true)
       await supabase.from("notifications").insert(rows);
+
+      // Send email notifications for new messages
+      for (const pid of recipientIds) {
+        sendNotificationEmail({
+          supabaseAdmin,
+          recipientProfileId: pid,
+          type: "message",
+          data: { threadId, preview: text.slice(0, 80), actor_name: null },
+        }).catch((err) => console.error("Message email error:", err));
+      }
     }
 
     return NextResponse.json({ message: inserted });

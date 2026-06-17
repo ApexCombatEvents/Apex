@@ -201,7 +201,7 @@ export default function NotificationsSettingsPage() {
           </div>
           <h1 className="text-xl font-semibold mt-1">Notifications</h1>
           <p className="text-sm text-slate-600 mt-1">
-            Choose what shows up in your in-app notifications.
+            Choose which notifications you receive. Toggles control both in-app and email notifications.
           </p>
         </div>
         <Link 

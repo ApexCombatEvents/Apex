@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { sendNotificationEmail } from '@/lib/email';
 
 // Validate environment variables at module load
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -83,6 +84,14 @@ export async function POST(req: Request) {
         { status: 500 }
       );
     }
+
+    // Send email notification (non-blocking — don't fail the request if email fails)
+    sendNotificationEmail({
+      supabaseAdmin,
+      recipientProfileId: profile_id,
+      type,
+      data: notificationData,
+    }).catch((err) => console.error("Email send error:", err));
 
     return NextResponse.json({ success: true, id: notification.id });
   } catch (error: any) {

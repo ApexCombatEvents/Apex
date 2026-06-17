@@ -264,20 +264,18 @@ function SettingsContent() {
         </section>
       </Link>
 
-      {/* Notification preferences - hidden for now, can be enabled in the future */}
-      {false && (
-        <Link href="/settings/notifications" className="block">
-          <section className="card space-y-2 hover:border-purple-200 hover:bg-white transition-colors">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold">Notifications</h2>
-              <span className="text-xs text-purple-700 font-semibold">→</span>
-            </div>
-            <p className="text-sm text-slate-600">
-              Choose what shows up in your in-app notifications.
-            </p>
-          </section>
-        </Link>
-      )}
+      {/* Notification preferences */}
+      <Link href="/settings/notifications" className="block">
+        <section className="card space-y-2 hover:border-purple-200 hover:bg-white transition-colors">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold">Notifications</h2>
+            <span className="text-xs text-purple-700 font-semibold">→</span>
+          </div>
+          <p className="text-sm text-slate-600">
+            Choose which notifications you receive in-app and by email.
+          </p>
+        </section>
+      </Link>
 
       {/* Earnings - Show for fighters, gyms, and promotions */}
       {(role === "fighter" || role === "gym" || role === "promotion") && (
