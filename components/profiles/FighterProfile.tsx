@@ -90,6 +90,10 @@ export default function FighterProfile({
   isOwnProfile = false,
   hideStats = false,
   hideFights = false,
+  hideBio = false,
+  hideUpcomingFights = false,
+  hidePastFights = false,
+  hidePosts = false,
 }: {
   profile: Profile;
   posts?: Post[];
@@ -97,6 +101,10 @@ export default function FighterProfile({
   isOwnProfile?: boolean;
   hideStats?: boolean;
   hideFights?: boolean;
+  hideBio?: boolean;
+  hideUpcomingFights?: boolean;
+  hidePastFights?: boolean;
+  hidePosts?: boolean;
 }) {
   const router = useRouter();
   const { t } = useTranslation();
@@ -167,7 +175,24 @@ export default function FighterProfile({
   // Pagination for fights
   const [upcomingDisplayCount, setUpcomingDisplayCount] = useState(6);
   const [pastDisplayCount, setPastDisplayCount] = useState(6);
-  const [activeFightsTab, setActiveFightsTab] = useState<"upcoming" | "past">("upcoming");
+
+  // Section visibility (controlled from Edit Profile). The legacy `hideFights`
+  // flag hides the whole Fights section; the newer flags allow hiding each tab.
+  const showUpcomingFights = !hideFights && !hideUpcomingFights;
+  const showPastFights = !hideFights && !hidePastFights;
+  const showFightsSection = showUpcomingFights || showPastFights;
+
+  const [activeFightsTab, setActiveFightsTab] = useState<"upcoming" | "past">(
+    showUpcomingFights ? "upcoming" : "past"
+  );
+
+  // Guard against landing on a hidden tab.
+  const effectiveFightsTab: "upcoming" | "past" =
+    activeFightsTab === "upcoming" && !showUpcomingFights
+      ? "past"
+      : activeFightsTab === "past" && !showPastFights
+      ? "upcoming"
+      : activeFightsTab;
 
   useEffect(() => {
     const supabase = createSupabaseBrowser();
@@ -556,6 +581,7 @@ export default function FighterProfile({
       </section>
 
       {/* SECTION 2 – Bio */}
+      {!hideBio && (
       <section className="card">
         <div className="section-header mb-4">
           <h2 className="section-title text-lg">{t('Profile.bio')}</h2>
@@ -564,6 +590,7 @@ export default function FighterProfile({
           {bio || (isMe ? "Tell people about your fighting style, experience and goals." : "")}
         </p>
       </section>
+      )}
 
       {/* SECTION 2.5 – Championship Belts */}
       <FighterBelts fighterId={profile.id} />
@@ -623,30 +650,34 @@ export default function FighterProfile({
       <FighterPromotions fighterId={profile.id} />
 
       {/* SECTION 5 – Fights */}
-      {!hideFights && (
+      {showFightsSection && (
       <section className="card">
         <div className="flex items-center justify-between mb-4 border-b border-slate-200">
           <div className="flex gap-4">
-            <button
-              onClick={() => setActiveFightsTab("upcoming")}
-              className={`pb-3 px-1 text-sm font-medium transition-all duration-200 ${
-                activeFightsTab === "upcoming"
-                  ? "text-purple-700 border-b-2 border-purple-700"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Upcoming Fights
-            </button>
-            <button
-              onClick={() => setActiveFightsTab("past")}
-              className={`pb-3 px-1 text-sm font-medium transition-all duration-200 ${
-                activeFightsTab === "past"
-                  ? "text-purple-700 border-b-2 border-purple-700"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Past Fights
-            </button>
+            {showUpcomingFights && (
+              <button
+                onClick={() => setActiveFightsTab("upcoming")}
+                className={`pb-3 px-1 text-sm font-medium transition-all duration-200 ${
+                  effectiveFightsTab === "upcoming"
+                    ? "text-purple-700 border-b-2 border-purple-700"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Upcoming Fights
+              </button>
+            )}
+            {showPastFights && (
+              <button
+                onClick={() => setActiveFightsTab("past")}
+                className={`pb-3 px-1 text-sm font-medium transition-all duration-200 ${
+                  effectiveFightsTab === "past"
+                    ? "text-purple-700 border-b-2 border-purple-700"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Past Fights
+              </button>
+            )}
           </div>
           {isMe && (
             <button
@@ -668,7 +699,7 @@ export default function FighterProfile({
         ) : (
           <div className="space-y-4 text-sm">
             {/* Upcoming Fights Tab */}
-            {activeFightsTab === "upcoming" && (
+            {effectiveFightsTab === "upcoming" && showUpcomingFights && (
               <div className="space-y-3">
                 {upcomingFights.length === 0 ? (
                   <p className="text-sm text-slate-600 py-4">
@@ -750,7 +781,7 @@ export default function FighterProfile({
             )}
 
             {/* Past Fights Tab */}
-            {activeFightsTab === "past" && (
+            {effectiveFightsTab === "past" && showPastFights && (
               <div className="space-y-3">
                 {pastFights.length === 0 ? (
                   <p className="text-sm text-slate-600 py-4">
@@ -841,7 +872,7 @@ export default function FighterProfile({
       )}
 
       {/* SECTION 6 – Social feed */}
-      {socialFeedSlot || (
+      {socialFeedSlot || (hidePosts ? null : (
         <section className="card">
           <div className="section-header mb-4">
             <h2 className="section-title text-lg">Social feed</h2>
@@ -1029,7 +1060,7 @@ export default function FighterProfile({
             />
           )}
         </section>
-      )}
+      ))}
 
       {/* SECTION 6 – Social media links */}
       {((social_links?.instagram || social_links?.facebook || social_links?.twitter || social_links?.tiktok || social_links?.youtube) ||

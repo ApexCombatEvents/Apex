@@ -162,7 +162,15 @@ export default async function ProfilePage({
         </div>
       )}
       {role === "fighter" && (
-        <FighterProfile profile={profile} posts={posts} isOwnProfile={isOwnProfile} />
+        <FighterProfile
+          profile={profile}
+          posts={posts}
+          isOwnProfile={isOwnProfile}
+          hideBio={profile.social_links?.hide_bio ?? false}
+          hideUpcomingFights={profile.social_links?.hide_upcoming_fights ?? false}
+          hidePastFights={profile.social_links?.hide_past_fights ?? false}
+          hidePosts={profile.social_links?.hide_posts ?? false}
+        />
       )}
 
       {role === "coach" && (

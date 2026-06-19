@@ -9,6 +9,7 @@ import Link from "next/link";
 import FighterBeltsManager from "@/components/fighters/FighterBeltsManager";
 import DisciplineMultiSelect from "@/components/ui/DisciplineMultiSelect";
 import DisciplineRecordsManager from "@/components/fighters/DisciplineRecordsManager";
+import ToggleSwitch from "@/components/ui/ToggleSwitch";
 
 type Role = "fighter" | "coach" | "gym" | "promotion" | "";
 
@@ -88,6 +89,12 @@ export default function ProfileSettingsPage() {
   const [hideStats, setHideStats] = useState(false);
   const [hideFights, setHideFights] = useState(false);
   const [hideGymEvents, setHideGymEvents] = useState(false);
+
+  // Fighter section visibility settings
+  const [hideBio, setHideBio] = useState(false);
+  const [hideUpcomingFights, setHideUpcomingFights] = useState(false);
+  const [hidePastFights, setHidePastFights] = useState(false);
+  const [hidePosts, setHidePosts] = useState(false);
   const [bjjBelt, setBjjBelt] = useState("");
   const [bjjStripes, setBjjStripes] = useState("0");
 
@@ -157,6 +164,12 @@ export default function ProfileSettingsPage() {
         // Load coach visibility settings
         setHideStats(social.hide_stats ?? false);
         setHideFights(social.hide_fights ?? false);
+
+        // Load fighter section visibility settings
+        setHideBio(social.hide_bio ?? false);
+        setHideUpcomingFights(social.hide_upcoming_fights ?? false);
+        setHidePastFights(social.hide_past_fights ?? false);
+        setHidePosts(social.hide_posts ?? false);
 
         // Load gym display settings
         setHideGymEvents(profile.hide_gym_events ?? false);
@@ -300,6 +313,13 @@ export default function ProfileSettingsPage() {
       ...(role === "coach" ? {
         hide_stats: hideStats,
         hide_fights: hideFights,
+      } : {}),
+      // Fighter section visibility settings (Stats can never be hidden for fighters)
+      ...(role === "fighter" ? {
+        hide_bio: hideBio,
+        hide_upcoming_fights: hideUpcomingFights,
+        hide_past_fights: hidePastFights,
+        hide_posts: hidePosts,
       } : {}),
       ...(isFighterOrCoach
         ? {
@@ -722,6 +742,51 @@ async function handleImageUpload(
           </label>
         </div>
 
+        {/* Profile sections visibility - Fighters only */}
+        {role === "fighter" && (
+          <div className="card space-y-2">
+            <h2 className="text-sm font-semibold">Profile sections</h2>
+            <p className="text-xs text-slate-500">
+              Hide sections you don&apos;t use yet. Your Stats section is always
+              visible.
+            </p>
+            <div className="divide-y divide-slate-100">
+              <ToggleSwitch
+                label="Bio"
+                description="Show your bio section on your public profile."
+                checked={!hideBio}
+                onChange={(visible) => setHideBio(!visible)}
+              />
+              <ToggleSwitch
+                label="Upcoming Fights"
+                description="Show the Upcoming Fights tab. Turn off if you have none planned yet."
+                checked={!hideUpcomingFights}
+                onChange={(visible) => setHideUpcomingFights(!visible)}
+              />
+              <ToggleSwitch
+                label="Past Fights"
+                description="Show the Past Fights tab on your profile."
+                checked={!hidePastFights}
+                onChange={(visible) => setHidePastFights(!visible)}
+              />
+              <ToggleSwitch
+                label="Posts"
+                description="Show your social feed. Turn off if you have nothing to post yet."
+                checked={!hidePosts}
+                onChange={(visible) => setHidePosts(!visible)}
+              />
+              <ToggleSwitch
+                label="Stats"
+                description="Your fighter stats are always shown."
+                checked={true}
+                onChange={() => {}}
+                disabled
+                lockedLabel="Always on"
+              />
+            </div>
+          </div>
+        )}
+
         {/* Championship Belts - Only for fighters, matches public profile order */}
         {role === "fighter" && !loading && userId && (
           <div className="card">
@@ -1048,26 +1113,6 @@ async function handleImageUpload(
           {saving ? "Saving..." : "Save changes"}
         </button>
       </form>
-
-      {/* Fight history is now managed from your public profile page */}
-      {role === "fighter" && !loading && (
-        <div className="card p-4 flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-slate-900">Fight History</p>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Add upcoming fights or log past results from your profile page using the <strong>Add Fight</strong> button in the Fights section.
-            </p>
-          </div>
-          {currentUsername && (
-            <a
-              href={`/profile/${currentUsername}`}
-              className="shrink-0 px-3 py-1.5 rounded-lg bg-purple-600 text-white text-xs font-medium hover:bg-purple-700 transition-colors"
-            >
-              Go to my profile
-            </a>
-          )}
-        </div>
-      )}
 
     </div>
   );
