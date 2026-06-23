@@ -54,6 +54,7 @@ export async function PUT(
     let weight_class: string | undefined;
     let martial_art: string | undefined;
     let notes: string | undefined;
+    let poster_url: string | null | undefined;
     let is_upcoming: boolean | undefined;
 
     try {
@@ -69,6 +70,9 @@ export async function PUT(
       weight_class = body.weight_class;
       martial_art = body.martial_art;
       notes = body.notes;
+      // Only treat poster_url as provided when the key is explicitly present,
+      // so ordinary edits (which omit it) never wipe an existing poster.
+      poster_url = "poster_url" in body ? body.poster_url : undefined;
       is_upcoming = body.is_upcoming !== undefined ? Boolean(body.is_upcoming) : undefined;
     } catch (jsonError) {
       return NextResponse.json(
@@ -104,6 +108,7 @@ export async function PUT(
     if (weight_class !== undefined) updateData.weight_class = weight_class;
     if (martial_art !== undefined) updateData.martial_art = martial_art;
     if (notes !== undefined) updateData.notes = notes;
+    if (poster_url !== undefined) updateData.poster_url = poster_url || null;
 
     const { data, error } = await supabase
       .from("fighter_fight_history")

@@ -15,6 +15,7 @@ import PostContent from "@/components/social/PostContent";
 import BoutShareCard, { type BoutShareMetadata } from "@/components/social/BoutShareCard";
 import { useRouter, usePathname } from "next/navigation";
 import GymFighterBoutModal, { type GymFighterBout } from "@/components/gym/GymFighterBoutModal";
+import ALogo from "@/components/logos/ALogo";
 
 type Profile = {
   id: string;
@@ -838,10 +839,24 @@ export default function GymProfile({
                           <Link
                             key={ev.id}
                             href={`/events/${ev.id}`}
-                            className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs hover:border-purple-400 hover:bg-purple-50"
+                            className="flex items-stretch gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs hover:border-purple-400 hover:bg-purple-50"
                           >
-                            <div className="flex flex-col">
-                              <span className="text-sm font-medium text-slate-900">
+                            <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-lg overflow-hidden bg-slate-200 flex-shrink-0">
+                              {ev.banner_url ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={ev.banner_url}
+                                  alt={title}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-purple-100 to-slate-100">
+                                  <ALogo size={28} className="opacity-20" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex flex-col justify-center min-w-0">
+                              <span className="text-sm font-medium text-slate-900 truncate">
                                 {title}
                               </span>
                               <span className="text-[11px] text-slate-600">
@@ -849,17 +864,6 @@ export default function GymProfile({
                                 {ev.location ? ` • ${ev.location}` : ""}
                               </span>
                             </div>
-
-                            {ev.banner_url && (
-                              <div className="h-10 w-16 rounded-md overflow-hidden bg-slate-200 flex-shrink-0">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={ev.banner_url}
-                                  alt={title}
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                            )}
                           </Link>
                         );
                       })}
@@ -987,23 +991,27 @@ export default function GymProfile({
                         <Link
                           key={ev.id}
                           href={`/events/${ev.id}`}
-                          className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs hover:border-purple-400 hover:bg-purple-50"
+                          className="flex items-stretch gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs hover:border-purple-400 hover:bg-purple-50"
                         >
-                          <div className="flex flex-col">
-                            {ev.fighters && ev.fighters.length > 0 && (
-                              <span className="text-sm font-semibold text-slate-900 mb-0.5">{fightersLabel}</span>
+                          <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-lg overflow-hidden bg-slate-200 flex-shrink-0">
+                            {ev.banner_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={ev.banner_url} alt={title} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-purple-100 to-slate-100">
+                                <ALogo size={28} className="opacity-20" />
+                              </div>
                             )}
-                            <span className="text-sm font-medium text-slate-900">{title}</span>
+                          </div>
+                          <div className="flex flex-col justify-center min-w-0">
+                            {ev.fighters && ev.fighters.length > 0 && (
+                              <span className="text-sm font-semibold text-slate-900 mb-0.5 truncate">{fightersLabel}</span>
+                            )}
+                            <span className="text-sm font-medium text-slate-900 truncate">{title}</span>
                             <span className="text-[11px] text-slate-600">
                               {dateLabel}{ev.location ? ` • ${ev.location}` : ""}
                             </span>
                           </div>
-                          {ev.banner_url && (
-                            <div className="h-10 w-16 rounded-md overflow-hidden bg-slate-200 flex-shrink-0">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={ev.banner_url} alt={title} className="w-full h-full object-cover" />
-                            </div>
-                          )}
                         </Link>
                       );
                     })}

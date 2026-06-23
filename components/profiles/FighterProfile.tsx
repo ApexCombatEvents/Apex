@@ -19,6 +19,9 @@ import { useRouter } from "next/navigation";
 import { useTranslation } from "@/hooks/useTranslation";
 import { countryToFlagUrl } from "@/lib/countries";
 import FightModal from "@/components/fighters/FightModal";
+import FightPosterModal, { type FightPosterTarget } from "@/components/fighters/FightPosterModal";
+import FightPosterLightbox from "@/components/fighters/FightPosterLightbox";
+import ALogo from "@/components/logos/ALogo";
 
 function isBjjDiscipline(value: string): boolean {
   const normalized = value.toLowerCase().replace(/[^a-z]/g, "");
@@ -162,6 +165,10 @@ export default function FighterProfile({
   // Fight management modal
   const [fightModalOpen, setFightModalOpen] = useState(false);
 
+  // Poster: full-screen viewer (with download) + per-fight editor
+  const [lightbox, setLightbox] = useState<{ url: string; title: string } | null>(null);
+  const [posterTarget, setPosterTarget] = useState<FightPosterTarget | null>(null);
+
   // --- Fights pulled from events / bouts ---
   const [upcomingFights, setUpcomingFights] = useState<any[]>([]);
   const [pastFights, setPastFights] = useState<any[]>([]);
@@ -224,6 +231,7 @@ export default function FighterProfile({
             if (f.result_time) resultParts.push(f.result_time);
             return {
               boutId: null,
+              manualId: f.id,
               eventId: null,
               eventTitle: f.event_name,
               dateLabel: fightDate.toLocaleDateString(),
@@ -236,6 +244,9 @@ export default function FighterProfile({
               resultSummary: resultParts.join(" • "),
               outcomeLetter: f.result === "win" ? "W" : f.result === "loss" ? "L" : f.result === "draw" ? "D" : "",
               isManual: true,
+              eventBanner: null,
+              customPoster: f.poster_url || null,
+              posterUrl: f.poster_url || null,
             };
           });
         }
@@ -268,7 +279,7 @@ export default function FighterProfile({
         const { data: events, error: eventsError } = await supabase
           .from("events")
           .select(
-            "id, title, name, event_date, location, location_city, location_country, martial_art"
+            "id, title, name, event_date, location, location_city, location_country, martial_art, banner_url"
           )
           .in("id", eventIds);
 
@@ -289,6 +300,22 @@ export default function FighterProfile({
           b.red_fighter_id === profile.id ||
           b.blue_fighter_id === profile.id
       );
+
+      // Per-fighter custom poster overrides for these platform bouts
+      const boutIds = fighterBouts.map((b) => b.id).filter(Boolean);
+      const posterByBoutId: Record<string, string> = {};
+      if (boutIds.length > 0) {
+        const { data: posterRows } = await supabase
+          .from("fighter_bout_posters")
+          .select("bout_id, poster_url")
+          .eq("fighter_profile_id", profile.id)
+          .in("bout_id", boutIds);
+        if (posterRows) {
+          for (const row of posterRows as any[]) {
+            if (row.bout_id && row.poster_url) posterByBoutId[row.bout_id] = row.poster_url;
+          }
+        }
+      }
 
       const fights = fighterBouts.map((b) => {
         const event = eventsById[b.event_id] || {};
@@ -357,8 +384,12 @@ export default function FighterProfile({
             : outcome;
         }
 
+        const eventBanner: string | null = event.banner_url || null;
+        const customPoster: string | null = posterByBoutId[b.id] || null;
+
         return {
           boutId: b.id,
+          manualId: null,
           eventId: b.event_id,
           eventTitle,
           dateLabel,
@@ -370,6 +401,10 @@ export default function FighterProfile({
           locationLabel,
           resultSummary,
           outcomeLetter,
+          isManual: false,
+          eventBanner,
+          customPoster,
+          posterUrl: customPoster || eventBanner || null,
         };
       });
 
@@ -457,6 +492,121 @@ export default function FighterProfile({
     typeof current_win_streak === "number" && current_win_streak > 0
       ? `${current_win_streak}W`
       : "–";
+
+  // Shared renderer for a single fight card (used by both Upcoming & Past tabs).
+  function renderFightCard(fight: any) {
+    const posterUrl: string | null = fight.posterUrl || null;
+    const cardKey = fight.boutId || fight.manualId || fight.eventTitle;
+
+    const openLightbox = () => {
+      if (posterUrl) setLightbox({ url: posterUrl, title: fight.eventTitle });
+    };
+
+    const openPosterEditor = () => {
+      const refId = fight.isManual ? fight.manualId : fight.boutId;
+      if (!refId) return;
+      setPosterTarget({
+        kind: fight.isManual ? "manual" : "platform",
+        refId,
+        title: fight.eventTitle,
+        eventBanner: fight.eventBanner || null,
+        customPoster: fight.customPoster || null,
+      });
+    };
+
+    return (
+      <div
+        key={cardKey}
+        className={`card-compact flex items-stretch gap-3 ${fight.isPast ? "opacity-90" : ""}`}
+      >
+        {/* Poster */}
+        <button
+          type="button"
+          onClick={openLightbox}
+          disabled={!posterUrl}
+          aria-label={posterUrl ? `View ${fight.eventTitle} poster` : "No poster"}
+          className="relative h-20 w-20 sm:h-24 sm:w-24 rounded-lg overflow-hidden bg-slate-100 shrink-0 group focus:outline-none focus:ring-2 focus:ring-purple-400"
+        >
+          {posterUrl ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={posterUrl} alt={fight.eventTitle} className="w-full h-full object-cover" />
+              <span className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                </svg>
+              </span>
+            </>
+          ) : (
+            <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-purple-100 to-slate-100">
+              <ALogo size={28} className="opacity-20" />
+            </div>
+          )}
+        </button>
+
+        {/* Details */}
+        <div className="flex-1 min-w-0 flex flex-col justify-center">
+          <div className="flex items-center gap-2">
+            {fight.eventId ? (
+              <Link
+                href={`/events/${fight.eventId}`}
+                className="font-medium text-slate-900 truncate hover:text-purple-700"
+              >
+                {fight.eventTitle}
+              </Link>
+            ) : (
+              <span className="font-medium text-slate-900 truncate">{fight.eventTitle}</span>
+            )}
+            <span className="text-[11px] text-slate-500 whitespace-nowrap">{fight.dateLabel}</span>
+          </div>
+
+          <div className="mt-0.5 text-[11px] text-slate-600 flex flex-wrap items-center gap-x-2 gap-y-1">
+            {fight.resultSummary && (
+              <span className="font-semibold text-purple-700">{fight.resultSummary}</span>
+            )}
+            <span>vs {fight.opponentName}</span>
+            {fight.boutDetails && <span>{fight.boutDetails}</span>}
+            {fight.weight && (
+              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                {fight.weight}
+              </span>
+            )}
+            {fight.locationLabel && <span>{fight.locationLabel}</span>}
+          </div>
+
+          <div className="mt-1 flex items-center gap-3">
+            {fight.eventId && (
+              <Link
+                href={`/events/${fight.eventId}`}
+                className="text-[11px] text-purple-700 font-medium hover:underline"
+              >
+                View event
+              </Link>
+            )}
+            {isMe && (
+              <button
+                type="button"
+                onClick={openPosterEditor}
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-purple-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                {fight.customPoster ? "Edit poster" : "Add poster"}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const displayYearsTraining =
     years_training != null && years_training > 0
@@ -708,62 +858,9 @@ export default function FighterProfile({
                 ) : (
                   <>
                     <div className="space-y-3">
-                      {upcomingFights.slice(0, upcomingDisplayCount).map((fight) => {
-                        const FightContent = (
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-slate-900 truncate">
-                                  {fight.eventTitle}
-                                </span>
-                                <span className="text-[11px] text-slate-500 whitespace-nowrap">
-                                  {fight.dateLabel}
-                                </span>
-                              </div>
-
-                              <div className="mt-0.5 text-[11px] text-slate-600 flex flex-wrap gap-2">
-                                <span>vs {fight.opponentName}</span>
-                                {fight.boutDetails && <span>{fight.boutDetails}</span>}
-                                {fight.weight && (
-                                  <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                                    {fight.weight}
-                                  </span>
-                                )}
-                                {fight.locationLabel && (
-                                  <span>{fight.locationLabel}</span>
-                                )}
-                              </div>
-                            </div>
-
-                            {fight.eventId && (
-                              <span className="text-[11px] text-purple-700 font-medium">
-                                View event
-                              </span>
-                            )}
-                          </div>
-                        );
-
-                        if (fight.eventId) {
-                          return (
-                            <Link
-                              key={fight.boutId || fight.eventTitle}
-                              href={`/events/${fight.eventId}`}
-                              className="block card-compact hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
-                            >
-                              {FightContent}
-                            </Link>
-                          );
-                        }
-
-                        return (
-                          <div
-                            key={fight.boutId || fight.eventTitle}
-                            className="block card-compact"
-                          >
-                            {FightContent}
-                          </div>
-                        );
-                      })}
+                      {upcomingFights
+                        .slice(0, upcomingDisplayCount)
+                        .map((fight) => renderFightCard(fight))}
                     </div>
                     {upcomingFights.length > upcomingDisplayCount && (
                       <div className="flex justify-center mt-4">
@@ -790,67 +887,9 @@ export default function FighterProfile({
                 ) : (
                   <>
                     <div className="space-y-3">
-                      {pastFights.slice(0, pastDisplayCount).map((fight) => {
-                        const FightContent = (
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-slate-900 truncate">
-                                  {fight.eventTitle}
-                                </span>
-                                <span className="text-[11px] text-slate-500 whitespace-nowrap">
-                                  {fight.dateLabel}
-                                </span>
-                              </div>
-
-                              <div className="mt-0.5 text-[11px] text-slate-600 flex flex-wrap gap-2">
-                                {fight.resultSummary && (
-                                  <span className="font-semibold text-purple-700">
-                                    {fight.resultSummary}
-                                  </span>
-                                )}
-                                <span>vs {fight.opponentName}</span>
-                                {fight.boutDetails && <span>{fight.boutDetails}</span>}
-                                {fight.weight && (
-                                  <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                                    {fight.weight}
-                                  </span>
-                                )}
-                                {fight.locationLabel && (
-                                  <span>{fight.locationLabel}</span>
-                                )}
-                              </div>
-                            </div>
-
-                            {fight.eventId && (
-                              <span className="text-[11px] text-purple-700 font-medium">
-                                View event
-                              </span>
-                            )}
-                          </div>
-                        );
-
-                        if (fight.eventId) {
-                          return (
-                            <Link
-                              key={fight.boutId || fight.eventTitle}
-                              href={`/events/${fight.eventId}`}
-                              className="block card-compact hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 opacity-90 hover:opacity-100"
-                            >
-                              {FightContent}
-                            </Link>
-                          );
-                        }
-
-                        return (
-                          <div
-                            key={fight.boutId || fight.eventTitle}
-                            className="block card-compact opacity-90"
-                          >
-                            {FightContent}
-                          </div>
-                        );
-                      })}
+                      {pastFights
+                        .slice(0, pastDisplayCount)
+                        .map((fight) => renderFightCard(fight))}
                     </div>
                     {pastFights.length > pastDisplayCount && (
                       <div className="flex justify-center mt-4">
@@ -1107,6 +1146,25 @@ export default function FighterProfile({
           onUpdate={() => setFightRefreshKey((k) => k + 1)}
         />
       )}
+
+      {/* Poster editor — only mounted for own profile */}
+      {isMe && (
+        <FightPosterModal
+          isOpen={posterTarget !== null}
+          onClose={() => setPosterTarget(null)}
+          fighterId={profile.id}
+          target={posterTarget}
+          onUpdated={() => setFightRefreshKey((k) => k + 1)}
+        />
+      )}
+
+      {/* Full-screen poster viewer with download (everyone) */}
+      <FightPosterLightbox
+        isOpen={lightbox !== null}
+        onClose={() => setLightbox(null)}
+        posterUrl={lightbox?.url || null}
+        title={lightbox?.title || ""}
+      />
     </div>
   );
 }
