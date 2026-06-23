@@ -167,11 +167,18 @@ export async function POST(req: Request) {
     }
 
     // Send a role-personalised welcome email. This never throws and no-ops when
-    // Resend isn't configured, so it can't affect the signup result.
+    // Resend isn't configured, so it can't affect the signup result. We derive
+    // the site URL from the request so links point at the real site.
+    const signupOrigin =
+      req.headers.get("origin") ||
+      (req.headers.get("x-forwarded-host")
+        ? `${req.headers.get("x-forwarded-proto") || "https"}://${req.headers.get("x-forwarded-host")}`
+        : undefined);
     await sendWelcomeEmail({
       to: sanitizedEmail,
       fullName: sanitizedFullName,
       role: userRole,
+      appUrl: signupOrigin,
     });
 
     return NextResponse.json(

@@ -3,7 +3,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServer } from "@/lib/supabaseServer";
-import { sendWelcomeEmail } from "@/lib/email";
+import { sendWelcomeEmail, isEmailConfigured } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 // Allow time for sequential, rate-limited sends.
@@ -71,8 +71,27 @@ export async function POST(req: Request) {
     }
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
+    // Email service must be configured (RESEND_API_KEY) to actually send.
+    const emailConfigured = isEmailConfigured();
+
+    // Derive the site URL from the request so email links point at the real site.
+    const appUrl =
+      req.headers.get("origin") ||
+      (req.headers.get("x-forwarded-host")
+        ? `${req.headers.get("x-forwarded-proto") || "https"}://${req.headers.get("x-forwarded-host")}`
+        : undefined);
+
     // 3. Test mode: send a single sample to the given address and stop.
     if (testEmail) {
+      if (!emailConfigured) {
+        return NextResponse.json(
+          {
+            error:
+              "Email service is not configured on this environment (RESEND_API_KEY missing). No email was sent.",
+          },
+          { status: 503 }
+        );
+      }
       // Use the requesting admin's name/role for a realistic sample.
       const { data: meProfile } = await supabaseAdmin
         .from("profiles")
@@ -84,6 +103,7 @@ export async function POST(req: Request) {
         to: testEmail,
         fullName: meProfile?.full_name ?? null,
         role: (meProfile?.role as string) || "fighter",
+        appUrl,
       });
 
       return NextResponse.json({
@@ -135,20 +155,44 @@ export async function POST(req: Request) {
       return NextResponse.json({
         mode: "dryRun",
         count: recipients.length,
+        emailConfigured,
         sample: recipients.slice(0, 25).map((r) => ({ email: r.email, role: r.role })),
-        message: `${recipients.length} non-admin user(s) would receive the welcome email.`,
+        message: `${recipients.length} non-admin user(s) would receive the welcome email.${
+          emailConfigured
+            ? ""
+            : " WARNING: the email service is not configured here (RESEND_API_KEY missing), so sending will not actually deliver any emails."
+        }`,
       });
     }
 
     // 6. Real send (sequential, rate-limited).
+    if (!emailConfigured) {
+      return NextResponse.json(
+        {
+          error:
+            "Email service is not configured on this environment (RESEND_API_KEY missing). No emails were sent.",
+        },
+        { status: 503 }
+      );
+    }
+
     const toSend = recipients.slice(0, MAX_SEND);
     let sent = 0;
     const errors: { email: string; error: string }[] = [];
 
     for (const r of toSend) {
       try {
-        await sendWelcomeEmail({ to: r.email, fullName: r.fullName, role: r.role });
-        sent += 1;
+        const ok = await sendWelcomeEmail({
+          to: r.email,
+          fullName: r.fullName,
+          role: r.role,
+          appUrl,
+        });
+        if (ok) {
+          sent += 1;
+        } else {
+          errors.push({ email: r.email, error: "send failed" });
+        }
       } catch (e: any) {
         errors.push({ email: r.email, error: e?.message || "send failed" });
       }

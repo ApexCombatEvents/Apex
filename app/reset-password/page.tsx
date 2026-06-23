@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
@@ -29,24 +29,21 @@ export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  // When the email link uses the scanner-safe token_hash flow, we hold the token
+  // here and only verify it when the user submits — so email security scanners
+  // that pre-load the link can't consume the single-use token first.
+  const tokenHashRef = useRef<string | null>(null);
 
-  // Establish the recovery session from the link the user clicked.
-  //
-  // The Supabase browser client has `detectSessionInUrl` enabled, so it
-  // automatically exchanges the recovery code/token in the URL for a session as
-  // soon as it initialises. We must NOT call exchangeCodeForSession() ourselves:
-  // the PKCE code is single-use, so a second exchange fails and would wrongly
-  // flag a valid link as expired. We just wait for the session to appear.
   useEffect(() => {
     const supabase = createSupabaseBrowser();
     let active = true;
     let settled = false;
 
-    const markReady = () => {
+    const markReady = (opts?: { lock?: boolean }) => {
       if (active && !settled) {
         settled = true;
-        // Lock the recovery session to this page until the password is changed.
-        setRecoveryFlag();
+        // Lock an active recovery session to this page until the password is set.
+        if (opts?.lock) setRecoveryFlag();
         setPhase("ready");
       }
     };
@@ -58,7 +55,7 @@ export default function ResetPasswordPage() {
       }
     };
 
-    // Fires once the client has processed the recovery token from the URL.
+    // Fires if/when the client establishes a session from the URL (code flow).
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
       if (
@@ -68,7 +65,7 @@ export default function ResetPasswordPage() {
           event === "INITIAL_SESSION" ||
           event === "TOKEN_REFRESHED")
       ) {
-        markReady();
+        markReady({ lock: true });
       }
     });
 
@@ -85,20 +82,31 @@ export default function ResetPasswordPage() {
           return;
         }
 
-        // getSession() awaits the client's URL-detection/exchange step, so once
-        // it resolves the recovery session is established (if the link is valid).
-        const { data } = await supabase.auth.getSession();
-        if (data.session) {
-          markReady();
+        // Preferred scanner-safe flow: a token_hash in the URL. We do NOT verify
+        // it on load — only on submit — so link scanners can't consume the
+        // single-use token before the user acts. Show the form immediately.
+        const tokenHash = url.searchParams.get("token_hash");
+        const type = url.searchParams.get("type");
+        if (tokenHash && (type === "recovery" || type === null)) {
+          tokenHashRef.current = tokenHash;
+          markReady(); // no session yet; verified on submit
           return;
         }
 
-        // Fallback: give the auth listener a brief window in case the exchange
-        // is still in flight, then treat the link as invalid/expired.
+        // Fallback (legacy code/implicit flow): the client auto-exchanges the
+        // code in the URL into a session. getSession() awaits that step.
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          markReady({ lock: true });
+          return;
+        }
+
+        // Give the auth listener a brief window in case the exchange is still in
+        // flight, then treat the link as invalid/expired.
         setTimeout(async () => {
           if (!active || settled) return;
           const { data: retry } = await supabase.auth.getSession();
-          if (retry.session) markReady();
+          if (retry.session) markReady({ lock: true });
           else markInvalid("This password reset link is invalid or has expired.");
         }, 3000);
       } catch (err) {
@@ -132,6 +140,23 @@ export default function ResetPasswordPage() {
 
     try {
       const supabase = createSupabaseBrowser();
+
+      // Scanner-safe flow: consume the recovery token now (on user action).
+      if (tokenHashRef.current) {
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          type: "recovery",
+          token_hash: tokenHashRef.current,
+        });
+        if (verifyError) {
+          console.error("verifyOtp error:", verifyError.message);
+          setErrorMsg("This reset link is invalid or has expired. Please request a new one.");
+          setPhase("invalid");
+          return;
+        }
+        tokenHashRef.current = null; // single-use
+        setRecoveryFlag();
+      }
+
       const { error } = await supabase.auth.updateUser({ password });
 
       if (error) {

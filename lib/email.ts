@@ -309,9 +309,10 @@ function buildWelcomeEmailHtml(opts: {
   firstName: string;
   intro: string;
   steps: string[];
+  baseUrl: string;
 }): string {
-  const { firstName, intro, steps } = opts;
-  const profileUrl = `${APP_URL}/profile/settings`;
+  const { firstName, intro, steps, baseUrl } = opts;
+  const profileUrl = `${baseUrl}/profile/settings`;
 
   const stepsHtml = steps
     .map(
@@ -369,18 +370,25 @@ function buildWelcomeEmailHtml(opts: {
  * with a primary "Complete your profile" CTA. No-ops gracefully if Resend is
  * not configured, and never throws (so it can't break the signup flow).
  */
+// Whether the email service (Resend) is configured in this environment.
+export function isEmailConfigured(): boolean {
+  return !!resend;
+}
+
 export async function sendWelcomeEmail(opts: {
   to: string;
   fullName?: string | null;
   role: string;
-}): Promise<void> {
-  if (!resend) return;
+  appUrl?: string;
+}): Promise<boolean> {
+  if (!resend) return false;
 
   try {
-    const { to, fullName, role } = opts;
+    const { to, fullName, role, appUrl } = opts;
+    const baseUrl = appUrl || APP_URL;
     const firstName = fullName?.trim().split(/\s+/)[0] || "there";
     const { intro, steps } = getWelcomeContent(role);
-    const html = buildWelcomeEmailHtml({ firstName, intro, steps });
+    const html = buildWelcomeEmailHtml({ firstName, intro, steps, baseUrl });
 
     const text = `Welcome to Apex Combat Events, ${firstName}!
 
@@ -389,7 +397,7 @@ ${intro}
 Get started:
 ${steps.map((s) => `- ${s}`).join("\n")}
 
-Complete your profile: ${APP_URL}/profile/settings
+Complete your profile: ${baseUrl}/profile/settings
 
 Follow us on Instagram: ${INSTAGRAM_URL}
 Follow us on Facebook: ${FACEBOOK_URL}
@@ -403,7 +411,9 @@ Questions or run into a problem? Email us at ${SUPPORT_EMAIL}`;
       html,
       text,
     });
+    return true;
   } catch (error) {
     console.error("Welcome email send failed:", error);
+    return false;
   }
 }
