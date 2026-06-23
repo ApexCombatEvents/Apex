@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { checkRateLimit, getClientIP, RATE_LIMITS } from "@/lib/ratelimit";
 import { validateEmail, validatePassword, validateUsername, validateRole, sanitizeEmail, sanitizeUsername, sanitizeString } from "@/lib/input-validation";
+import { sendWelcomeEmail } from "@/lib/email";
 
 // Validate environment variables at module load
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -164,6 +165,14 @@ export async function POST(req: Request) {
         metadata: { accepted_during: "signup" },
       });
     }
+
+    // Send a role-personalised welcome email. This never throws and no-ops when
+    // Resend isn't configured, so it can't affect the signup result.
+    await sendWelcomeEmail({
+      to: sanitizedEmail,
+      fullName: sanitizedFullName,
+      role: userRole,
+    });
 
     return NextResponse.json(
       { message: "Signup successful. You can now sign in." },

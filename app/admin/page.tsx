@@ -35,7 +35,13 @@ export default function AdminDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [activeTab, setActiveTab] = useState<"events" | "profiles">("events");
+  const [activeTab, setActiveTab] = useState<"events" | "profiles" | "tools">("events");
+
+  // Welcome-email backfill state
+  const [wbBusy, setWbBusy] = useState(false);
+  const [wbStatus, setWbStatus] = useState("");
+  const [wbCount, setWbCount] = useState<number | null>(null);
+  const [wbTestEmail, setWbTestEmail] = useState("");
   
   const [events, setEvents] = useState<Event[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -267,6 +273,85 @@ export default function AdminDashboard() {
     });
   }
 
+  async function wbPreview() {
+    setWbBusy(true);
+    setWbStatus("");
+    try {
+      const res = await fetch("/api/admin/send-welcome-existing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dryRun: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setWbStatus(data.error || "Failed to preview recipients.");
+        return;
+      }
+      setWbCount(typeof data.count === "number" ? data.count : null);
+      setWbStatus(data.message || `${data.count} recipient(s).`);
+    } catch {
+      setWbStatus("Failed to preview recipients.");
+    } finally {
+      setWbBusy(false);
+    }
+  }
+
+  async function wbSendTest() {
+    const email = wbTestEmail.trim();
+    if (!email) {
+      setWbStatus("Enter an email address to send a test to.");
+      return;
+    }
+    setWbBusy(true);
+    setWbStatus("");
+    try {
+      const res = await fetch("/api/admin/send-welcome-existing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ testEmail: email }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setWbStatus(data.error || "Failed to send test email.");
+        return;
+      }
+      setWbStatus(data.message || `Test email sent to ${email}.`);
+    } catch {
+      setWbStatus("Failed to send test email.");
+    } finally {
+      setWbBusy(false);
+    }
+  }
+
+  async function wbSendAll() {
+    setWbBusy(true);
+    setWbStatus("Sending… this can take a little while. Please keep this tab open.");
+    try {
+      const res = await fetch("/api/admin/send-welcome-existing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dryRun: false }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setWbStatus(data.error || "Failed to send welcome emails.");
+        return;
+      }
+      setWbStatus(data.message || `Sent ${data.sent} welcome email(s).`);
+    } catch {
+      setWbStatus("Failed to send welcome emails.");
+    } finally {
+      setWbBusy(false);
+    }
+  }
+
+  function confirmSendAll() {
+    const ok = window.confirm(
+      "This sends the welcome email to every non-admin user. There is no de-duplication, so anyone who already received it will get it again.\n\nContinue?"
+    );
+    if (ok) wbSendAll();
+  }
+
   // Main dashboard content
   return (
     <div className="max-w-[1280px] mx-auto px-4 py-8 space-y-6">
@@ -315,29 +400,102 @@ export default function AdminDashboard() {
         >
           Profiles ({profiles.length})
         </button>
+        <button
+          onClick={() => setActiveTab("tools")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "tools"
+              ? "border-purple-600 text-purple-700"
+              : "border-transparent text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          Tools
+        </button>
       </div>
 
       {/* Search Bar */}
-      <div className="flex items-center gap-4">
-        <input
-          type="text"
-          placeholder={`Search ${activeTab === "events" ? "events" : "profiles"} by name...`}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="flex-1 rounded-xl border border-slate-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-        />
-        {searchQuery && (
-          <button
-            onClick={() => setSearchQuery("")}
-            className="text-sm text-slate-600 hover:text-slate-900"
-          >
-            Clear
-          </button>
-        )}
-      </div>
+      {activeTab !== "tools" && (
+        <div className="flex items-center gap-4">
+          <input
+            type="text"
+            placeholder={`Search ${activeTab === "events" ? "events" : "profiles"} by name...`}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="flex-1 rounded-xl border border-slate-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="text-sm text-slate-600 hover:text-slate-900"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Tools */}
+      {activeTab === "tools" && (
+        <div className="card space-y-5">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Welcome email backfill</h2>
+            <p className="text-sm text-slate-600 mt-1">
+              Send the welcome email to existing users. Admin accounts are excluded.
+              There is no de-duplication, so re-running will send duplicates.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={wbPreview}
+              disabled={wbBusy}
+              className="px-4 py-2 text-sm font-medium rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {wbBusy ? "Working…" : "Preview recipients"}
+            </button>
+            {wbCount !== null && (
+              <span className="text-sm text-slate-600">
+                {wbCount} non-admin user(s) would receive it.
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100">
+            <input
+              type="email"
+              placeholder="your@email.com"
+              value={wbTestEmail}
+              onChange={(e) => setWbTestEmail(e.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            />
+            <button
+              onClick={wbSendTest}
+              disabled={wbBusy}
+              className="px-4 py-2 text-sm font-medium rounded-lg border border-purple-300 text-purple-700 hover:bg-purple-50 disabled:opacity-50"
+            >
+              Send test to this address
+            </button>
+          </div>
+
+          <div className="pt-2 border-t border-slate-100">
+            <button
+              onClick={confirmSendAll}
+              disabled={wbBusy}
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
+            >
+              {wbBusy ? "Sending…" : "Send to all non-admin users"}
+            </button>
+          </div>
+
+          {wbStatus && (
+            <p className="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+              {wbStatus}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Content */}
-      {loading ? (
+      {activeTab !== "tools" && (loading ? (
         <div className="text-center py-8 text-slate-600">Loading...</div>
       ) : (
         <>
@@ -461,7 +619,7 @@ export default function AdminDashboard() {
             </div>
           )}
         </>
-      )}
+      ))}
 
       <ConfirmDialog
         open={confirmDialog.open}

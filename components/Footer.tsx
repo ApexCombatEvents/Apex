@@ -8,7 +8,7 @@ export default function Footer() {
           <div className="text-sm text-slate-600 notranslate" translate="no">
             © {new Date().getFullYear()} Apex Combat Events. All rights reserved.
           </div>
-          <div className="flex gap-6 text-sm">
+          <div className="flex flex-wrap justify-center gap-6 text-sm">
             <Link
               href="/terms"
               className="text-slate-600 hover:text-purple-600 transition-colors"
@@ -22,6 +22,15 @@ export default function Footer() {
               Privacy Policy
             </Link>
           </div>
+        </div>
+        <div className="mt-4 text-center text-sm text-slate-500">
+          Need help or found a problem? Email us at{" "}
+          <a
+            href="mailto:support@apexcombatevents.com"
+            className="text-purple-600 hover:text-purple-700 underline"
+          >
+            support@apexcombatevents.com
+          </a>
         </div>
       </div>
     </footer>
