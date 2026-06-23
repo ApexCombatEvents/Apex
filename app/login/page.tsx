@@ -1,10 +1,17 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 
 export default function LoginPage() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
+
+  // Defensively clear any stale password-recovery lock when reaching the login
+  // page, so a leftover flag can never lock a normally signed-in user out.
+  useEffect(() => {
+    document.cookie = "apex-recovery=; path=/; Max-Age=0; SameSite=Lax";
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,6 +52,14 @@ export default function LoginPage() {
           onChange={e => setPassword(e.target.value)}
           required
         />
+        <div className="text-right">
+          <Link
+            href="/forgot-password"
+            className="text-sm text-purple-600 hover:text-purple-700 hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
         <button className="btn btn-primary w-full">Sign in</button>
       </form>
 

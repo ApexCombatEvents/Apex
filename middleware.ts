@@ -24,7 +24,20 @@ export async function middleware(req: NextRequest) {
   );
 
   // refresh session
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Password-recovery lockdown: if the user arrived via a reset link (flagged by
+  // the reset page), confine them to /reset-password until they set a new
+  // password. This prevents using the recovery session to browse the app.
+  const isRecovering = req.cookies.get("apex-recovery")?.value === "1";
+  if (isRecovering && user && req.nextUrl.pathname !== "/reset-password") {
+    const url = req.nextUrl.clone();
+    url.pathname = "/reset-password";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
 
   return res;
 }
