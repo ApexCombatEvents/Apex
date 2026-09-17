@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createSupabaseServerForRoute } from "@/lib/supabaseServerForRoute";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -31,6 +32,47 @@ function formatRecord({ wins, losses, draws }: RecordTriple): string {
   return `${Math.max(0, wins)}-${Math.max(0, losses)}-${Math.max(0, draws)}`;
 }
 
+/**
+ * Legitimate callers are the fighter editing their own record, an event owner
+ * recording a result for a bout on their own card, or an admin. Anyone else
+ * has no business rewriting a fighter's record, win streak or last-5 form.
+ */
+async function canUpdateFighterRecord(
+  userId: string,
+  fighterId: string
+): Promise<boolean> {
+  if (userId === fighterId) return true;
+
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .single();
+
+  // Compared case-insensitively: the column is constrained to uppercase but
+  // parts of the app still write mixed case.
+  if (profile?.role?.toUpperCase() === "ADMIN") return true;
+
+  const { data: bouts } = await supabaseAdmin
+    .from("event_bouts")
+    .select("event_id")
+    .or(`red_fighter_id.eq.${fighterId},blue_fighter_id.eq.${fighterId}`);
+
+  const eventIds = Array.from(
+    new Set((bouts || []).map((b) => b.event_id).filter(Boolean))
+  );
+  if (eventIds.length === 0) return false;
+
+  const { data: ownedEvents } = await supabaseAdmin
+    .from("events")
+    .select("id")
+    .in("id", eventIds)
+    .or(`owner_profile_id.eq.${userId},profile_id.eq.${userId}`)
+    .limit(1);
+
+  return Boolean(ownedEvents && ownedEvents.length > 0);
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -42,6 +84,20 @@ export async function POST(req: Request) {
 
     if (!fighterId) {
       return NextResponse.json({ error: "Missing fighterId" }, { status: 400 });
+    }
+
+    const supabase = createSupabaseServerForRoute();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!(await canUpdateFighterRecord(user.id, fighterId))) {
+      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 
     // 1. Fetch current profile record_base

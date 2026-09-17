@@ -1,6 +1,7 @@
 // app/api/events/[id]/notify-bout-started/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from '@supabase/supabase-js';
+import { createSupabaseServerForRoute } from "@/lib/supabaseServerForRoute";
 
 // Validate environment variables at module load
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -17,6 +18,19 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Only the event owner may notify that event's followers. Mirrors the
+    // check in notify-live/route.ts; the service-role client below bypasses
+    // RLS, so this is the only thing standing in front of it.
+    const supabase = createSupabaseServerForRoute();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const eventId = params.id;
     let boutId: string;
     
@@ -48,6 +62,11 @@ export async function POST(
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
 
+    const ownerId = event.owner_profile_id || event.profile_id;
+    if (!ownerId || ownerId !== user.id) {
+      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+    }
+
     // Get all followers of this event
     const { data: followers, error: followersError } = await supabaseAdmin
       .from("event_follows")
@@ -67,7 +86,6 @@ export async function POST(
     }
 
     const eventName = event.title || event.name || "Event";
-    const ownerId = event.owner_profile_id || event.profile_id;
 
     // Get bout details
     const { data: bout } = await supabaseAdmin

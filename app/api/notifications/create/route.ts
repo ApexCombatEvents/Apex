@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { sendNotificationEmail } from '@/lib/email';
+import { createSupabaseServerForRoute } from '@/lib/supabaseServerForRoute';
 
 // Validate environment variables at module load
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -14,8 +15,24 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
 export async function POST(req: Request) {
   try {
+    const supabase = createSupabaseServerForRoute();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const json = await req.json();
-    const { profile_id, type, actor_profile_id, data } = json;
+    const { profile_id, type, data } = json;
+
+    // The actor is always the caller, never whatever the body claims. This
+    // endpoint writes with the service-role key and sends email off our Resend
+    // account, so a client-supplied actor would let any signed-in user send
+    // notifications and emails that appear to come from someone else.
+    const actor_profile_id = user.id;
 
     if (!profile_id || !type) {
       return NextResponse.json(
