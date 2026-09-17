@@ -286,40 +286,59 @@ export default function PromotionProfile({
               </p>
             ) : (
               <>
-                <div className="space-y-2">
+                <div className="entry-grid">
                   {getFilteredEvents().map((ev) => {
                     const title = ev.title || ev.name || "Untitled event";
                     const dateLabel = ev.event_date
                       ? new Date(ev.event_date).toLocaleDateString()
                       : "Date TBC";
+                    const upcoming = isEventUpcoming(ev.event_date || null);
 
                     return (
                       <Link
                         key={ev.id}
                         href={`/events/${ev.id}`}
-                        className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs hover:border-purple-400 hover:bg-purple-50"
+                        className={`entry-card group flex items-stretch gap-4 ${
+                          upcoming ? "entry-card-accent" : ""
+                        }`}
                       >
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-slate-900">
-                            {title}
-                          </span>
-                          <span className="text-[11px] text-slate-600">
-                            {dateLabel}
-                            {ev.location ? ` • ${ev.location}` : ""}
-                          </span>
-                        </div>
-
-                        {ev.banner_url && (
-                          <div className="h-10 w-16 rounded-md overflow-hidden bg-slate-200 flex-shrink-0">
+                        <div className="entry-poster">
+                          {ev.banner_url ? (
                             <Image
                               src={ev.banner_url}
                               alt={title}
-                              width={64}
-                              height={40}
+                              width={112}
+                              height={112}
                               className="w-full h-full object-cover"
                             />
-                          </div>
-                        )}
+                          ) : (
+                            <div className="h-full w-full bg-gradient-to-br from-purple-100 to-slate-100" />
+                          )}
+                        </div>
+
+                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                          <span className="text-sm sm:text-base font-semibold text-slate-900 group-hover:text-purple-700 line-clamp-2">
+                            {title}
+                          </span>
+                          <span className="mt-1 text-xs text-slate-500">{dateLabel}</span>
+                          {ev.location && (
+                            <span className="mt-0.5 text-xs text-slate-600 truncate">
+                              {ev.location}
+                            </span>
+                          )}
+                          <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-purple-700">
+                            View event
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </span>
+                        </div>
                       </Link>
                     );
                   })}

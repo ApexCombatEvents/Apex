@@ -58,6 +58,28 @@
     @apply hover:shadow-[0_2px_4px_0_rgb(0_0_0_/_0.1)];
   }
 
+  /* Fight and event entries on profiles. Sits between .card-compact and .card
+     in weight so the two lists read as one family across profile types. */
+  .entry-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-3 items-start;
+  }
+
+  .entry-card {
+    @apply rounded-2xl p-4 border bg-white border-slate-200/60;
+    @apply shadow-[0_1px_3px_0_rgb(0_0_0_/_0.1),0_1px_2px_-1px_rgb(0_0_0_/_0.1)];
+    @apply transition-all duration-200;
+    @apply hover:shadow-[0_4px_6px_-1px_rgb(0_0_0_/_0.1),0_2px_4px_-2px_rgb(0_0_0_/_0.1)];
+    @apply hover:border-purple-200/80;
+  }
+
+  .entry-card-accent {
+    @apply border-purple-200 bg-purple-50/40;
+  }
+
+  .entry-poster {
+    @apply relative h-24 w-24 sm:h-28 sm:w-28 rounded-xl overflow-hidden bg-slate-100 shrink-0;
+  }
+
   .card-elevated {
     @apply rounded-2xl p-6 border bg-white border-purple-100/50;
     @apply shadow-[0_4px_6px_-1px_rgb(0_0_0_/_0.1),0_2px_4px_-2px_rgb(0_0_0_/_0.1)];

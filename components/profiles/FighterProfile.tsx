@@ -183,6 +183,9 @@ export default function FighterProfile({
   const [upcomingDisplayCount, setUpcomingDisplayCount] = useState(6);
   const [pastDisplayCount, setPastDisplayCount] = useState(6);
 
+  // Which fight card is expanded. Only one at a time, so the grid stays tidy.
+  const [expandedFightKey, setExpandedFightKey] = useState<string | null>(null);
+
   // Section visibility (controlled from Edit Profile). The legacy `hideFights`
   // flag hides the whole Fights section; the newer flags allow hiding each tab.
   const showUpcomingFights = !hideFights && !hideUpcomingFights;
@@ -497,6 +500,9 @@ export default function FighterProfile({
   function renderFightCard(fight: any) {
     const posterUrl: string | null = fight.posterUrl || null;
     const cardKey = fight.boutId || fight.manualId || fight.eventTitle;
+    const isExpanded = expandedFightKey === cardKey;
+    // Event titles can contain spaces, so strip them for a usable DOM id.
+    const panelId = `fight-panel-${String(cardKey).replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
     const openLightbox = () => {
       if (posterUrl) setLightbox({ url: posterUrl, title: fight.eventTitle });
@@ -514,77 +520,118 @@ export default function FighterProfile({
       });
     };
 
+    const details = [
+      { label: "Result", value: fight.resultSummary },
+      { label: "Opponent", value: fight.opponentName },
+      { label: "Weight", value: fight.weight },
+      { label: "Location", value: fight.locationLabel },
+      { label: "Bout", value: fight.boutDetails },
+      { label: "Card", value: fight.cardType },
+    ].filter((d) => Boolean(d.value));
+
     return (
       <div
         key={cardKey}
-        className={`card-compact flex items-stretch gap-3 ${fight.isPast ? "opacity-90" : ""}`}
+        className={`entry-card ${!fight.isPast ? "entry-card-accent" : ""}`}
       >
-        {/* Poster */}
-        <button
-          type="button"
-          onClick={openLightbox}
-          disabled={!posterUrl}
-          aria-label={posterUrl ? `View ${fight.eventTitle} poster` : "No poster"}
-          className="relative h-20 w-20 sm:h-24 sm:w-24 rounded-lg overflow-hidden bg-slate-100 shrink-0 group focus:outline-none focus:ring-2 focus:ring-purple-400"
-        >
-          {posterUrl ? (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={posterUrl} alt={fight.eventTitle} className="w-full h-full object-cover" />
-              <span className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                </svg>
-              </span>
-            </>
-          ) : (
-            <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-purple-100 to-slate-100">
-              <ALogo size={28} className="opacity-20" />
-            </div>
-          )}
-        </button>
-
-        {/* Details */}
-        <div className="flex-1 min-w-0 flex flex-col justify-center">
-          <div className="flex items-center gap-2">
-            {fight.eventId ? (
-              <Link
-                href={`/events/${fight.eventId}`}
-                className="font-medium text-slate-900 truncate hover:text-purple-700"
-              >
-                {fight.eventTitle}
-              </Link>
+        <div className="flex items-stretch gap-4">
+          {/* Poster — kept as its own control so the lightbox stays reachable
+              without nesting it inside the expand toggle. */}
+          <button
+            type="button"
+            onClick={openLightbox}
+            disabled={!posterUrl}
+            aria-label={posterUrl ? `View ${fight.eventTitle} poster` : "No poster"}
+            className="entry-poster group focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+          >
+            {posterUrl ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={posterUrl} alt={fight.eventTitle} className="w-full h-full object-cover" />
+                <span className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                  </svg>
+                </span>
+              </>
             ) : (
-              <span className="font-medium text-slate-900 truncate">{fight.eventTitle}</span>
+              <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-purple-100 to-slate-100">
+                <ALogo size={32} className="opacity-20" />
+              </div>
             )}
-            <span className="text-[11px] text-slate-500 whitespace-nowrap">{fight.dateLabel}</span>
-          </div>
+          </button>
 
-          <div className="mt-0.5 text-[11px] text-slate-600 flex flex-wrap items-center gap-x-2 gap-y-1">
-            {fight.resultSummary && (
-              <span className="font-semibold text-purple-700">{fight.resultSummary}</span>
-            )}
-            <span>vs {fight.opponentName}</span>
-            {fight.boutDetails && <span>{fight.boutDetails}</span>}
-            {fight.weight && (
-              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                {fight.weight}
+          {/* Header doubles as the expand toggle. */}
+          <button
+            type="button"
+            onClick={() => setExpandedFightKey(isExpanded ? null : cardKey)}
+            aria-expanded={isExpanded}
+            aria-controls={panelId}
+            className="flex-1 min-w-0 text-left rounded-lg group focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+          >
+            <span className="flex items-start justify-between gap-2">
+              <span className="text-sm sm:text-base font-semibold text-slate-900 group-hover:text-purple-700 line-clamp-2">
+                {fight.eventTitle}
               </span>
-            )}
-            {fight.locationLabel && <span>{fight.locationLabel}</span>}
-          </div>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className={`h-4 w-4 shrink-0 mt-0.5 text-slate-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </span>
 
-          <div className="mt-1 flex items-center gap-3">
+            <span className="mt-1 block text-xs text-slate-500">{fight.dateLabel}</span>
+
+            <span className="mt-2 flex flex-wrap items-center gap-2">
+              {fight.resultSummary ? (
+                <span className="text-xs font-semibold text-purple-700">
+                  {fight.resultSummary}
+                </span>
+              ) : (
+                !fight.isPast && (
+                  <span className="text-xs font-medium text-purple-700">Upcoming</span>
+                )
+              )}
+            </span>
+
+            <span className="mt-1.5 block text-xs text-slate-600 truncate">
+              vs {fight.opponentName}
+            </span>
+          </button>
+        </div>
+
+        {/* Expanded detail. Always mounted so aria-controls stays valid. */}
+        <div
+          id={panelId}
+          hidden={!isExpanded}
+          className="mt-3 pt-3 border-t border-slate-100"
+        >
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+            {details.map((d) => (
+              <div key={d.label} className="min-w-0">
+                <dt className="text-[11px] uppercase tracking-wide text-slate-400">
+                  {d.label}
+                </dt>
+                <dd className="text-xs text-slate-700 break-words">{d.value}</dd>
+              </div>
+            ))}
+          </dl>
+
+          <div className="mt-3 flex flex-wrap items-center gap-3">
             {fight.eventId && (
               <Link
                 href={`/events/${fight.eventId}`}
-                className="text-[11px] text-purple-700 font-medium hover:underline"
+                className="text-xs text-purple-700 font-semibold hover:underline"
               >
                 View event
               </Link>
@@ -593,7 +640,7 @@ export default function FighterProfile({
               <button
                 type="button"
                 onClick={openPosterEditor}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-purple-700"
+                className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-purple-700"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -857,7 +904,7 @@ export default function FighterProfile({
                   </p>
                 ) : (
                   <>
-                    <div className="space-y-3">
+                    <div className="entry-grid">
                       {upcomingFights
                         .slice(0, upcomingDisplayCount)
                         .map((fight) => renderFightCard(fight))}
@@ -886,7 +933,7 @@ export default function FighterProfile({
                   </p>
                 ) : (
                   <>
-                    <div className="space-y-3">
+                    <div className="entry-grid">
                       {pastFights
                         .slice(0, pastDisplayCount)
                         .map((fight) => renderFightCard(fight))}
