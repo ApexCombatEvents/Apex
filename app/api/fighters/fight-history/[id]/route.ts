@@ -63,7 +63,11 @@ export async function PUT(
       event_date = body.event_date;
       opponent_name = body.opponent_name;
       location = body.location;
-      result = body.result ?? null;
+      // Same rule as poster_url below: only treat result as provided when the
+      // key is present. Coercing a missing result to null makes a poster-only
+      // update wipe the recorded win/loss, and is_upcoming is absent on those
+      // requests so the guard below cannot catch it.
+      result = "result" in body ? body.result ?? null : undefined;
       result_method = body.result_method;
       result_round = body.result_round;
       result_time = body.result_time;
