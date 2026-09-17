@@ -173,7 +173,7 @@ export default function FollowButton({
     if (size === "sm") {
       return (
         <Link
-          href="/signin"
+          href="/login"
           className="text-[11px] text-purple-700 hover:underline"
         >
           Sign in to follow
@@ -183,7 +183,7 @@ export default function FollowButton({
 
     return (
       <Link
-        href="/signin"
+        href="/login"
         className="rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs text-purple-700 hover:bg-purple-100"
       >
         Follow
