@@ -1,7 +1,40 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
 /**
+ * Which side of the conversation, if either, is an under-18 account.
+ *
+ * Reported per side rather than as a single flag so the refusal can name the
+ * restricted party. Otherwise a minor viewing an adult's profile is told
+ * "under-18s cannot be messaged", which reads as though the adult is the minor.
+ *
+ * Uses the is_minor() database function, which is SECURITY DEFINER, so this
+ * answers the question without exposing anyone's date of birth to the caller.
+ */
+async function minorParticipants(
+  supabase: SupabaseClient,
+  myId: string,
+  otherId: string
+): Promise<{ iAmMinor: boolean; theyAreMinor: boolean; errored: boolean }> {
+  const [mine, theirs] = await Promise.all([
+    supabase.rpc("is_minor", { profile_id: myId }),
+    supabase.rpc("is_minor", { profile_id: otherId }),
+  ]);
+
+  if (mine.error || theirs.error) {
+    console.error("is_minor check failed", mine.error ?? theirs.error);
+    return { iAmMinor: false, theyAreMinor: false, errored: true };
+  }
+
+  return {
+    iAmMinor: mine.data === true,
+    theyAreMinor: theirs.data === true,
+    errored: false,
+  };
+}
+
+/**
  * Checks if a user can message another user based on security rules:
+ * 0. Neither party is under 18 (overrides everything below)
  * 1. Mutual following (both follow each other)
  * 2. Shared gym relationship
  * 3. Offer/Application relationship (event owner vs offer sender)
@@ -12,6 +45,32 @@ export async function canMessage(
   otherId: string
 ): Promise<{ allowed: boolean; reason?: string }> {
   if (myId === otherId) return { allowed: false, reason: "Cannot message yourself" };
+
+  // Under-18 accounts have messaging switched off entirely. Evaluated before
+  // any allow path below so that no relationship can override it, and failing
+  // closed: if eligibility cannot be established, messaging is refused.
+  const minorCheck = await minorParticipants(supabase, myId, otherId);
+
+  if (minorCheck.errored) {
+    return {
+      allowed: false,
+      reason: "Could not verify account eligibility. Please try again.",
+    };
+  }
+
+  if (minorCheck.iAmMinor) {
+    return {
+      allowed: false,
+      reason: "Messaging is switched off on your account while you're under 18.",
+    };
+  }
+
+  if (minorCheck.theyAreMinor) {
+    return {
+      allowed: false,
+      reason: "This account belongs to someone under 18, so messaging is switched off.",
+    };
+  }
 
   // 1. Check Mutual Follow
   // Rule: If otherId does not follow myId, I cannot message them (unless exceptions)

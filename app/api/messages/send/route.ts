@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerForRoute } from "@/lib/supabaseServerForRoute";
 import { createClient } from "@supabase/supabase-js";
 import { sendNotificationEmail } from "@/lib/email";
+import { canMessage } from "@/lib/messaging-security";
 
 export async function POST(req: Request) {
   try {
@@ -64,6 +65,17 @@ export async function POST(req: Request) {
       );
     }
 
+    const otherProfileId = thread.profile_a === user.id ? thread.profile_b : thread.profile_a;
+
+    // Re-checked on every send rather than only at thread creation. A thread
+    // opened under a relationship that has since lapsed — an unfollow, a
+    // closed offer — must stop working, and an under-18 participant must block
+    // the thread even though it already exists.
+    const { allowed, reason } = await canMessage(supabase, user.id, otherProfileId);
+    if (!allowed) {
+      return NextResponse.json({ error: reason }, { status: 403 });
+    }
+
     // Use service role client to bypass RLS for chat_messages insert
     // We've already verified authorization above
     // This avoids infinite recursion in RLS policies
@@ -106,7 +118,6 @@ export async function POST(req: Request) {
     // 3️⃣ Create notifications for the other participant
     // We already have the thread data from the authorization check above
     const recipientIds: string[] = [];
-    const otherProfileId = thread.profile_a === user.id ? thread.profile_b : thread.profile_a;
     if (otherProfileId) {
       recipientIds.push(otherProfileId);
     }
