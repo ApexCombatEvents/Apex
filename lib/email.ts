@@ -3,6 +3,7 @@
 // Gracefully no-ops when RESEND_API_KEY is not set so the app works without it.
 
 import { Resend } from "resend";
+import { YOUNG_PARTICIPANT_RESTRICTIONS } from "./guardian-consent";
 
 const resendApiKey = process.env.RESEND_API_KEY;
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
@@ -414,6 +415,127 @@ Questions or run into a problem? Email us at ${SUPPORT_EMAIL}`;
     return true;
   } catch (error) {
     console.error("Welcome email send failed:", error);
+    return false;
+  }
+}
+
+// ─── Guardian consent ───────────────────────────────────────────────────────
+
+function buildGuardianConsentEmailHtml(opts: {
+  guardianName: string;
+  applicantName: string;
+  consentUrl: string;
+  expiryDays: number;
+}): string {
+  const { guardianName, applicantName, consentUrl, expiryDays } = opts;
+
+  const restrictionsHtml = YOUNG_PARTICIPANT_RESTRICTIONS.map(
+    (r) =>
+      `<tr><td style="padding:6px 0;font-size:14px;line-height:1.5;color:#334155;vertical-align:top;"><span style="color:#7c3aed;font-weight:700;margin-right:8px;">&#10003;</span>${r}</td></tr>`
+  ).join("");
+
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+<body style="margin:0;padding:0;background:#f8f9fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fa;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+        <tr>
+          <td style="background:linear-gradient(135deg,#7c3aed,#a855f7);padding:24px 32px;">
+            <span style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.5px;">Apex</span>
+            <span style="color:#e9d5ff;font-size:11px;font-weight:600;margin-left:6px;text-transform:uppercase;letter-spacing:1px;">Combat Events</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;">
+            <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:#0f172a;">${guardianName}, your permission is needed</h1>
+            <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#1e293b;">
+              ${applicantName} has signed up to Apex Combat Events and listed you as their parent or guardian.
+            </p>
+            <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#1e293b;">
+              Apex is a platform for combat sports athletes, gyms, coaches and promotions. Fighters use it to build a
+              profile, follow events and get noticed. Because ${applicantName} is under 18, their account stays
+              restricted and hidden from other users until you give permission.
+            </p>
+            <p style="margin:0 0 8px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#7c3aed;">Extra protections on their account</p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">${restrictionsHtml}</table>
+            <a href="${consentUrl}" style="display:inline-block;padding:12px 28px;background:#7c3aed;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">Review and give permission</a>
+            <p style="margin:20px 0 0;font-size:13px;line-height:1.6;color:#64748b;">
+              You will be able to read the full agreement before deciding, and you can withdraw your permission at any
+              time afterwards. This link expires in ${expiryDays} days.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 32px;border-top:1px solid #f1f5f9;">
+            <p style="margin:0 0 10px;font-size:12px;color:#475569;line-height:1.5;">
+              <strong>Not expecting this?</strong> If you do not know ${applicantName}, or you believe this was sent to
+              you by mistake, please ignore this email and the account will stay restricted. You can also let us know at
+              <a href="mailto:${SUPPORT_EMAIL}" style="color:#7c3aed;text-decoration:underline;">${SUPPORT_EMAIL}</a>.
+            </p>
+            <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5;">
+              Questions? Email us at
+              <a href="mailto:${SUPPORT_EMAIL}" style="color:#7c3aed;text-decoration:underline;">${SUPPORT_EMAIL}</a>.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`.trim();
+}
+
+/**
+ * Ask a parent or legal guardian to approve an under-18 account.
+ * Never throws, so a mail failure cannot break signup — the caller is
+ * responsible for surfacing a resend option when this returns false.
+ */
+export async function sendGuardianConsentEmail(opts: {
+  guardianEmail: string;
+  guardianName: string;
+  applicantName: string;
+  consentUrl: string;
+  expiryDays: number;
+}): Promise<boolean> {
+  if (!resend) return false;
+
+  try {
+    const { guardianEmail, guardianName, applicantName, consentUrl, expiryDays } = opts;
+    const html = buildGuardianConsentEmailHtml({
+      guardianName,
+      applicantName,
+      consentUrl,
+      expiryDays,
+    });
+
+    const text = `${guardianName}, your permission is needed.
+
+${applicantName} has signed up to Apex Combat Events and listed you as their parent or guardian.
+
+Apex is a platform for combat sports athletes, gyms, coaches and promotions. Because ${applicantName} is under 18, their account stays restricted and hidden from other users until you give permission.
+
+Extra protections on their account:
+${YOUNG_PARTICIPANT_RESTRICTIONS.map((r) => `- ${r}`).join("\n")}
+
+Review and give permission: ${consentUrl}
+
+You will be able to read the full agreement before deciding, and you can withdraw your permission at any time afterwards. This link expires in ${expiryDays} days.
+
+Not expecting this? If you do not know ${applicantName}, please ignore this email and the account will stay restricted. You can also contact us at ${SUPPORT_EMAIL}.`;
+
+    await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: guardianEmail,
+      subject: `Permission needed for ${applicantName}'s Apex account`,
+      html,
+      text,
+    });
+    return true;
+  } catch (error) {
+    console.error("Guardian consent email send failed:", error);
     return false;
   }
 }

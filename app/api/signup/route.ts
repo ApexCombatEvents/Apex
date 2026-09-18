@@ -2,8 +2,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { checkRateLimit, getClientIP, RATE_LIMITS } from "@/lib/ratelimit";
-import { validateEmail, validatePassword, validateUsername, validateRole, sanitizeEmail, sanitizeUsername, sanitizeString } from "@/lib/input-validation";
-import { sendWelcomeEmail } from "@/lib/email";
+import { validateEmail, validatePassword, validateUsername, validateRole, validateDateOfBirth, validateGuardianDetails, MINOR_AGE_THRESHOLD, sanitizeEmail, sanitizeUsername, sanitizeString } from "@/lib/input-validation";
+import { sendWelcomeEmail, sendGuardianConsentEmail } from "@/lib/email";
+import { generateConsentToken, hashConsentToken, consentExpiryDate, buildConsentUrl, logConsentUrlInDevelopment, CONSENT_EXPIRY_DAYS } from "@/lib/guardian-consent";
 
 // Validate environment variables at module load
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -48,6 +49,10 @@ export async function POST(req: Request) {
     let full_name: string | undefined;
     let username: string | undefined;
     let role: string | undefined;
+    let date_of_birth: string | undefined;
+    let guardian_name: string | undefined;
+    let guardian_email: string | undefined;
+    let guardian_relationship: string | undefined;
     let waiver_accepted: boolean | undefined;
     try {
       const json = await req.json();
@@ -56,6 +61,10 @@ export async function POST(req: Request) {
       full_name = json.full_name;
       username = json.username;
       role = json.role;
+      date_of_birth = json.date_of_birth;
+      guardian_name = json.guardian_name;
+      guardian_email = json.guardian_email;
+      guardian_relationship = json.guardian_relationship;
       waiver_accepted = json.waiver_accepted;
     } catch (jsonError) {
       return NextResponse.json(
@@ -77,6 +86,31 @@ export async function POST(req: Request) {
     if (!passwordValidation.valid) {
       return NextResponse.json(
         { error: passwordValidation.error },
+        { status: 400 }
+      );
+    }
+
+    // Checked before the username lookup so an under-age signup is rejected
+    // without a database round trip.
+    const dobValidation = validateDateOfBirth(date_of_birth);
+    if (!dobValidation.valid) {
+      return NextResponse.json(
+        { error: dobValidation.error },
+        { status: 400 }
+      );
+    }
+
+    // Under-18s need a parent or guardian on record before the account can be
+    // activated. Validated up front so an incomplete application never reaches
+    // the point of creating a user.
+    const isMinor = (dobValidation.age ?? 0) < MINOR_AGE_THRESHOLD;
+    const guardianValidation = isMinor
+      ? validateGuardianDetails(guardian_name, guardian_email, guardian_relationship, email)
+      : null;
+
+    if (guardianValidation && !guardianValidation.valid) {
+      return NextResponse.json(
+        { error: guardianValidation.error },
         { status: 400 }
       );
     }
@@ -154,6 +188,28 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
+    // Date of birth is stored in profile_private, never on the public profiles
+    // row. An unknown date of birth resolves to "adult" everywhere downstream,
+    // so an account must never survive a failed write here — roll it back
+    // rather than leave a minor indistinguishable from an adult.
+    if (data.user) {
+      const { error: dobError } = await supabaseAdmin
+        .from("profile_private")
+        .upsert(
+          { user_id: data.user.id, date_of_birth: dobValidation.value },
+          { onConflict: "user_id" }
+        );
+
+      if (dobError) {
+        console.error("Failed to store date of birth", dobError);
+        await supabaseAdmin.auth.admin.deleteUser(data.user.id);
+        return NextResponse.json(
+          { error: "Could not complete signup. Please try again." },
+          { status: 500 }
+        );
+      }
+    }
+
     // Record waiver acceptance using the admin client (user is not yet authenticated)
     if (waiver_accepted && data.user) {
       const ip = getClientIP(req);
@@ -166,14 +222,69 @@ export async function POST(req: Request) {
       });
     }
 
-    // Send a role-personalised welcome email. This never throws and no-ops when
-    // Resend isn't configured, so it can't affect the signup result. We derive
-    // the site URL from the request so links point at the real site.
+    // Derive the site URL from the request so emailed links point at the real
+    // site rather than a hardcoded fallback.
     const signupOrigin =
       req.headers.get("origin") ||
       (req.headers.get("x-forwarded-host")
         ? `${req.headers.get("x-forwarded-proto") || "https"}://${req.headers.get("x-forwarded-host")}`
         : undefined);
+
+    // An under-18 account is created restricted. It stays that way until the
+    // named guardian confirms, so a failure to record the request has to fail
+    // the signup rather than quietly leave an unrestricted minor behind.
+    if (isMinor && guardianValidation?.value && data.user) {
+      const guardian = guardianValidation.value;
+      const token = generateConsentToken();
+
+      const { error: consentError } = await supabaseAdmin
+        .from("guardian_consent_requests")
+        .insert({
+          user_id: data.user.id,
+          guardian_name: guardian.name,
+          guardian_email: guardian.email,
+          guardian_relationship: guardian.relationship,
+          token_hash: hashConsentToken(token),
+          verification_method: "email",
+          expires_at: consentExpiryDate().toISOString(),
+        });
+
+      if (consentError) {
+        console.error("Failed to create guardian consent request", consentError);
+        await supabaseAdmin.auth.admin.deleteUser(data.user.id);
+        return NextResponse.json(
+          { error: "Could not complete signup. Please try again." },
+          { status: 500 }
+        );
+      }
+
+      // A send failure is recoverable — the account is already restricted and
+      // the applicant can trigger a resend — so it does not roll the signup back.
+      const consentUrl = buildConsentUrl(signupOrigin || "", token);
+      const sent = await sendGuardianConsentEmail({
+        guardianEmail: guardian.email,
+        guardianName: guardian.name,
+        applicantName: sanitizedFullName || "A young athlete",
+        consentUrl,
+        expiryDays: CONSENT_EXPIRY_DAYS,
+      });
+
+      logConsentUrlInDevelopment(consentUrl, guardian.email);
+
+      return NextResponse.json(
+        {
+          message: sent
+            ? "Account created. We've emailed your parent or guardian for permission."
+            : "Account created, but we couldn't send the permission email. You can resend it after signing in.",
+          requiresGuardianConsent: true,
+          guardianEmailSent: sent,
+        },
+        { status: 200 }
+      );
+    }
+
+    // Send a role-personalised welcome email. This never throws and no-ops when
+    // Resend isn't configured, so it can't affect the signup result.
     await sendWelcomeEmail({
       to: sanitizedEmail,
       fullName: sanitizedFullName,
