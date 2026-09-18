@@ -1,3 +1,8 @@
+// DEFERRED: under-18 accounts are not blocked here yet. Stripe requires
+// Connect account holders to be 18+, so is_minor(user.id) must be refused
+// before payouts are exposed to users. Deliberately skipped while the feature
+// is unreleased — note that this route is still reachable by direct request.
+
 import { NextResponse } from 'next/server';
 import { createSupabaseServerForRoute } from '@/lib/supabaseServerForRoute';
 import { stripe } from '@/lib/stripe';

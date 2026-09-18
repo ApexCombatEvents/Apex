@@ -3,6 +3,7 @@ import Navbar from "@/components/Navbar";
 import MobileNav from "@/components/MobileNav";
 import Footer from "@/components/Footer";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
+import RestrictedAccountBanner from "@/components/account/RestrictedAccountBanner";
 import Script from "next/script";
 
 export const metadata = {
@@ -64,6 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen pb-16 md:pb-0 flex flex-col">
         <Navbar />
+        <RestrictedAccountBanner />
         <main className="w-full py-8 sm:py-10 px-4 sm:px-6 lg:px-8 flex-1">
           {children}
         </main>
