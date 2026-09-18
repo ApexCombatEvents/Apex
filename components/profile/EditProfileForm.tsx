@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import MinorPhotoRules from "@/components/profile/MinorPhotoRules";
 
 type Role = "fighter" | "coach" | "gym" | "promotion" | "";
 
@@ -326,6 +327,8 @@ export default function EditProfileForm() {
               Upload a profile picture and banner. On mobile this will let you
               choose from your camera roll or take a new photo.
             </p>
+
+            <MinorPhotoRules />
 
             <div className="grid md:grid-cols-2 gap-4">
               {/* Avatar */}
