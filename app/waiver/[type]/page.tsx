@@ -22,13 +22,23 @@ const WAIVERS: Record<WaiverType, WaiverData> = {
   signup: {
     title: "Platform Participation Agreement",
     subtitle: "Sign-Up Waiver & Disclaimer",
-    version: "Version 1.0",
+    version: "Version 2.0",
     intro:
       "Please read this agreement carefully before creating an account. By checking the acknowledgement box during sign-up, you confirm that you have read, understood, and agree to be bound by the terms below.",
     sections: [
       {
-        heading: "1. Age & Eligibility",
-        content: `By creating an account on this platform, you confirm that you are at least 18 years of age. If you are between 16 and 18 years of age, you confirm that you have obtained the express written consent of a parent or legal guardian prior to registering.
+        heading: "1. Age, Eligibility & Under-18 Accounts",
+        content: `By creating an account on this platform, you confirm that you are at least 13 years of age and that the date of birth you provide is accurate. Your date of birth is stored privately and is not shown on your profile.
+
+If you are under 18, your account is restricted from the moment you register. You must nominate a parent or legal guardian, who is sent a secure link by email. The account stays restricted until they use that link to give permission, and remains restricted if they decline or do not respond. While an account is restricted, the profile cannot be seen by anyone other than the account holder and platform administrators.
+
+Once permission has been given, the following continue to apply for as long as the account holder is under 18:
+• Private messaging is switched off entirely, in both directions.
+• The profile is visible only to users signed in to the platform, and is kept out of public view and search engine indexing.
+• Photographs must show appropriate clothing. Content that breaks this rule may be reported and will be removed.
+• The account cannot receive payments, purses, or sponsorship through the platform.
+
+A parent or legal guardian may withdraw their permission at any time by contacting support@apexcombatevents.com, after which the account is restricted again.
 
 The platform takes no responsibility whatsoever for any user who misrepresents their age. If it is discovered that a user has provided false age information, the platform reserves the right to suspend or permanently delete that account without notice. The user accepts sole liability for any consequences — legal, medical, competitive, financial, or otherwise — that arise as a direct or indirect result of that misrepresentation. The platform will cooperate fully with any relevant legal authorities in such cases.`,
       },

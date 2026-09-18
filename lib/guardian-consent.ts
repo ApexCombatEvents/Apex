@@ -13,11 +13,18 @@ import { createHash, randomBytes, timingSafeEqual } from "crypto";
  * Shared by the consent email and the consent page so a guardian is never
  * shown two different descriptions of what they are agreeing to.
  */
+/**
+ * What a guardian is actually agreeing to. This is the basis on which a
+ * parent gives permission, so every line here must describe something the
+ * platform genuinely enforces. Do not add a restriction to this list before
+ * the code that enforces it exists.
+ */
 export const YOUNG_PARTICIPANT_RESTRICTIONS = [
-  "Private messaging is switched off entirely.",
-  "All photos are reviewed by our team before anyone else can see them, and must show appropriate clothing.",
+  "Private messaging is switched off entirely, both to them and from them.",
+  "Until you give permission, their profile is hidden from everyone except themselves.",
+  "After that, their profile can only be seen by people signed in to the platform. It stays out of public view and away from search engines.",
+  "Photos must show appropriate clothing. Anything that breaks that rule can be reported and will be taken down.",
   "They cannot receive payments, purses or sponsorship through the platform.",
-  "Their profile is kept out of public search and shows their country rather than their town.",
 ] as const;
 
 /** Entropy in the emailed token. */
