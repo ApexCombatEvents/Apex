@@ -10,6 +10,7 @@ import FighterBeltsManager from "@/components/fighters/FighterBeltsManager";
 import DisciplineMultiSelect from "@/components/ui/DisciplineMultiSelect";
 import DisciplineRecordsManager from "@/components/fighters/DisciplineRecordsManager";
 import ToggleSwitch from "@/components/ui/ToggleSwitch";
+import MinorPhotoRules from "@/components/profile/MinorPhotoRules";
 
 type Role = "fighter" | "coach" | "gym" | "promotion" | "";
 
@@ -536,6 +537,8 @@ async function handleImageUpload(
     Upload a profile picture and banner. On mobile this will let you choose
     from your camera roll or take a new photo.
   </p>
+
+  <MinorPhotoRules />
 
   <div className="grid md:grid-cols-2 gap-4">
     {/* Avatar */}

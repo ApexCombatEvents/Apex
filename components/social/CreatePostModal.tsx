@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
+import MinorPhotoRules from "@/components/profile/MinorPhotoRules";
 
 type CreatePostModalProps = {
   isOpen: boolean;
@@ -337,6 +338,8 @@ export default function CreatePostModal({
                 )}
               </div>
             )}
+
+            <MinorPhotoRules />
 
             <div className="flex items-center gap-3">
               <label className="cursor-pointer flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-300 hover:bg-slate-50 transition-colors">

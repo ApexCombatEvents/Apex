@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import { isValidImageType, isValidFileSize } from "@/lib/validation";
 import ALogo from "@/components/logos/ALogo";
+import MinorPhotoRules from "@/components/profile/MinorPhotoRules";
 
 export type FightPosterTarget = {
   /** "platform" = Apex event bout (event_bouts), "manual" = off-platform fight (fighter_fight_history). */
@@ -221,6 +222,8 @@ export default function FightPosterModal({
                 ? "Currently using the event's poster automatically."
                 : "Upload a promo poster to share on social media."}
             </p>
+
+            <MinorPhotoRules />
 
             {error && (
               <div className="text-xs rounded-xl px-3 py-2 bg-red-50 text-red-700 border border-red-200">
