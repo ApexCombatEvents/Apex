@@ -2,8 +2,12 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import CloseTabButton from "@/components/ui/CloseTabButton";
-
-type WaiverType = "signup" | "event-creation" | "bout-acceptance";
+import {
+  PUBLIC_WAIVER_TYPES,
+  type PublicWaiverType,
+  waiverDisplayVersion,
+  waiverLastReviewed,
+} from "@/lib/waivers";
 
 type WaiverSection = {
   heading: string;
@@ -13,16 +17,14 @@ type WaiverSection = {
 type WaiverData = {
   title: string;
   subtitle: string;
-  version: string;
   intro: string;
   sections: WaiverSection[];
 };
 
-const WAIVERS: Record<WaiverType, WaiverData> = {
+const WAIVERS: Record<PublicWaiverType, WaiverData> = {
   signup: {
     title: "Platform Participation Agreement",
     subtitle: "Sign-Up Waiver & Disclaimer",
-    version: "Version 2.0",
     intro:
       "Please read this agreement carefully before creating an account. By checking the acknowledgement box during sign-up, you confirm that you have read, understood, and agree to be bound by the terms below.",
     sections: [
@@ -100,7 +102,6 @@ The platform reserves the right to remove any content that, in its sole discreti
   "event-creation": {
     title: "Event Organiser Liability Waiver",
     subtitle: "Event Creation Disclaimer",
-    version: "Version 1.0",
     intro:
       "Please read this waiver carefully before publishing an event. By checking the acknowledgement box, you confirm that you have read, understood, and agree to the terms below as the legally responsible organiser of this event.",
     sections: [
@@ -165,7 +166,6 @@ The Organiser confirms that they will obtain appropriate consent and, where appl
   "bout-acceptance": {
     title: "Bout Acceptance Agreement",
     subtitle: "Bout Confirmation Disclaimer",
-    version: "Version 1.0",
     intro:
       "Please read this agreement carefully before accepting a bout offer. By checking the acknowledgement box, you confirm that you have read, understood, and agree to the terms below.",
     sections: [
@@ -219,23 +219,17 @@ The platform expressly disclaims all liability for any injury, serious injury, o
   },
 };
 
-const VALID_TYPES: WaiverType[] = ["signup", "event-creation", "bout-acceptance"];
-
 export function generateStaticParams() {
-  return VALID_TYPES.map((type) => ({ type }));
+  return PUBLIC_WAIVER_TYPES.map((type) => ({ type }));
 }
 
 export default function WaiverPage({ params }: { params: { type: string } }) {
-  if (!VALID_TYPES.includes(params.type as WaiverType)) {
+  if (!PUBLIC_WAIVER_TYPES.includes(params.type as PublicWaiverType)) {
     notFound();
   }
 
-  const waiver = WAIVERS[params.type as WaiverType];
-  const today = new Date().toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const waiverType = params.type as PublicWaiverType;
+  const waiver = WAIVERS[waiverType];
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
@@ -252,9 +246,9 @@ export default function WaiverPage({ params }: { params: { type: string } }) {
         <h1 className="text-2xl font-bold text-slate-900 mb-1">{waiver.title}</h1>
         <p className="text-sm text-slate-500">{waiver.subtitle}</p>
         <div className="mt-3 flex items-center gap-4 text-[11px] text-slate-400">
-          <span>{waiver.version}</span>
+          <span>{waiverDisplayVersion(waiverType)}</span>
           <span>·</span>
-          <span>Last reviewed: {today}</span>
+          <span>Last reviewed: {waiverLastReviewed(waiverType)}</span>
         </div>
       </div>
 

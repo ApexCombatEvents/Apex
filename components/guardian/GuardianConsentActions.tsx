@@ -11,7 +11,11 @@ type Props = {
 
 export default function GuardianConsentActions({ token, applicantName }: Props) {
   const [submitting, setSubmitting] = useState<Decision | null>(null);
-  const [result, setResult] = useState<{ status: Decision; message: string } | null>(null);
+  const [result, setResult] = useState<{
+    status: Decision;
+    message: string;
+    confirmationEmailSent?: boolean;
+  } | null>(null);
   const [error, setError] = useState("");
 
   async function respond(action: Decision) {
@@ -32,7 +36,11 @@ export default function GuardianConsentActions({ token, applicantName }: Props) 
         return;
       }
 
-      setResult({ status: action, message: data.message });
+      setResult({
+        status: action,
+        message: data.message,
+        confirmationEmailSent: data.confirmationEmailSent === true,
+      });
     } catch {
       setError("Could not reach the server. Please check your connection and try again.");
     } finally {
@@ -57,14 +65,18 @@ export default function GuardianConsentActions({ token, applicantName }: Props) 
         <p className="text-sm text-slate-700 mt-1 leading-relaxed">{result.message}</p>
         {approved && (
           <p className="text-xs text-slate-600 mt-3 leading-relaxed">
-            You can withdraw your permission at any time by emailing{" "}
-            <a
-              href="mailto:support@apexcombatevents.com"
-              className="text-purple-600 hover:text-purple-800 underline"
-            >
-              support@apexcombatevents.com
-            </a>
-            .
+            {result.confirmationEmailSent
+              ? "We've emailed you a copy of what you agreed to, including a link you can use at any time to withdraw this permission. Do not forward that email."
+              : "We couldn't send the confirmation email just now. You can withdraw your permission at any time by emailing "}
+            {!result.confirmationEmailSent && (
+              <a
+                href="mailto:support@apexcombatevents.com"
+                className="text-purple-600 hover:text-purple-800 underline"
+              >
+                support@apexcombatevents.com
+              </a>
+            )}
+            {!result.confirmationEmailSent && "."}
           </p>
         )}
       </div>

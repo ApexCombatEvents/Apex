@@ -128,6 +128,8 @@ export async function POST(req: Request) {
         expires_at: consentExpiryDate().toISOString(),
         responded_at: null,
         responded_ip: null,
+        withdrawal_token_hash: null,
+        withdrawn_at: null,
       })
       .eq("id", existing.id);
 

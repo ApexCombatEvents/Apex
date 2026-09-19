@@ -5,6 +5,7 @@ import { checkRateLimit, getClientIP, RATE_LIMITS } from "@/lib/ratelimit";
 import { validateEmail, validatePassword, validateUsername, validateRole, validateDateOfBirth, validateGuardianDetails, MINOR_AGE_THRESHOLD, sanitizeEmail, sanitizeUsername, sanitizeString } from "@/lib/input-validation";
 import { sendWelcomeEmail, sendGuardianConsentEmail } from "@/lib/email";
 import { generateConsentToken, hashConsentToken, consentExpiryDate, buildConsentUrl, logConsentUrlInDevelopment, CONSENT_EXPIRY_DAYS } from "@/lib/guardian-consent";
+import { waiverVersion } from "@/lib/waivers";
 
 // Validate environment variables at module load
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -216,7 +217,7 @@ export async function POST(req: Request) {
       await supabaseAdmin.from("waiver_acceptances").insert({
         user_id: data.user.id,
         waiver_type: "signup",
-        waiver_version: "v1.0",
+        waiver_version: waiverVersion("signup"),
         ip_address: ip || null,
         metadata: { accepted_during: "signup" },
       });

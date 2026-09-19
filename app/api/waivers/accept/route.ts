@@ -2,6 +2,7 @@
 // Records a waiver acceptance for the currently authenticated user.
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabaseServer";
+import { waiverVersion } from "@/lib/waivers";
 
 const VALID_TYPES = ["signup", "event-creation", "bout-acceptance"] as const;
 type WaiverType = (typeof VALID_TYPES)[number];
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
       .insert({
         user_id: userData.user.id,
         waiver_type,
-        waiver_version: "v1.0",
+        waiver_version: waiverVersion(waiver_type),
         ip_address: ip,
         metadata: metadata ?? null,
       });

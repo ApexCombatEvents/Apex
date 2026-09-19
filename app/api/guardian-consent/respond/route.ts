@@ -8,7 +8,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { checkRateLimit, getClientIP, RATE_LIMITS } from "@/lib/ratelimit";
-import { hashConsentToken } from "@/lib/guardian-consent";
+import {
+  hashConsentToken,
+  generateWithdrawalToken,
+  buildWithdrawUrl,
+  requestBaseUrl,
+  logWithdrawalUrlInDevelopment,
+} from "@/lib/guardian-consent";
+import { sendGuardianConfirmationEmail } from "@/lib/email";
+import { waiverVersion } from "@/lib/waivers";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -18,8 +26,6 @@ if (!supabaseUrl || !serviceRoleKey) {
 }
 
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
-
-const PARENTAL_CONSENT_VERSION = "v1.0";
 
 export async function POST(req: Request) {
   try {
@@ -125,7 +131,7 @@ export async function POST(req: Request) {
         .insert({
           user_id: request.user_id,
           waiver_type: "parental-consent",
-          waiver_version: PARENTAL_CONSENT_VERSION,
+          waiver_version: waiverVersion("parental-consent"),
           ip_address: clientIP || null,
           metadata: {
             guardian_name: request.guardian_name,
@@ -150,15 +156,53 @@ export async function POST(req: Request) {
           { status: 500 }
         );
       }
+
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("full_name, username")
+        .eq("id", request.user_id)
+        .maybeSingle();
+
+      const applicantName = profile?.full_name || profile?.username || "A young athlete";
+      const withdrawalToken = generateWithdrawalToken();
+
+      const { error: tokenError } = await supabaseAdmin
+        .from("guardian_consent_requests")
+        .update({ withdrawal_token_hash: hashConsentToken(withdrawalToken) })
+        .eq("id", request.id);
+
+      if (tokenError) {
+        console.error("Failed to store withdrawal token", tokenError);
+      }
+
+      const withdrawUrl = buildWithdrawUrl(requestBaseUrl(req), withdrawalToken);
+      logWithdrawalUrlInDevelopment(withdrawUrl, request.guardian_email);
+
+      // A mail failure must not undo consent. The account is already active;
+      // the guardian can email support if the confirmation never arrives.
+      const confirmationEmailSent = tokenError
+        ? false
+        : await sendGuardianConfirmationEmail({
+            guardianEmail: request.guardian_email,
+            guardianName: request.guardian_name,
+            applicantName,
+            withdrawUrl,
+          });
+
+      return NextResponse.json(
+        {
+          message: "Thank you. The account is now active.",
+          status: "confirmed",
+          confirmationEmailSent,
+        },
+        { status: 200 }
+      );
     }
 
     return NextResponse.json(
       {
-        message:
-          action === "consent"
-            ? "Thank you. The account is now active."
-            : "Thank you. The account will stay restricted.",
-        status: action === "consent" ? "confirmed" : "declined",
+        message: "Thank you. The account will stay restricted.",
+        status: "declined",
       },
       { status: 200 }
     );

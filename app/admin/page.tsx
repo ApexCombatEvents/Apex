@@ -680,6 +680,8 @@ export default function AdminDashboard() {
                               className={`rounded px-2 py-0.5 font-medium ${
                                 profile.consentStatus === "confirmed"
                                   ? "bg-emerald-100 text-emerald-800"
+                                  : profile.consentStatus === "withdrawn"
+                                  ? "bg-amber-100 text-amber-900"
                                   : "bg-red-100 text-red-800"
                               }`}
                             >
@@ -687,6 +689,8 @@ export default function AdminDashboard() {
                                 ? "Guardian approved"
                                 : profile.consentStatus === "declined"
                                 ? "Guardian declined"
+                                : profile.consentStatus === "withdrawn"
+                                ? "Permission withdrawn"
                                 : "Awaiting permission"}
                             </span>
                             {profile.guardianEmail && (

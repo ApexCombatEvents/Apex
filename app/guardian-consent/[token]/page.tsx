@@ -126,7 +126,7 @@ export default async function GuardianConsentPage({
           </p>
           <p className="text-sm text-slate-700 mt-1 leading-relaxed">
             {approved
-              ? "You've already approved this account. If you'd like to withdraw your permission, please contact us."
+              ? "You've already approved this account. Check the confirmation email for a link to withdraw your permission, or email support@apexcombatevents.com if you no longer have it."
               : "No further action is needed. The account remains restricted."}
           </p>
         </div>

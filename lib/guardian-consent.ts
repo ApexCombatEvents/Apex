@@ -78,6 +78,41 @@ export function buildConsentUrl(baseUrl: string, token: string): string {
 }
 
 /**
+ * Generate the standing withdrawal token issued once a guardian consents.
+ *
+ * Separate from the consent token because that one is spent on use. This one
+ * deliberately never expires: the right to withdraw permission for a child
+ * does not lapse.
+ */
+export function generateWithdrawalToken(): string {
+  return randomBytes(TOKEN_BYTES).toString("base64url");
+}
+
+/**
+ * Build the withdrawal URL included in the confirmation email.
+ */
+export function buildWithdrawUrl(baseUrl: string, token: string): string {
+  return `${baseUrl.replace(/\/$/, "")}/guardian-consent/withdraw/${token}`;
+}
+
+/**
+ * Site origin for emailed links. Prefer the request so a local test does not
+ * point a real inbox at production, and fall back to the configured app URL.
+ */
+export function requestBaseUrl(req: Request): string {
+  const origin = req.headers.get("origin");
+  if (origin) return origin.replace(/\/$/, "");
+
+  const host = req.headers.get("x-forwarded-host");
+  if (host) {
+    const proto = req.headers.get("x-forwarded-proto") || "https";
+    return `${proto}://${host}`.replace(/\/$/, "");
+  }
+
+  return (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
+}
+
+/**
  * Print the consent link to the server console in development.
  *
  * Logged on every issue, not just failures: the raw token exists only for the
@@ -93,5 +128,17 @@ export function logConsentUrlInDevelopment(consentUrl: string, guardianEmail: st
 
   console.info(
     `[guardian-consent] Consent link for ${guardianEmail}:\n${consentUrl}`
+  );
+}
+
+/**
+ * Print the standing withdrawal link in development, for the same reason as
+ * the consent link: the raw token exists only for this request.
+ */
+export function logWithdrawalUrlInDevelopment(withdrawUrl: string, guardianEmail: string): void {
+  if (process.env.NODE_ENV !== "development") return;
+
+  console.info(
+    `[guardian-consent] Withdrawal link for ${guardianEmail}:\n${withdrawUrl}`
   );
 }
