@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { calculateAge, MINOR_AGE_THRESHOLD } from "@/lib/input-validation";
 
 type Event = {
   id: string;
@@ -28,6 +29,11 @@ type Profile = {
   role: string | null;
   avatar_url: string | null;
   created_at: string;
+  /** Only set once a date of birth has been recorded. Undefined means unknown. */
+  age?: number;
+  /** Current guardian consent state, for accounts that have one. */
+  consentStatus?: string;
+  guardianEmail?: string | null;
 };
 
 export default function AdminDashboard() {
@@ -47,6 +53,7 @@ export default function AdminDashboard() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   
   const [searchQuery, setSearchQuery] = useState("");
+  const [minorsOnly, setMinorsOnly] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
@@ -76,13 +83,27 @@ export default function AdminDashboard() {
   }, [events, searchQuery]);
 
   const filteredProfiles = useMemo(() => {
-    if (!searchQuery.trim()) return profiles;
+    const byAge = minorsOnly
+      ? profiles.filter(
+          (profile) => profile.age !== undefined && profile.age < MINOR_AGE_THRESHOLD
+        )
+      : profiles;
+
+    if (!searchQuery.trim()) return byAge;
     const query = searchQuery.toLowerCase();
-    return profiles.filter((profile) => {
+    return byAge.filter((profile) => {
       const name = (profile.full_name || profile.username || "").toLowerCase();
       return name.includes(query);
     });
-  }, [profiles, searchQuery]);
+  }, [profiles, searchQuery, minorsOnly]);
+
+  const minorCount = useMemo(
+    () =>
+      profiles.filter(
+        (profile) => profile.age !== undefined && profile.age < MINOR_AGE_THRESHOLD
+      ).length,
+    [profiles]
+  );
 
   // Early return for non-admin users (must be after all hooks)
   if (!isAdmin) {
@@ -192,7 +213,49 @@ export default function AdminDashboard() {
           const nameB = (b.full_name || b.username || "").toLowerCase();
           return nameA.localeCompare(nameB);
         });
-        setProfiles(sortedProfiles);
+
+        // Age and guardian consent state, so under-18 accounts can be found
+        // and checked. Two bulk reads rather than a per-row is_minor() call,
+        // which would be one round trip per profile. Both tables are readable
+        // by admins under their own policies. If either read fails the list
+        // still renders, just without the annotations.
+        const [dobResult, consentResult] = await Promise.all([
+          supabase.from("profile_private").select("user_id, date_of_birth"),
+          supabase
+            .from("guardian_consent_requests")
+            .select("user_id, guardian_email, status, created_at")
+            .order("created_at", { ascending: false }),
+        ]);
+
+        if (dobResult.error) console.error("Error loading dates of birth:", dobResult.error);
+        if (consentResult.error) console.error("Error loading consent requests:", consentResult.error);
+
+        const ageByUser: Record<string, number> = {};
+        for (const row of dobResult.data || []) {
+          if (row.date_of_birth) {
+            ageByUser[row.user_id] = calculateAge(new Date(row.date_of_birth));
+          }
+        }
+
+        const consentByUser: Record<string, { status: string; guardianEmail: string | null }> = {};
+        for (const row of consentResult.data || []) {
+          // Newest first, so the first row seen for a user is the current one.
+          if (!consentByUser[row.user_id]) {
+            consentByUser[row.user_id] = {
+              status: row.status,
+              guardianEmail: row.guardian_email ?? null,
+            };
+          }
+        }
+
+        setProfiles(
+          sortedProfiles.map((profile) => ({
+            ...profile,
+            age: ageByUser[profile.id],
+            consentStatus: consentByUser[profile.id]?.status,
+            guardianEmail: consentByUser[profile.id]?.guardianEmail ?? null,
+          }))
+        );
       } else {
         setProfiles([]);
       }
@@ -422,6 +485,20 @@ export default function AdminDashboard() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="flex-1 rounded-xl border border-slate-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
           />
+          {activeTab === "profiles" && (
+            <button
+              type="button"
+              onClick={() => setMinorsOnly((on) => !on)}
+              aria-pressed={minorsOnly}
+              className={`whitespace-nowrap rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+                minorsOnly
+                  ? "border-amber-500 bg-amber-50 text-amber-900"
+                  : "border-slate-300 text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              Under 18 ({minorCount})
+            </button>
+          )}
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
@@ -594,6 +671,31 @@ export default function AdminDashboard() {
                           )}
                           <span>{new Date(profile.created_at).toLocaleDateString()}</span>
                         </div>
+                        {profile.age !== undefined && profile.age < MINOR_AGE_THRESHOLD && (
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                            <span className="rounded bg-amber-100 px-2 py-0.5 font-medium text-amber-900">
+                              Under 18 · age {profile.age}
+                            </span>
+                            <span
+                              className={`rounded px-2 py-0.5 font-medium ${
+                                profile.consentStatus === "confirmed"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}
+                            >
+                              {profile.consentStatus === "confirmed"
+                                ? "Guardian approved"
+                                : profile.consentStatus === "declined"
+                                ? "Guardian declined"
+                                : "Awaiting permission"}
+                            </span>
+                            {profile.guardianEmail && (
+                              <span className="text-slate-500">
+                                Guardian: {profile.guardianEmail}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
