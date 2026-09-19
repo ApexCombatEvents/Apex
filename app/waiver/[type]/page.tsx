@@ -35,8 +35,9 @@ If you are under 18, your account is restricted from the moment you register. Yo
 Once permission has been given, the following continue to apply for as long as the account holder is under 18:
 • Private messaging is switched off entirely, in both directions.
 • The profile is visible only to users signed in to the platform, and is kept out of public view and search engine indexing.
-• Photographs must show appropriate clothing. Content that breaks this rule may be reported and will be removed.
-• The account cannot receive payments, purses, or sponsorship through the platform.
+• The profile shows the account holder's country only. It does not show their town or address.
+• Photographs must show appropriate clothing. Accounts belonging to under-18s are checked against our guidelines, and content that breaks them is removed.
+• Purses, sponsorship, and any other payment are arranged directly between the guardian and the organiser, away from the platform.
 
 A parent or legal guardian may withdraw their permission at any time by contacting support@apexcombatevents.com, after which the account is restricted again.
 

@@ -9,22 +9,21 @@
 import { createHash, randomBytes, timingSafeEqual } from "crypto";
 
 /**
- * Restrictions applied to an under-18 account, in plain language.
- * Shared by the consent email and the consent page so a guardian is never
- * shown two different descriptions of what they are agreeing to.
- */
-/**
- * What a guardian is actually agreeing to. This is the basis on which a
- * parent gives permission, so every line here must describe something the
- * platform genuinely enforces. Do not add a restriction to this list before
- * the code that enforces it exists.
+ * What a guardian is actually agreeing to, in plain language. Shared by the
+ * consent email and the consent page so a guardian is never shown two
+ * different descriptions of what they are agreeing to.
+ *
+ * This is the basis on which a parent gives permission, so every line must
+ * describe something that genuinely happens. Do not add a restriction here
+ * before the code, or the human process, that delivers it exists.
  */
 export const YOUNG_PARTICIPANT_RESTRICTIONS = [
   "Private messaging is switched off entirely, both to them and from them.",
   "Until you give permission, their profile is hidden from everyone except themselves.",
   "After that, their profile can only be seen by people signed in to the platform. It stays out of public view and away from search engines.",
-  "Photos must show appropriate clothing. Anything that breaks that rule can be reported and will be taken down.",
-  "They cannot receive payments, purses or sponsorship through the platform.",
+  "Their profile shows their country only. It never shows their town or address.",
+  "Photos must show appropriate clothing. We check accounts belonging to under-18s against our guidelines, and anything that breaks them is removed.",
+  "Purses, sponsorship and any other payment are arranged directly between you and the organiser, away from the platform.",
 ] as const;
 
 /** Entropy in the emailed token. */
