@@ -46,6 +46,29 @@ function isFeaturedActive(event: EventRow): boolean {
   return new Date(event.featured_until) > new Date();
 }
 
+// Times are entered through <input type="time">, so they arrive as "19:00", or
+// as "19:00:00" when Postgres hands back a time column. Keep 24-hour, no seconds.
+function formatEventTime(value: string | null): string | null {
+  if (!value) return null;
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return value.trim() || null;
+  return `${match[1].padStart(2, "0")}:${match[2]}`;
+}
+
+// Multi-discipline events are stored as a comma-joined string by /create-event.
+// Deduplicated because the value is free-form and each chip is keyed by name.
+function splitDisciplines(value: string | null): string[] {
+  if (!value) return [];
+  return Array.from(
+    new Set(
+      value
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean)
+    )
+  );
+}
+
 function insertSponsorsBetween(
   events: EventRow[],
   sponsorships: Sponsorship[],
@@ -73,6 +96,45 @@ function insertSponsorsBetween(
 
 // ─── Event card ───────────────────────────────────────────────────────────────
 
+// The whole card is a Link, so the maps action cannot be an anchor of its own.
+// It needs explicit key handling to be reachable without a mouse.
+function EventLocation({
+  label,
+  mapsUrl,
+}: {
+  label: string;
+  mapsUrl: string | null;
+}) {
+  if (!mapsUrl) {
+    return <span className="text-slate-700">{label}</span>;
+  }
+
+  const openMaps = () => window.open(mapsUrl, "_blank", "noopener");
+
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${label} in Google Maps`}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openMaps();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          e.stopPropagation();
+          openMaps();
+        }
+      }}
+      className="rounded text-slate-700 cursor-pointer hover:text-purple-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+    >
+      {label}
+    </span>
+  );
+}
+
 function EventCard({ event }: { event: EventRow }) {
   const title = event.title || event.name || "Untitled event";
   const dateLabel = event.event_date
@@ -87,8 +149,11 @@ function EventCard({ event }: { event: EventRow }) {
     event.location ||
     [event.location_city, event.location_country].filter(Boolean).join(", ") ||
     "Location TBC";
-  const mapsUrl = getGoogleMapsUrl(locationLabel !== "Location TBC" ? locationLabel : null);
+  const hasLocation = locationLabel !== "Location TBC";
+  const mapsUrl = getGoogleMapsUrl(hasLocation ? locationLabel : null);
   const featured = isFeaturedActive(event);
+  const timeLabel = formatEventTime(event.event_time);
+  const disciplines = splitDisciplines(event.martial_art);
 
   return (
     <Link
@@ -112,14 +177,26 @@ function EventCard({ event }: { event: EventRow }) {
             </div>
           )}
         </div>
-        <div className="flex flex-wrap gap-2 text-xs text-slate-600">
-          <span className="font-medium">{dateLabel}</span>
-          {event.event_time && <span>• {event.event_time}</span>}
-          {locationLabel !== "Location TBC" && <span>• {locationLabel}</span>}
-          {event.martial_art && (
-            <span className="font-medium text-purple-700">• {event.martial_art}</span>
+        <div className="space-y-1 text-sm">
+          <div>
+            <span className="font-semibold text-slate-900">{dateLabel}</span>
+            {timeLabel && <span className="ml-2 text-slate-500">{timeLabel}</span>}
+          </div>
+          {hasLocation && (
+            <div>
+              <EventLocation label={locationLabel} mapsUrl={mapsUrl} />
+            </div>
           )}
         </div>
+        {disciplines.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {disciplines.map((art) => (
+              <span key={art} className="badge badge-primary">
+                {art}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Desktop layout — always show banner thumbnail */}
@@ -149,31 +226,26 @@ function EventCard({ event }: { event: EventRow }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </div>
-          <div className="flex flex-wrap gap-3 text-sm text-slate-600">
-            <span className="font-medium">{dateLabel}</span>
-            {event.event_time && <span>• {event.event_time}</span>}
-            {locationLabel !== "Location TBC" && (
-              <span>
-                •{" "}
-                {mapsUrl ? (
-                  <span
-                    onClick={(e) => {
-                      e.preventDefault();
-                      window.open(mapsUrl, "_blank", "noopener");
-                    }}
-                    className="hover:text-purple-700 hover:underline cursor-pointer"
-                  >
-                    {locationLabel}
-                  </span>
-                ) : (
-                  locationLabel
-                )}
-              </span>
-            )}
-            {event.martial_art && (
-              <span className="font-medium text-purple-700">• {event.martial_art}</span>
+          <div className="space-y-1 text-sm">
+            <div>
+              <span className="font-semibold text-slate-900">{dateLabel}</span>
+              {timeLabel && <span className="ml-2 text-slate-500">{timeLabel}</span>}
+            </div>
+            {hasLocation && (
+              <div>
+                <EventLocation label={locationLabel} mapsUrl={mapsUrl} />
+              </div>
             )}
           </div>
+          {disciplines.length > 0 && (
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {disciplines.map((art) => (
+                <span key={art} className="badge badge-primary">
+                  {art}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </Link>

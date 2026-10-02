@@ -50,8 +50,10 @@ export default function ProfileSettingsPage() {
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+  const [fightCardIconUrl, setFightCardIconUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [uploadingFightCardIcon, setUploadingFightCardIcon] = useState(false);
 
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
@@ -137,6 +139,7 @@ export default function ProfileSettingsPage() {
         setMartialArts(profile.martial_arts ?? []);
         setAvatarUrl(profile.avatar_url ?? null);
         setBannerUrl(profile.banner_url ?? null);
+        setFightCardIconUrl(profile.fight_card_icon_url ?? null);
 
         const social = profile.social_links || {};
         setInstagram(social.instagram ?? "");
@@ -428,9 +431,39 @@ export default function ProfileSettingsPage() {
       </div>
     );
   }
+// Each image kind differs only in its bucket, its column and which bits of
+// state it drives, so they are described once rather than branched three ways.
+const IMAGE_KINDS = {
+  avatar: {
+    bucket: "avatars",
+    column: "avatar_url",
+    label: "Profile picture",
+    setUploading: setUploadingAvatar,
+    setUrl: setAvatarUrl,
+  },
+  banner: {
+    bucket: "banners",
+    column: "banner_url",
+    label: "Banner",
+    setUploading: setUploadingBanner,
+    setUrl: setBannerUrl,
+  },
+  // Reuses the avatars bucket: paths are already namespaced per user and
+  // timestamped, so a separate bucket would add policies for no benefit.
+  fightCardIcon: {
+    bucket: "avatars",
+    column: "fight_card_icon_url",
+    label: "Fight picture",
+    setUploading: setUploadingFightCardIcon,
+    setUrl: setFightCardIconUrl,
+  },
+} as const;
+
+type ImageKind = keyof typeof IMAGE_KINDS;
+
 async function handleImageUpload(
   e: React.ChangeEvent<HTMLInputElement>,
-  type: "avatars" | "banners"
+  kind: ImageKind
 ) {
   const file = e.target.files?.[0];
   if (!file) return;
@@ -444,11 +477,10 @@ async function handleImageUpload(
     return;
   }
 
-  const bucket = type === "avatars" ? "avatars" : "banners";
+  const { bucket, column, label, setUploading, setUrl } = IMAGE_KINDS[kind];
   const filePath = `${user.id}/${Date.now()}-${file.name}`;
 
-  if (type === "avatars") setUploadingAvatar(true);
-  else setUploadingBanner(true);
+  setUploading(true);
 
   const { error: uploadError } = await supabase.storage
     .from(bucket)
@@ -459,8 +491,7 @@ async function handleImageUpload(
 
   if (uploadError) {
     setMessage(uploadError.message);
-    if (type === "avatars") setUploadingAvatar(false);
-    else setUploadingBanner(false);
+    setUploading(false);
     return;
   }
 
@@ -470,30 +501,47 @@ async function handleImageUpload(
 
   const publicUrl = publicUrlData.publicUrl;
 
-  const update =
-    type === "avatars"
-      ? { avatar_url: publicUrl }
-      : { banner_url: publicUrl };
-
   const { error: updateError } = await supabase
     .from("profiles")
-    .update(update)
+    .update({ [column]: publicUrl })
     .eq("id", user.id);
 
-    if (updateError) {
-      setMessage(updateError.message);
-      if (type === "avatars") setUploadingAvatar(false);
-      else setUploadingBanner(false);
-    } else {
-      if (type === "avatars") setAvatarUrl(publicUrl);
-      else setBannerUrl(publicUrl);
-      
-      // Just update the preview, don't redirect - user will save when ready
-      setMessage(`${type === "avatars" ? "Avatar" : "Banner"} uploaded. Click "Save changes" to update your profile.`);
-    }
+  if (updateError) {
+    setMessage(updateError.message);
+  } else {
+    setUrl(publicUrl);
+    setMessage(`${label} updated.`);
+  }
 
-    if (type === "avatars") setUploadingAvatar(false);
-    else setUploadingBanner(false);
+  setUploading(false);
+}
+
+// Clears the fight picture so fight cards fall back to the profile picture.
+async function handleRemoveFightCardIcon() {
+  setMessage(null);
+
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  const user = userData.user;
+  if (userError || !user) {
+    setMessage("You must be signed in.");
+    return;
+  }
+
+  setUploadingFightCardIcon(true);
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ fight_card_icon_url: null })
+    .eq("id", user.id);
+
+  if (error) {
+    setMessage(error.message);
+  } else {
+    setFightCardIconUrl(null);
+    setMessage("Fight picture removed. Fight cards will use your profile picture.");
+  }
+
+  setUploadingFightCardIcon(false);
 }
 
   return (
@@ -559,7 +607,7 @@ async function handleImageUpload(
         <input
           type="file"
           accept="image/*"
-          onChange={(e) => handleImageUpload(e, "avatars")}
+          onChange={(e) => handleImageUpload(e, "avatar")}
           disabled={uploadingAvatar}
           className="text-xs"
         />
@@ -586,7 +634,7 @@ async function handleImageUpload(
       <input
         type="file"
         accept="image/*"
-        onChange={(e) => handleImageUpload(e, "banners")}
+        onChange={(e) => handleImageUpload(e, "banner")}
         disabled={uploadingBanner}
         className="text-xs"
       />
@@ -595,6 +643,93 @@ async function handleImageUpload(
       </span>
     </div>
   </div>
+
+  {/* Fight picture — only meaningful for people who appear on a fight card. */}
+  {isFighterOrCoach && (
+    <div className="pt-4 border-t border-slate-200 space-y-3">
+      <div>
+        <h3 className="text-sm font-semibold">Fight picture</h3>
+        <p className="text-xs text-slate-600 mt-1">
+          The photo used when you appear on a fight card. Face to camera with a
+          pose, like the promo shot you would be asked for before a real fight.
+          Head and shoulders reads best. Leave this empty and your profile
+          picture is used instead.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-start gap-5">
+        <div className="flex flex-col gap-1">
+          <div className="w-24 aspect-[3/4] rounded-xl bg-slate-200 overflow-hidden">
+            {(fightCardIconUrl || avatarUrl) && (
+              <Image
+                src={fightCardIconUrl || avatarUrl || ""}
+                alt="Fight picture"
+                width={288}
+                height={384}
+                quality={90}
+                className="h-full w-full object-cover"
+              />
+            )}
+          </div>
+          <span className="text-[10px] text-slate-500">
+            {fightCardIconUrl ? "Your fight picture" : "Using profile picture"}
+          </span>
+        </div>
+
+        {/* Shown at the sizes fight cards actually use, because a photo that
+            looks good large can be unreadable once it is this small. */}
+        <div className="flex flex-col gap-1">
+          <div className="flex items-end gap-3">
+            {[40, 56, 72].map((width) => (
+              <div
+                key={width}
+                className="rounded-lg bg-slate-200 overflow-hidden"
+                style={{ width, aspectRatio: "3 / 4" }}
+              >
+                {(fightCardIconUrl || avatarUrl) && (
+                  <Image
+                    src={fightCardIconUrl || avatarUrl || ""}
+                    alt=""
+                    width={width * 3}
+                    height={width * 4}
+                    quality={90}
+                    className="h-full w-full object-cover"
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+          <span className="text-[10px] text-slate-500">
+            How it looks on a fight card
+          </span>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => handleImageUpload(e, "fightCardIcon")}
+          disabled={uploadingFightCardIcon}
+          className="text-xs"
+        />
+        <span className="text-[10px] text-slate-500">
+          Recommended: at least 768×1024px (3:4 portrait). Smaller images are
+          stretched and will look soft on a fight card.
+        </span>
+        {fightCardIconUrl && (
+          <button
+            type="button"
+            onClick={handleRemoveFightCardIcon}
+            disabled={uploadingFightCardIcon}
+            className="self-start mt-1 text-xs font-medium text-slate-500 hover:text-purple-700 disabled:opacity-50"
+          >
+            Remove and use my profile picture
+          </button>
+        )}
+      </div>
+    </div>
+  )}
 </div>
 
 

@@ -7,6 +7,7 @@ import Image from "next/image";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import { countryToFlagUrl } from "@/lib/countries";
 import { diffForSide, type Winner, type Side } from "@/lib/records";
+import FightCardPortrait from "@/components/events/FightCardPortrait";
 
 // --- TYPES ---
 type Event = {
@@ -44,6 +45,7 @@ type ProfileLite = {
   full_name?: string | null;
   username?: string | null;
   avatar_url?: string | null;
+  fight_card_icon_url?: string | null;
   country?: string | null;
   social_links?: {
     gym_username?: string;
@@ -177,7 +179,7 @@ export default function LiveEventPage() {
     if (fighterIds.length > 0) {
       const { data: fightersData, error: fightersError } = await supabase
         .from("profiles")
-        .select("id, full_name, username, avatar_url, country, social_links")
+        .select("id, full_name, username, avatar_url, fight_card_icon_url, country, social_links")
         .in("id", fighterIds);
 
       if (fightersError) {
@@ -945,7 +947,14 @@ function BoutCard({
         <div className="flex justify-center sm:justify-start">
           {(redFighter || bout.red_name) ? (
             <div className="flex items-center gap-3">
-              <div className="flex flex-col items-center gap-0.5">
+              <div className="flex flex-col items-center gap-1">
+                <FightCardPortrait
+                  profile={redFighter}
+                  name={redNameBase}
+                  widthClass="w-20"
+                  requestWidth={240}
+                  initialClass="text-xl"
+                />
                 <div className="flex items-center gap-1.5">
                   {redFlagUrl && (
                     <Image
@@ -957,21 +966,10 @@ function BoutCard({
                       style={{ imageRendering: "crisp-edges" }}
                     />
                   )}
-                  <div className="h-12 w-12 rounded-xl bg-slate-200 overflow-hidden">
-                    {redFighter?.avatar_url && (
-                      <Image
-                        src={redFighter.avatar_url}
-                        alt={redNameBase}
-                        width={48}
-                        height={48}
-                        className="h-full w-full object-cover"
-                      />
-                    )}
-                  </div>
+                  {redCountry && (
+                    <span className="text-xs text-slate-500">{redCountry}</span>
+                  )}
                 </div>
-                {redCountry && (
-                  <span className="text-xs text-slate-500">{redCountry}</span>
-                )}
               </div>
 
               <div className="flex flex-col items-start">
@@ -1015,7 +1013,14 @@ function BoutCard({
         <div className="flex justify-center sm:justify-end">
           {(blueFighter || bout.blue_name) ? (
             <div className="flex items-center gap-3">
-              <div className="flex flex-col items-center gap-0.5">
+              <div className="flex flex-col items-center gap-1">
+                <FightCardPortrait
+                  profile={blueFighter}
+                  name={blueNameBase}
+                  widthClass="w-20"
+                  requestWidth={240}
+                  initialClass="text-xl"
+                />
                 <div className="flex items-center gap-1.5">
                   {blueFlagUrl && (
                     <Image
@@ -1027,21 +1032,10 @@ function BoutCard({
                       style={{ imageRendering: "crisp-edges" }}
                     />
                   )}
-                  <div className="h-12 w-12 rounded-xl bg-slate-200 overflow-hidden">
-                    {blueFighter?.avatar_url && (
-                      <Image
-                        src={blueFighter.avatar_url}
-                        alt={blueNameBase}
-                        width={48}
-                        height={48}
-                        className="h-full w-full object-cover"
-                      />
-                    )}
-                  </div>
+                  {blueCountry && (
+                    <span className="text-xs text-slate-500">{blueCountry}</span>
+                  )}
                 </div>
-                {blueCountry && (
-                  <span className="text-xs text-slate-500">{blueCountry}</span>
-                )}
               </div>
 
               <div className="flex flex-col items-start">

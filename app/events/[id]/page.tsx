@@ -18,6 +18,7 @@ import StartEventButton from "@/components/events/StartEventButton";
 import OfferPaymentMessage from "@/components/events/OfferPaymentMessage";
 import ShareEventButton from "@/components/events/ShareEventButton";
 import ShareBoutButton from "@/components/events/ShareBoutButton";
+import FightCardPortrait from "@/components/events/FightCardPortrait";
 
 
 type Event = {
@@ -86,6 +87,7 @@ type ProfileLite = {
   username?: string | null;
   role?: string | null;
   avatar_url?: string | null;
+  fight_card_icon_url?: string | null;
   country?: string | null;
   social_links?: {
     gym_username?: string;
@@ -211,7 +213,7 @@ export default async function EventPage({
       const { data: fightersData, error: fightersError } = await supabase
         .from("profiles")
         .select(
-          "id, full_name, username, role, avatar_url, country, social_links"
+          "id, full_name, username, role, avatar_url, fight_card_icon_url, country, social_links"
         )
         .in("id", fighterIds);
 
@@ -274,7 +276,7 @@ export default async function EventPage({
         const { data: profilesData, error: profilesError } = await supabase
           .from("profiles")
           .select(
-            "id, full_name, username, role, avatar_url, country, social_links"
+            "id, full_name, username, role, avatar_url, fight_card_icon_url, country, social_links"
           )
           .in("id", missingProfileIds);
 
@@ -852,8 +854,12 @@ function BoutRow({
     resultText = parts.join(" • ") || null;
   }
 
+  // Linked fighters get a purple hover so the name reads as interactive;
+  // without it a link here is indistinguishable from a typed-in name.
+  const nameLinkClass = "hover:text-purple-700 hover:underline transition-colors";
+
   const redNameNode = redFighter?.username ? (
-    <Link href={`/profile/${redFighter.username}`} className="hover:underline">
+    <Link href={`/profile/${redFighter.username}`} className={nameLinkClass}>
       {redNameBase}
     </Link>
   ) : (
@@ -861,10 +867,7 @@ function BoutRow({
   );
 
   const blueNameNode = blueFighter?.username ? (
-    <Link
-      href={`/profile/${blueFighter.username}`}
-      className="hover:underline"
-    >
+    <Link href={`/profile/${blueFighter.username}`} className={nameLinkClass}>
       {blueNameBase}
     </Link>
   ) : (
@@ -895,48 +898,42 @@ function BoutRow({
       return (
         <div className="flex items-center gap-1.5 sm:gap-3">
           <div className="flex flex-col items-end min-w-0">
-            <span className="font-semibold text-xs sm:text-[13px] leading-tight break-words text-right">
+            <span className="font-semibold text-[11px] sm:text-[13px] leading-tight break-words text-right">
               {redNameNode}
             </span>
             {redGymHandle && (
               <Link
                 href={`/profile/${redGymHandle}`}
-                className="text-[10px] sm:text-[11px] text-purple-700 hover:underline break-words text-right"
+                className="text-[9px] sm:text-[11px] text-purple-700 hover:underline break-words text-right"
               >
                 Gym: @{redGymHandle}
               </Link>
             )}
           </div>
 
-          <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
+          <div className="flex flex-col items-center gap-1 flex-shrink-0">
+            <FightCardPortrait
+              profile={redFighter}
+              name={redNameBase}
+              widthClass="w-12 sm:w-20"
+              requestWidth={240}
+              initialClass="text-base sm:text-xl"
+            />
             <div className="flex items-center gap-1">
-              <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-slate-200 overflow-hidden flex-shrink-0">
-                {redFighter?.avatar_url && (
-                  <Image
-                    src={redFighter.avatar_url}
-                    alt={redNameBase}
-                    width={160}
-                    height={160}
-                    className="h-full w-full object-cover"
-                    quality={100}
-                    priority
-                  />
-                )}
-              </div>
               {redFlagUrl && (
                 <Image
                   src={redFlagUrl.replace("/w20/", "/w40/")}
                   alt={redCountry || "Country flag"}
                   width={32}
                   height={24}
-                  className="w-5 h-4 sm:w-6 sm:h-5 object-cover rounded shadow-sm flex-shrink-0"
+                  className="w-5 h-4 object-cover rounded shadow-sm flex-shrink-0"
                   style={{ imageRendering: "crisp-edges" }}
                 />
               )}
+              {redCountry && (
+                <span className="text-[9px] sm:text-[10px] text-slate-500">{redCountry}</span>
+              )}
             </div>
-            {redCountry && (
-              <span className="text-[9px] sm:text-[10px] text-slate-500">{redCountry}</span>
-            )}
           </div>
         </div>
       );
@@ -970,7 +967,14 @@ function BoutRow({
     if (blueFighter || bout.blue_name) {
       return (
         <div className="flex items-center gap-1.5 sm:gap-3">
-          <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
+          <div className="flex flex-col items-center gap-1 flex-shrink-0">
+            <FightCardPortrait
+              profile={blueFighter}
+              name={blueNameBase}
+              widthClass="w-12 sm:w-20"
+              requestWidth={240}
+              initialClass="text-base sm:text-xl"
+            />
             <div className="flex items-center gap-1">
               {blueFlagUrl && (
                 <Image
@@ -978,37 +982,24 @@ function BoutRow({
                   alt={blueCountry || "Country flag"}
                   width={32}
                   height={24}
-                  className="w-5 h-4 sm:w-6 sm:h-5 object-cover rounded shadow-sm flex-shrink-0"
+                  className="w-5 h-4 object-cover rounded shadow-sm flex-shrink-0"
                   style={{ imageRendering: "crisp-edges" }}
                 />
               )}
-              <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-slate-200 overflow-hidden flex-shrink-0">
-                {blueFighter?.avatar_url && (
-                  <Image
-                    src={blueFighter.avatar_url}
-                    alt={blueNameBase}
-                    width={160}
-                    height={160}
-                    className="h-full w-full object-cover"
-                    quality={100}
-                    priority
-                  />
-                )}
-              </div>
+              {blueCountry && (
+                <span className="text-[9px] sm:text-[10px] text-slate-500">{blueCountry}</span>
+              )}
             </div>
-            {blueCountry && (
-              <span className="text-[9px] sm:text-[10px] text-slate-500">{blueCountry}</span>
-            )}
           </div>
 
           <div className="flex flex-col items-start min-w-0">
-            <span className="font-semibold text-xs sm:text-[13px] leading-tight break-words">
+            <span className="font-semibold text-[11px] sm:text-[13px] leading-tight break-words">
               {blueNameNode}
             </span>
             {blueGymHandle && (
               <Link
                 href={`/profile/${blueGymHandle}`}
-                className="text-[10px] sm:text-[11px] text-purple-700 hover:underline break-words"
+                className="text-[9px] sm:text-[11px] text-purple-700 hover:underline break-words"
               >
                 Gym: @{blueGymHandle}
               </Link>
@@ -1051,7 +1042,7 @@ function BoutRow({
       <div className="flex items-center justify-between gap-2 sm:gap-4 flex-1">
         <div className="flex-1 flex justify-end">{renderRedSide()}</div>
 
-        <div className="flex-shrink-0 flex flex-col items-center justify-center text-[10px] sm:text-xs text-slate-600 px-1 sm:px-2 w-[80px] sm:w-[120px]">
+        <div className="flex-shrink-0 flex flex-col items-center justify-center text-[10px] sm:text-xs text-slate-600 px-1 sm:px-2 w-[72px] sm:w-[120px]">
           {bout.weight && (
             <span className="font-medium text-center">{bout.weight}</span>
           )}

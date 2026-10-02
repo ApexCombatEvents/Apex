@@ -7,6 +7,7 @@ import Link from "next/link";
 import Image from "next/image";
 import StreamPaymentForm from "./StreamPaymentForm";
 import { countryToFlagUrl } from "@/lib/countries";
+import FightCardPortrait from "./FightCardPortrait";
 
 type Fighter = {
   id: string;
@@ -32,6 +33,7 @@ type FighterProfile = {
   full_name?: string | null;
   username?: string | null;
   avatar_url?: string | null;
+  fight_card_icon_url?: string | null;
   country?: string | null;
   social_links?: {
     gym_username?: string;
@@ -169,7 +171,7 @@ export default function StreamContent({
         if (fighterIds.length > 0) {
           const { data: fightersData } = await supabase
             .from("profiles")
-            .select("id, full_name, username, avatar_url, country, social_links")
+            .select("id, full_name, username, avatar_url, fight_card_icon_url, country, social_links")
             .in("id", fighterIds);
 
           if (fightersData) {
@@ -358,7 +360,13 @@ export default function StreamContent({
                                     </Link>
                                   )}
                                 </div>
-                                <div className="flex flex-col items-center gap-0.5">
+                                <div className="flex flex-col items-center gap-1">
+                                  <FightCardPortrait
+                                    profile={redFighter}
+                                    name={redName}
+                                    widthClass="w-16"
+                                    requestWidth={192}
+                                  />
                                   <div className="flex items-center gap-1.5">
                                     {redFlagUrl && (
                                       <Image 
@@ -370,23 +378,10 @@ export default function StreamContent({
                                         style={{ imageRendering: "crisp-edges" }} 
                                       />
                                     )}
-                                    <div className="h-10 w-10 rounded-xl bg-slate-200 overflow-hidden">
-                                      {redFighter?.avatar_url && (
-                                        <Image 
-                                          src={redFighter.avatar_url} 
-                                          alt={redName} 
-                                          width={160} 
-                                          height={160} 
-                                          className="h-full w-full object-cover" 
-                                          quality={100}
-                                          priority
-                                        />
-                                      )}
-                                    </div>
+                                    {redFighter?.country && (
+                                      <span className="text-[10px] text-slate-400">{redFighter.country}</span>
+                                    )}
                                   </div>
-                                  {redFighter?.country && (
-                                    <span className="text-[10px] text-slate-400">{redFighter.country}</span>
-                                  )}
                                 </div>
                               </div>
                             ) : (
@@ -399,7 +394,13 @@ export default function StreamContent({
                             {/* Blue Corner */}
                             {(blueFighter || currentLiveBout.blue_name) ? (
                               <div className="flex items-center gap-3">
-                                <div className="flex flex-col items-center gap-0.5">
+                                <div className="flex flex-col items-center gap-1">
+                                  <FightCardPortrait
+                                    profile={blueFighter}
+                                    name={blueName}
+                                    widthClass="w-16"
+                                    requestWidth={192}
+                                  />
                                   <div className="flex items-center gap-1.5">
                                     {blueFlagUrl && (
                                       <Image 
@@ -411,23 +412,10 @@ export default function StreamContent({
                                         style={{ imageRendering: "crisp-edges" }} 
                                       />
                                     )}
-                                    <div className="h-10 w-10 rounded-xl bg-slate-200 overflow-hidden">
-                                      {blueFighter?.avatar_url && (
-                                        <Image 
-                                          src={blueFighter.avatar_url} 
-                                          alt={blueName} 
-                                          width={160} 
-                                          height={160} 
-                                          className="h-full w-full object-cover" 
-                                          quality={100}
-                                          priority
-                                        />
-                                      )}
-                                    </div>
+                                    {blueFighter?.country && (
+                                      <span className="text-[10px] text-slate-400">{blueFighter.country}</span>
+                                    )}
                                   </div>
-                                  {blueFighter?.country && (
-                                    <span className="text-[10px] text-slate-400">{blueFighter.country}</span>
-                                  )}
                                 </div>
                                 <div className="flex flex-col items-start">
                                   <span className="font-semibold text-[13px] leading-tight text-white">
@@ -479,7 +467,15 @@ export default function StreamContent({
                                     </Link>
                                   )}
                                 </div>
-                                <div className="flex flex-col items-center gap-0.5">
+                                <div className="flex flex-col items-center gap-1">
+                                  <FightCardPortrait
+                                    profile={redFighter}
+                                    name={redName}
+                                    widthClass="w-10"
+                                    requestWidth={120}
+                                    rounded="rounded-lg"
+                                    initialClass="text-sm"
+                                  />
                                   <div className="flex items-center gap-1.5">
                                     {redFlagUrl && (
                                       <Image 
@@ -491,20 +487,10 @@ export default function StreamContent({
                                         style={{ imageRendering: "crisp-edges" }} 
                                       />
                                     )}
-                                    {redFighter?.avatar_url && (
-                                      <Image 
-                                        src={redFighter.avatar_url} 
-                                        alt={redName} 
-                                        width={64} 
-                                        height={64} 
-                                        className="h-8 w-8 rounded-full object-cover" 
-                                        quality={90}
-                                      />
+                                    {redFighter?.country && (
+                                      <span className="text-[10px] text-slate-400">{redFighter.country}</span>
                                     )}
                                   </div>
-                                  {redFighter?.country && (
-                                    <span className="text-[10px] text-slate-400">{redFighter.country}</span>
-                                  )}
                                 </div>
                               </div>
                             ) : (
@@ -517,7 +503,15 @@ export default function StreamContent({
                             {/* Blue Corner */}
                             {(blueFighter || nextBout.blue_name) ? (
                               <div className="flex items-center gap-2">
-                                <div className="flex flex-col items-center gap-0.5">
+                                <div className="flex flex-col items-center gap-1">
+                                  <FightCardPortrait
+                                    profile={blueFighter}
+                                    name={blueName}
+                                    widthClass="w-10"
+                                    requestWidth={120}
+                                    rounded="rounded-lg"
+                                    initialClass="text-sm"
+                                  />
                                   <div className="flex items-center gap-1.5">
                                     {blueFlagUrl && (
                                       <Image 
@@ -529,20 +523,10 @@ export default function StreamContent({
                                         style={{ imageRendering: "crisp-edges" }} 
                                       />
                                     )}
-                                    {blueFighter?.avatar_url && (
-                                      <Image 
-                                        src={blueFighter.avatar_url} 
-                                        alt={blueName} 
-                                        width={64} 
-                                        height={64} 
-                                        className="h-8 w-8 rounded-full object-cover" 
-                                        quality={90}
-                                      />
+                                    {blueFighter?.country && (
+                                      <span className="text-[10px] text-slate-400">{blueFighter.country}</span>
                                     )}
                                   </div>
-                                  {blueFighter?.country && (
-                                    <span className="text-[10px] text-slate-400">{blueFighter.country}</span>
-                                  )}
                                 </div>
                                 <div className="flex flex-col items-start flex-1">
                                   <span className="font-semibold text-[13px] leading-tight text-white">

@@ -4,6 +4,7 @@ export interface Database {
     profiles: { Row: {
       id: string; handle: string; display_name: string | null; role: 'FIGHTER' | 'COACH' | 'GYM' | 'PROMOTION' | 'ADMIN';
       gym_id: string | null; bio: string | null; banner_url: string | null; avatar_url: string | null;
+      fight_card_icon_url: string | null;
       location_city: string | null; location_country: string | null; disciplines: string[] | null; socials: Json | null; created_at: string | null
     }, Insert: Partial<Database['public']['Tables']['profiles']['Row']> & { id?: string; handle: string; role: Database['public']['Tables']['profiles']['Row']['role'] },
        Update: Partial<Database['public']['Tables']['profiles']['Row']> },

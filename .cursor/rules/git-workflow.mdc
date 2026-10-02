@@ -1,0 +1,32 @@
+---
+description: Branch, commit, and deploy policy for this project
+alwaysApply: true
+---
+
+# Nothing reaches `main` without being asked
+
+The user decides when work ships. Do not `git commit` to `main`, `git push`,
+or merge unless the user asks for it in that message. Silence is not consent,
+and neither is "the change is finished".
+
+Note: this repo's default checkout is `main` itself, so an absent-minded
+`git commit` lands on `main` directly. When work needs committing, create a
+branch first and say so.
+
+# Verify on localhost before proposing to ship
+
+The user runs `npm run dev` on port 3000. Confirm the change works there
+before calling it done — the dev server hot-reloads, so edits are visible
+immediately.
+
+Before handing work back, check:
+
+- `npm run build` succeeds
+- `npm run lint` is clean
+- flows adjacent to the change still work, especially auth (`/login`,
+  `/signup`), `/profile/me`, `/events`, and anything reading `profiles`
+
+# Package manager
+
+`ai-behavior.mdc` says pnpm, but the lockfile and the user's terminal use
+`npm`. Use `npm` for scripts in this repo.
