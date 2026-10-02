@@ -60,6 +60,7 @@ export default function ProfileSettingsPage() {
   const [currentUsername, setCurrentUsername] = useState<string | null>(null); // Track username for redirect
   const [role, setRole] = useState<Role>("");
   const [country, setCountry] = useState("");
+  const [nickname, setNickname] = useState("");
   const [bio, setBio] = useState("");
   const [martialArts, setMartialArts] = useState<string[]>([]);
 
@@ -78,6 +79,8 @@ export default function ProfileSettingsPage() {
   // Fighter / coach stats
   const [rank, setRank] = useState("");
   const [record, setRecord] = useState(""); // e.g. "10-2-1"
+  const [manualLast5, setManualLast5] = useState(""); // e.g. "WWLDW"
+  const [manualWinStreak, setManualWinStreak] = useState("");
   const [age, setAge] = useState("");
 
   const [heightUnit, setHeightUnit] = useState<"cm" | "ft">("cm");
@@ -94,7 +97,6 @@ export default function ProfileSettingsPage() {
   const [hideGymEvents, setHideGymEvents] = useState(false);
 
   // Fighter section visibility settings
-  const [hideBio, setHideBio] = useState(false);
   const [hideUpcomingFights, setHideUpcomingFights] = useState(false);
   const [hidePastFights, setHidePastFights] = useState(false);
   const [hidePosts, setHidePosts] = useState(false);
@@ -148,6 +150,15 @@ export default function ProfileSettingsPage() {
         setTiktok(social.tiktok ?? "");
         setYoutube(social.youtube ?? "");
         setGymUsername(social.gym_username ?? "");
+        setNickname(typeof social.nickname === "string" ? social.nickname : "");
+        setManualLast5(
+          typeof social.manual_last_5 === "string" ? social.manual_last_5 : ""
+        );
+        setManualWinStreak(
+          social.manual_win_streak === null || social.manual_win_streak === undefined
+            ? ""
+            : String(social.manual_win_streak)
+        );
         setBjjBelt(typeof social.bjj_belt === "string" ? social.bjj_belt : "");
         setBjjStripes(
           typeof social.bjj_stripes === "number" || typeof social.bjj_stripes === "string"
@@ -170,7 +181,6 @@ export default function ProfileSettingsPage() {
         setHideFights(social.hide_fights ?? false);
 
         // Load fighter section visibility settings
-        setHideBio(social.hide_bio ?? false);
         setHideUpcomingFights(social.hide_upcoming_fights ?? false);
         setHidePastFights(social.hide_past_fights ?? false);
         setHidePosts(social.hide_posts ?? false);
@@ -320,13 +330,20 @@ export default function ProfileSettingsPage() {
       } : {}),
       // Fighter section visibility settings (Stats can never be hidden for fighters)
       ...(role === "fighter" ? {
-        hide_bio: hideBio,
         hide_upcoming_fights: hideUpcomingFights,
         hide_past_fights: hidePastFights,
         hide_posts: hidePosts,
       } : {}),
       ...(isFighterOrCoach
         ? {
+            nickname: nickname.trim() || null,
+            // Overrides for the Apex-calculated form figures. Blank means
+            // "use whatever the automatic counter worked out".
+            manual_last_5: manualLast5 || null,
+            manual_win_streak:
+              manualWinStreak.trim() === ""
+                ? null
+                : Math.max(0, Math.min(999, parseInt(manualWinStreak, 10) || 0)),
             bjj_belt: hasBjjInMartialArts && bjjBelt ? bjjBelt : null,
             bjj_stripes:
               hasBjjInMartialArts && bjjBelt
@@ -582,8 +599,9 @@ async function handleRemoveFightCardIcon() {
 <div className="card space-y-4">
   <h2 className="text-sm font-semibold">Profile images</h2>
   <p className="text-xs text-slate-600">
-    Upload a profile picture and banner. On mobile this will let you choose
-    from your camera roll or take a new photo.
+    {isFighterOrCoach
+      ? "Upload a profile picture. On mobile this will let you choose from your camera roll or take a new photo."
+      : "Upload a profile picture and banner. On mobile this will let you choose from your camera roll or take a new photo."}
   </p>
 
   <MinorPhotoRules />
@@ -617,31 +635,34 @@ async function handleRemoveFightCardIcon() {
       </div>
     </div>
 
-    {/* Banner */}
-    <div className="flex flex-col gap-2">
-      <span className="text-xs text-slate-600">Banner image</span>
-      <div className="h-16 rounded-xl bg-slate-200 overflow-hidden">
-        {bannerUrl && (
-          <Image
-            src={bannerUrl}
-            alt="Banner image"
-            width={600}
-            height={80}
-            className="h-full w-full object-cover"
-          />
-        )}
+    {/* Banner. Fighter and coach profiles have no banner, so offering the
+        upload would only produce an image that never appears anywhere. */}
+    {!isFighterOrCoach && (
+      <div className="flex flex-col gap-2">
+        <span className="text-xs text-slate-600">Banner image</span>
+        <div className="h-16 rounded-xl bg-slate-200 overflow-hidden">
+          {bannerUrl && (
+            <Image
+              src={bannerUrl}
+              alt="Banner image"
+              width={600}
+              height={80}
+              className="h-full w-full object-cover"
+            />
+          )}
+        </div>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => handleImageUpload(e, "banner")}
+          disabled={uploadingBanner}
+          className="text-xs"
+        />
+        <span className="text-[10px] text-slate-500">
+          Recommended: 1600×560px (16:9 ratio)
+        </span>
       </div>
-      <input
-        type="file"
-        accept="image/*"
-        onChange={(e) => handleImageUpload(e, "banner")}
-        disabled={uploadingBanner}
-        className="text-xs"
-      />
-      <span className="text-[10px] text-slate-500">
-        Recommended: 1600×560px (16:9 ratio)
-      </span>
-    </div>
+    )}
   </div>
 
   {/* Fight picture — only meaningful for people who appear on a fight card. */}
@@ -765,6 +786,23 @@ async function handleRemoveFightCardIcon() {
                 </label>
           </div>
 
+          {isFighterOrCoach && (
+            <label className="text-xs text-slate-600 space-y-1 block">
+              Nickname (optional)
+              <input
+                className="w-full rounded-xl border px-3 py-2 text-sm"
+                value={nickname}
+                maxLength={40}
+                onChange={(e) => setNickname(e.target.value)}
+                placeholder="e.g. The Highlander"
+              />
+              <span className="block text-[10px] text-slate-500">
+                Shown in purple under your name, and in place of your username
+                in search results.
+              </span>
+            </label>
+          )}
+
           <div className="grid md:grid-cols-2 gap-3">
             <label className="text-xs text-slate-600 space-y-1">
               {isFighterOrCoach ? "Country" : "Country / location"}
@@ -863,22 +901,26 @@ async function handleRemoveFightCardIcon() {
           )}
         </div>
 
-        {/* Bio - Separate section to match public profile order */}
-        <div className="card space-y-2">
-          <h2 className="text-sm font-semibold">Bio</h2>
-          <label className="text-xs text-slate-600 space-y-1 block">
-            <textarea
-              className="w-full rounded-xl border px-3 py-2 text-sm min-h-[80px]"
-              maxLength={500}
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              placeholder="Tell people about yourself, your fighting style, experience, and goals."
-            />
-            <div className="text-xs text-slate-500 mt-1 text-right">
-              {bio.length}/500 characters
-            </div>
-          </label>
-        </div>
+        {/* Bio. Gym and promotion profiles still render a Bio section; fighter
+            and coach profiles no longer show one, so the field is hidden for
+            them rather than collecting text nobody will ever see. */}
+        {!isFighterOrCoach && (
+          <div className="card space-y-2">
+            <h2 className="text-sm font-semibold">Bio</h2>
+            <label className="text-xs text-slate-600 space-y-1 block">
+              <textarea
+                className="w-full rounded-xl border px-3 py-2 text-sm min-h-[80px]"
+                maxLength={500}
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="Tell people about your gym, your coaches and what you offer."
+              />
+              <div className="text-xs text-slate-500 mt-1 text-right">
+                {bio.length}/500 characters
+              </div>
+            </label>
+          </div>
+        )}
 
         {/* Profile sections visibility - Fighters only */}
         {role === "fighter" && (
@@ -889,12 +931,6 @@ async function handleRemoveFightCardIcon() {
               visible.
             </p>
             <div className="divide-y divide-slate-100">
-              <ToggleSwitch
-                label="Bio"
-                description="Show your bio section on your public profile."
-                checked={!hideBio}
-                onChange={(visible) => setHideBio(!visible)}
-              />
               <ToggleSwitch
                 label="Upcoming Fights"
                 description="Show the Upcoming Fights tab. Turn off if you have none planned yet."
@@ -964,6 +1000,40 @@ async function handleRemoveFightCardIcon() {
                   onChange={(e) => setRecord(e.target.value)}
                   placeholder="e.g. 10-2-1"
                 />
+              </label>
+
+              <label className="text-xs text-slate-600 space-y-1">
+                Last 5 results
+                <input
+                  className="w-full rounded-xl border px-3 py-2 text-sm uppercase"
+                  value={manualLast5}
+                  maxLength={5}
+                  onChange={(e) =>
+                    setManualLast5(
+                      e.target.value.toUpperCase().replace(/[^WLDN]/g, "").slice(0, 5)
+                    )
+                  }
+                  placeholder="e.g. WWLDW"
+                />
+                <span className="block text-[10px] text-slate-500">
+                  Oldest first. W win, L loss, D draw, N no contest. Leave empty
+                  to use your Apex results.
+                </span>
+              </label>
+
+              <label className="text-xs text-slate-600 space-y-1">
+                Current win streak
+                <input
+                  type="number"
+                  min={0}
+                  className="w-full rounded-xl border px-3 py-2 text-sm"
+                  value={manualWinStreak}
+                  onChange={(e) => setManualWinStreak(e.target.value)}
+                  placeholder="e.g. 4"
+                />
+                <span className="block text-[10px] text-slate-500">
+                  Number of wins in a row. Leave empty to use your Apex results.
+                </span>
               </label>
 
               <label className="text-xs text-slate-600 space-y-1">

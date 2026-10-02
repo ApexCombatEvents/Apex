@@ -124,7 +124,7 @@ export default function FighterBelts({ fighterId }: FighterBeltsProps) {
         {belts.map((belt) => (
           <div
             key={belt.id}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-purple-200 bg-gradient-to-r from-purple-50 to-white"
+            className="inline-flex max-w-full min-w-0 flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg border border-purple-200 bg-gradient-to-r from-purple-50 to-white"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -148,13 +148,15 @@ export default function FighterBelts({ fighterId }: FighterBeltsProps) {
                 <span className="text-xs text-slate-600">{belt.weight_class}</span>
               )}
             </div>
+            {/* These labels wrap inside the chip rather than holding their
+                width, which on a 320px screen pushed the page sideways. */}
             {belt.promotions && (
-              <span className="text-xs text-purple-700 font-medium ml-1 flex-shrink-0">
+              <span className="text-xs text-purple-700 font-medium min-w-0 truncate">
                 ({belt.promotions.full_name || belt.promotions.username || "Promotion"})
               </span>
             )}
             {!belt.promotions && belt.weight_class && (
-              <span className="text-xs text-slate-600 ml-1 flex-shrink-0">
+              <span className="text-xs text-slate-600 min-w-0 truncate">
                 ({belt.weight_class})
               </span>
             )}

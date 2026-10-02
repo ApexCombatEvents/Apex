@@ -481,6 +481,10 @@ function ProfileCard({ profile }: { profile: ProfileResult }) {
   const flag = countryToFlag(country);
   const mainArts = martial_arts?.slice(0, 3).join(" · ");
   const gymHandle = typeof social_links === "object" && social_links?.gym_username ? social_links.gym_username : null;
+  const nickname =
+    typeof social_links === "object" && typeof social_links?.nickname === "string"
+      ? social_links.nickname.trim()
+      : "";
   const roleBadgeClass = role ? (ROLE_COLORS[role] ?? "bg-slate-100 text-slate-700 border-slate-200") : "";
 
   const { wins, losses, draws } = parseRecord(record);
@@ -518,8 +522,16 @@ function ProfileCard({ profile }: { profile: ProfileResult }) {
         </div>
         <div className="flex-1 min-w-0 pt-0.5">
           <h3 className="text-base font-bold text-slate-900 leading-tight truncate">{displayName}</h3>
-          {username && (
-            <p className="text-xs text-slate-500 truncate mt-0.5">@{username}</p>
+          {/* A nickname is how a fighter is actually known, so it takes the
+              username's place here when one is set. */}
+          {nickname ? (
+            <p className="text-xs font-semibold text-purple-700 truncate mt-0.5">
+              &ldquo;{nickname}&rdquo;
+            </p>
+          ) : (
+            username && (
+              <p className="text-xs text-slate-500 truncate mt-0.5">@{username}</p>
+            )
           )}
           {role && (
             <span className={`inline-block mt-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border capitalize ${roleBadgeClass}`}>

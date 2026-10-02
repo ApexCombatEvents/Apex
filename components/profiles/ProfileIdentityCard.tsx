@@ -1,8 +1,8 @@
 // components/profiles/ProfileIdentityCard.tsx
 //
-// One card covering "who is this person": photo, name, affiliation, record,
-// bio and social links. Replaces the old banner header, the separate Bio card
-// and the Social media links card that used to sit at the foot of the page.
+// One card covering "who is this person": photo, name, nickname, affiliation,
+// record and social links. Replaces the old banner header, the separate Bio
+// card and the Social media links card that used to sit at the foot of the page.
 //
 // Fighters and coaches have no banner any more. The profile picture is a 3:4
 // portrait rather than a circle so action shots survive the crop, matching the
@@ -10,7 +10,6 @@
 
 "use client";
 
-import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import FollowStats from "@/components/social/FollowStats";
@@ -23,7 +22,6 @@ export type IdentityProfile = {
   username?: string | null;
   role?: string | null;
   avatar_url?: string | null;
-  bio?: string | null;
   country?: string | null;
   martial_arts?: string[] | null;
   record?: string | null;
@@ -51,31 +49,28 @@ function resolveSocialHref(value: string, base?: string): string {
 export default function ProfileIdentityCard({
   profile,
   isMe,
-  hideBio = false,
 }: {
   profile: IdentityProfile;
   isMe: boolean;
-  hideBio?: boolean;
 }) {
   const {
     full_name,
     username,
     role,
     avatar_url,
-    bio,
     country,
     martial_arts,
     record,
     social_links,
   } = profile;
 
-  const [bioExpanded, setBioExpanded] = useState(false);
-
   const displayName = full_name || "Fighter name";
   const initial = displayName.trim().charAt(0).toUpperCase();
   const flagUrl = countryToFlagUrl(country);
   const arts = martial_arts?.length ? martial_arts : [];
   const gymUsername = social_links?.gym_username || "";
+  const nickname =
+    typeof social_links?.nickname === "string" ? social_links.nickname.trim() : "";
   const displayRecord = record && String(record).trim() !== "" ? String(record) : null;
   const roleLabel = role ? role.charAt(0).toUpperCase() + role.slice(1) : null;
 
@@ -102,23 +97,25 @@ export default function ProfileIdentityCard({
 
   const nameClass = "text-slate-900";
   const mutedClass = "text-slate-600";
-  const bodyClass = "text-slate-700";
   const chipClass = "bg-purple-50 text-purple-700 border border-purple-100";
   const pillClass =
     "border-slate-200 text-slate-700 hover:border-purple-300 hover:text-purple-700";
 
   return (
     <section className="relative overflow-hidden rounded-2xl border border-slate-200/60 bg-white shadow-sm">
-      <div className="relative flex gap-4 sm:gap-6 p-4 sm:p-6">
-        {/* Portrait. 3:4 so action shots are not cropped to a circle. */}
-        <div className="w-28 sm:w-40 shrink-0">
-          <div className="w-full aspect-[3/4] rounded-2xl overflow-hidden bg-slate-100">
+      {/* flex-wrap, so the credentials column sits beside the identity on wide
+          screens and wraps to its own full-width row below on narrow ones. */}
+      <div className="relative flex flex-wrap gap-4 sm:gap-6 p-4 sm:p-6">
+        {/* Portrait. Stretches to the row height so it fills the card rather
+            than stopping partway down, with a floor so it is never squat. */}
+        <div className="w-32 sm:w-44 lg:w-48 shrink-0 self-stretch">
+          <div className="h-full min-h-[11rem] sm:min-h-[14rem] rounded-2xl overflow-hidden bg-slate-100">
             {avatar_url ? (
               <Image
                 src={avatar_url}
                 alt={displayName}
-                width={480}
-                height={640}
+                width={640}
+                height={854}
                 className="h-full w-full object-cover"
                 quality={90}
                 priority
@@ -136,62 +133,84 @@ export default function ProfileIdentityCard({
           </div>
         </div>
 
-        <div className="flex-1 min-w-0 space-y-3">
+        {/* Identity. Capped width so the column beside it starts near the
+            middle of the card rather than hugging the right edge. min-w-0 lets
+            it shrink below its content on narrow phones instead of pushing the
+            page wider than the viewport. */}
+        <div className="flex-1 min-w-0 space-y-3 lg:max-w-[20rem]">
           <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className={`text-xl sm:text-2xl font-bold ${nameClass}`}>
-                {displayName}
-              </h1>
-              {roleLabel && (
-                <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${chipClass}`}>
-                  {roleLabel}
-                </span>
-              )}
-            </div>
+            <h1 className={`text-xl sm:text-2xl font-bold ${nameClass}`}>
+              {displayName}
+            </h1>
 
-            <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-xs ${mutedClass}`}>
+            {nickname && (
+              <p className="text-sm font-semibold text-purple-700">
+                &ldquo;{nickname}&rdquo;
+              </p>
+            )}
+
+            <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-xs ${mutedClass}`}>
               {username && (
                 <Link href={`/profile/${username}`} className="hover:underline">
                   @{username}
                 </Link>
               )}
-              {country && (
-                <span className="inline-flex items-center gap-1.5">
-                  {flagUrl && (
-                    <Image
-                      src={flagUrl.replace("/w20/", "/w40/")}
-                      alt=""
-                      width={32}
-                      height={24}
-                      aria-hidden="true"
-                      className="w-4 h-3 object-cover rounded-sm"
-                      style={{ imageRendering: "crisp-edges" }}
-                    />
-                  )}
-                  {country}
+              {roleLabel && (
+                <span className={`px-1.5 py-px rounded text-[9px] font-semibold uppercase tracking-wide ${chipClass}`}>
+                  {roleLabel}
                 </span>
               )}
-              {gymUsername && (
+            </div>
+
+            {gymUsername && (
+              <div className={`text-xs ${mutedClass}`}>
                 <Link
                   href={`/profile/${gymUsername}`}
                   className="text-purple-700 hover:underline"
                 >
                   Gym: @{gymUsername}
                 </Link>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {displayRecord && (
             <div className="flex items-baseline gap-2">
-              <span className={`text-2xl sm:text-3xl font-bold tracking-tight ${nameClass}`}>
+              <span className={`text-xl sm:text-2xl font-bold tracking-tight ${nameClass}`}>
                 {displayRecord}
               </span>
-              <span className={`text-[11px] uppercase tracking-wide ${mutedClass}`}>
-                Record
+              <span className="text-[10px] uppercase tracking-wide text-slate-400">
+                W-L-D
               </span>
             </div>
           )}
+        </div>
+
+        {/* Country, following, disciplines and links. */}
+        <div className="w-full space-y-3 lg:flex-1 lg:border-l lg:border-slate-200/70 lg:pl-6">
+          {country && (
+            <div className={`flex items-center gap-1.5 text-xs ${mutedClass}`}>
+              {flagUrl && (
+                <Image
+                  src={flagUrl.replace("/w20/", "/w40/")}
+                  alt=""
+                  width={32}
+                  height={24}
+                  aria-hidden="true"
+                  className="w-4 h-3 object-cover rounded-sm"
+                  style={{ imageRendering: "crisp-edges" }}
+                />
+              )}
+              {country}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <FollowStats profileId={profile.id} username={username} />
+            {!isMe && (
+              <MessageButton targetProfileId={profile.id} targetUsername={username} />
+            )}
+          </div>
 
           {arts.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -206,37 +225,8 @@ export default function ProfileIdentityCard({
             </div>
           )}
 
-          {!hideBio && (bio || isMe) && (
-            <div>
-              <p
-                className={`text-sm leading-relaxed ${bodyClass} ${
-                  bioExpanded ? "" : "line-clamp-3"
-                }`}
-              >
-                {bio ||
-                  "Tell people about your fighting style, experience and goals."}
-              </p>
-              {bio && bio.length > 180 && (
-                <button
-                  type="button"
-                  onClick={() => setBioExpanded((open) => !open)}
-                  className="mt-1 text-xs font-medium text-purple-700 hover:underline"
-                >
-                  {bioExpanded ? "Less" : "More"}
-                </button>
-              )}
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <FollowStats profileId={profile.id} username={username} />
-            {!isMe && (
-              <MessageButton targetProfileId={profile.id} targetUsername={username} />
-            )}
-          </div>
-
           {socialPills.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 pt-1">
+            <div className="flex flex-wrap gap-1.5">
               {socialPills.map((pill) => (
                 <Link
                   key={`${pill.label}-${pill.href}`}

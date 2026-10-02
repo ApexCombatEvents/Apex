@@ -92,7 +92,6 @@ export default function FighterProfile({
   isOwnProfile = false,
   hideStats = false,
   hideFights = false,
-  hideBio = false,
   hideUpcomingFights = false,
   hidePastFights = false,
   hidePosts = false,
@@ -103,7 +102,6 @@ export default function FighterProfile({
   isOwnProfile?: boolean;
   hideStats?: boolean;
   hideFights?: boolean;
-  hideBio?: boolean;
   hideUpcomingFights?: boolean;
   hidePastFights?: boolean;
   hidePosts?: boolean;
@@ -479,15 +477,35 @@ export default function FighterProfile({
       ? `${weight} ${weight_unit || ""}`.trim()
       : "–";
 
+  // Form is calculated from Apex bouts by /api/fighters/update-record, but the
+  // platform has few events so far, so a fighter with real form elsewhere shows
+  // nothing. A value entered in settings takes precedence; blank falls back to
+  // the calculated one, so the automatic counter keeps working untouched.
+  const manualLast5 =
+    typeof social_links?.manual_last_5 === "string"
+      ? social_links.manual_last_5.trim()
+      : "";
+  const effectiveLast5 = manualLast5 || (last_5_form ?? "").trim();
+
   const displayLast5Form =
-    last_5_form && last_5_form.trim() !== "" 
-      ? last_5_form.split('').join('-') 
-      : "–";
+    effectiveLast5 !== "" ? effectiveLast5.split("").join("-") : "–";
+
+  const manualStreakRaw = social_links?.manual_win_streak;
+  const manualStreak =
+    typeof manualStreakRaw === "number"
+      ? manualStreakRaw
+      : typeof manualStreakRaw === "string" && manualStreakRaw.trim() !== ""
+      ? parseInt(manualStreakRaw, 10)
+      : null;
+  const effectiveStreak =
+    manualStreak !== null && Number.isFinite(manualStreak)
+      ? manualStreak
+      : typeof current_win_streak === "number"
+      ? current_win_streak
+      : null;
 
   const displayWinStreak =
-    typeof current_win_streak === "number" && current_win_streak > 0
-      ? `${current_win_streak}W`
-      : "–";
+    effectiveStreak !== null && effectiveStreak > 0 ? `${effectiveStreak}W` : "–";
 
   // Shared renderer for a single fight card (used by both Upcoming & Past tabs).
   function renderFightCard(fight: any) {
@@ -682,8 +700,8 @@ export default function FighterProfile({
 
   return (
     <div className="space-y-6">
-      {/* SECTION 1 – Identity: photo, name, affiliation, record, bio, socials */}
-      <ProfileIdentityCard profile={profile} isMe={isMe} hideBio={hideBio} />
+      {/* SECTION 1 – Identity: photo, name, nickname, affiliation, record, socials */}
+      <ProfileIdentityCard profile={profile} isMe={isMe} />
 
       {/* SECTION 2.5 – Championship Belts */}
         <FighterBelts fighterId={profile.id} />

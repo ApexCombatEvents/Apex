@@ -23,7 +23,6 @@ export default function CoachProfile({
   const socialLinks = profile?.social_links || {};
   const hideStats = socialLinks.hide_stats ?? false;
   const hideFights = socialLinks.hide_fights ?? false;
-  const hideBio = socialLinks.hide_bio ?? false;
   const hideUpcomingFights = socialLinks.hide_upcoming_fights ?? false;
   const hidePastFights = socialLinks.hide_past_fights ?? false;
   const hidePosts = socialLinks.hide_posts ?? false;
@@ -35,7 +34,6 @@ export default function CoachProfile({
       isOwnProfile={isOwnProfile}
       hideStats={hideStats}
       hideFights={hideFights}
-      hideBio={hideBio}
       hideUpcomingFights={hideUpcomingFights}
       hidePastFights={hidePastFights}
       hidePosts={hidePosts}
