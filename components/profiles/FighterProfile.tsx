@@ -11,13 +11,11 @@ import CreatePostModal from "@/components/social/CreatePostModal";
 import PostActionsMenu from "@/components/social/PostActionsMenu";
 import FighterPromotions from "@/components/promotions/FighterPromotions";
 import FighterBelts from "@/components/profiles/FighterBelts";
-import ProfileBand from "@/components/profiles/ProfileBand";
 import PostImages from "@/components/social/PostImages";
 import PostContent from "@/components/social/PostContent";
 import BoutShareCard, { type BoutShareMetadata } from "@/components/social/BoutShareCard";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@/hooks/useTranslation";
-import { useProfileVariant } from "@/hooks/useProfileVariant";
 import { countryToFlagUrl } from "@/lib/countries";
 import FightModal from "@/components/fighters/FightModal";
 import FightPosterModal, { type FightPosterTarget } from "@/components/fighters/FightPosterModal";
@@ -156,10 +154,6 @@ export default function FighterProfile({
   }, []);
 
   const isMe = myId === profile.id;
-
-  // Layout treatment, chosen with ?header= on the URL. "banded" is variant C:
-  // the sections are grouped into alternating full-width purple/white stripes.
-  const banded = useProfileVariant() === "banded";
 
   // Fight management modal
   const [fightModalOpen, setFightModalOpen] = useState(false);
@@ -687,14 +681,11 @@ export default function FighterProfile({
   const flagUrl = countryToFlagUrl(country);
 
   return (
-    <div className={banded ? undefined : "space-y-6"}>
-      <ProfileBand active={banded} tone="purple">
-        {/* SECTION 1 – Identity: photo, name, affiliation, record, bio, socials */}
-        <ProfileIdentityCard profile={profile} isMe={isMe} hideBio={hideBio} />
-      </ProfileBand>
+    <div className="space-y-6">
+      {/* SECTION 1 – Identity: photo, name, affiliation, record, bio, socials */}
+      <ProfileIdentityCard profile={profile} isMe={isMe} hideBio={hideBio} />
 
-      <ProfileBand active={banded} tone="light">
-        {/* SECTION 2.5 – Championship Belts */}
+      {/* SECTION 2.5 – Championship Belts */}
         <FighterBelts fighterId={profile.id} />
 
         {/* SECTION 3 – Stats */}
@@ -747,13 +738,10 @@ export default function FighterProfile({
           )}
         </section>
         )}
-      </ProfileBand>
+      {/* SECTION 4 – Promotions */}
+      <FighterPromotions fighterId={profile.id} />
 
-      <ProfileBand active={banded} tone="purple">
-        {/* SECTION 4 – Promotions */}
-        <FighterPromotions fighterId={profile.id} />
-
-        {/* SECTION 5 – Fights */}
+      {/* SECTION 5 – Fights */}
         {showFightsSection && (
         <section className="card">
           <div className="flex items-center justify-between mb-4 border-b border-slate-200">
@@ -863,10 +851,7 @@ export default function FighterProfile({
           )}
         </section>
         )}
-      </ProfileBand>
-
-      <ProfileBand active={banded} tone="light">
-        {/* SECTION 6 – Social feed */}
+      {/* SECTION 6 – Social feed */}
         {socialFeedSlot || (hidePosts ? null : (
           <section className="card">
             <div className="section-header mb-4">
@@ -1056,7 +1041,6 @@ export default function FighterProfile({
             )}
           </section>
         ))}
-      </ProfileBand>
 
       {/* Fight management modal — only mounted for own profile */}
       {isMe && (

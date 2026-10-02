@@ -15,7 +15,6 @@ import Image from "next/image";
 import Link from "next/link";
 import FollowStats from "@/components/social/FollowStats";
 import MessageButton from "@/components/messaging/MessageButton";
-import { useProfileVariant } from "@/hooks/useProfileVariant";
 import { countryToFlagUrl } from "@/lib/countries";
 
 export type IdentityProfile = {
@@ -70,12 +69,7 @@ export default function ProfileIdentityCard({
     social_links,
   } = profile;
 
-  // Variant C reuses this card exactly as variant A renders it; only the page
-  // around it changes, so the photo treatment stays specific to variant B.
-  const variant = useProfileVariant();
   const [bioExpanded, setBioExpanded] = useState(false);
-
-  const onPhoto = variant === "photo" && Boolean(avatar_url);
 
   const displayName = full_name || "Fighter name";
   const initial = displayName.trim().charAt(0).toUpperCase();
@@ -106,46 +100,19 @@ export default function ProfileIdentityCard({
       })),
   ];
 
-  // Colour sets differ because the photo variant puts text on a dark overlay.
-  const nameClass = onPhoto ? "text-white" : "text-slate-900";
-  const mutedClass = onPhoto ? "text-white/70" : "text-slate-600";
-  const bodyClass = onPhoto ? "text-white/85" : "text-slate-700";
-  const chipClass = onPhoto
-    ? "bg-white/15 text-white border border-white/20"
-    : "bg-purple-50 text-purple-700 border border-purple-100";
-  const pillClass = onPhoto
-    ? "border-white/25 text-white/90 hover:bg-white/15"
-    : "border-slate-200 text-slate-700 hover:border-purple-300 hover:text-purple-700";
+  const nameClass = "text-slate-900";
+  const mutedClass = "text-slate-600";
+  const bodyClass = "text-slate-700";
+  const chipClass = "bg-purple-50 text-purple-700 border border-purple-100";
+  const pillClass =
+    "border-slate-200 text-slate-700 hover:border-purple-300 hover:text-purple-700";
 
   return (
-    <section
-      className={`relative overflow-hidden rounded-2xl border shadow-sm ${
-        onPhoto ? "border-slate-800" : "border-slate-200/60 bg-white"
-      }`}
-    >
-      {onPhoto && (
-        <>
-          <Image
-            src={avatar_url || ""}
-            alt=""
-            fill
-            aria-hidden="true"
-            className="object-cover scale-110 blur-2xl"
-            quality={40}
-            priority
-          />
-          <div className="absolute inset-0 bg-slate-900/75" aria-hidden="true" />
-        </>
-      )}
-
+    <section className="relative overflow-hidden rounded-2xl border border-slate-200/60 bg-white shadow-sm">
       <div className="relative flex gap-4 sm:gap-6 p-4 sm:p-6">
         {/* Portrait. 3:4 so action shots are not cropped to a circle. */}
         <div className="w-28 sm:w-40 shrink-0">
-          <div
-            className={`w-full aspect-[3/4] rounded-2xl overflow-hidden ${
-              onPhoto ? "bg-white/10 ring-1 ring-white/20" : "bg-slate-100"
-            }`}
-          >
+          <div className="w-full aspect-[3/4] rounded-2xl overflow-hidden bg-slate-100">
             {avatar_url ? (
               <Image
                 src={avatar_url}
@@ -161,11 +128,7 @@ export default function ProfileIdentityCard({
                 className="h-full w-full flex items-center justify-center"
                 aria-hidden="true"
               >
-                <span
-                  className={`text-4xl font-semibold ${
-                    onPhoto ? "text-white/40" : "text-slate-400"
-                  }`}
-                >
+                <span className="text-4xl font-semibold text-slate-400">
                   {initial}
                 </span>
               </div>
@@ -211,7 +174,7 @@ export default function ProfileIdentityCard({
               {gymUsername && (
                 <Link
                   href={`/profile/${gymUsername}`}
-                  className={onPhoto ? "hover:underline" : "text-purple-700 hover:underline"}
+                  className="text-purple-700 hover:underline"
                 >
                   Gym: @{gymUsername}
                 </Link>
@@ -257,9 +220,7 @@ export default function ProfileIdentityCard({
                 <button
                   type="button"
                   onClick={() => setBioExpanded((open) => !open)}
-                  className={`mt-1 text-xs font-medium ${
-                    onPhoto ? "text-white/80 hover:text-white" : "text-purple-700 hover:underline"
-                  }`}
+                  className="mt-1 text-xs font-medium text-purple-700 hover:underline"
                 >
                   {bioExpanded ? "Less" : "More"}
                 </button>
