@@ -201,10 +201,31 @@ export const COUNTRIES = [
   "Zimbabwe",
 ] as const;
 
+// The UK home nations have their own flags but no ISO 3166-1 alpha-2 code, so
+// they cannot be expressed with the two-letter scheme used everywhere else.
+// Both flagcdn and Unicode address them through subdivision codes instead.
+const SUBDIVISION_CODES: Record<string, string> = {
+  england: "gb-eng",
+  scotland: "gb-sct",
+  wales: "gb-wls",
+  "northern ireland": "gb-nir",
+};
+
 // Country name to ISO 3166-1 alpha-2 code mapping for flag emojis
 export function countryToFlag(country?: string | null): string | null {
   if (!country) return null;
-  
+
+  const subdivision = SUBDIVISION_CODES[country.trim().toLowerCase()];
+  if (subdivision) {
+    // Tag sequence: black flag, the code as tag characters, then a cancel tag.
+    const letters = subdivision.replace("-", "");
+    return String.fromCodePoint(
+      0x1f3f4,
+      ...Array.from(letters).map((char) => 0xe0000 + char.charCodeAt(0)),
+      0xe007f
+    );
+  }
+
   const code = getCountryCode(country);
   if (!code) return null;
 
@@ -422,6 +443,7 @@ function getCountryCode(country: string): string | null {
     uganda: "UG",
     ukraine: "UA",
     "united arab emirates": "AE",
+    uruguay: "UY",
     uzbekistan: "UZ",
     vanuatu: "VU",
     "vatican city": "VA",
@@ -442,14 +464,26 @@ function getCountryCode(country: string): string | null {
   return null;
 }
 
-// Get flag image URL from CDN (better browser compatibility than emojis)
-export function countryToFlagUrl(country?: string | null): string | null {
+/**
+ * Flag image URL from flagcdn (free, no API key, better browser support than
+ * emoji). `width` is the CDN's own size bucket in pixels — request roughly
+ * three times the size the flag is drawn at, or it renders soft on dense
+ * screens.
+ */
+export function countryToFlagUrl(
+  country?: string | null,
+  width: 20 | 40 | 80 | 160 = 80
+): string | null {
   if (!country) return null;
-  
+
+  const subdivision = SUBDIVISION_CODES[country.trim().toLowerCase()];
+  if (subdivision) {
+    return `https://flagcdn.com/w${width}/${subdivision}.png`;
+  }
+
   const code = getCountryCode(country);
   if (!code) return null;
 
-  // Use flagcdn.com for flag images (free, no API key required, reliable CDN)
-  return `https://flagcdn.com/w20/${code.toLowerCase()}.png`;
+  return `https://flagcdn.com/w${width}/${code.toLowerCase()}.png`;
 }
 

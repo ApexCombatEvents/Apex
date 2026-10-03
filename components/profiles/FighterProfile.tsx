@@ -701,7 +701,18 @@ export default function FighterProfile({
   return (
     <div className="space-y-6">
       {/* SECTION 1 – Identity: photo, name, nickname, affiliation, record, socials */}
-      <ProfileIdentityCard profile={profile} isMe={isMe} />
+      <ProfileIdentityCard
+        profile={profile}
+        isMe={isMe}
+        vitals={[
+          // Raw rather than the 0-0-0 fallback used in Stats: a coach who has
+          // never set a record should get no Record row at all here.
+          { label: "Record", value: (record ?? "").trim() },
+          { label: "Weight", value: displayWeight },
+          { label: "Height", value: displayHeight },
+          { label: "Age", value: displayAge },
+        ]}
+      />
 
       {/* SECTION 2.5 – Championship Belts */}
         <FighterBelts fighterId={profile.id} />

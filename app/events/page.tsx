@@ -10,6 +10,7 @@ import { getSponsorshipsForPlacement, type Sponsorship } from "@/lib/sponsorship
 import ALogo from "@/components/logos/ALogo";
 import { getGoogleMapsUrl } from "@/lib/location";
 import { DISCIPLINES } from "@/lib/disciplines";
+import FilterSelect from "@/components/ui/FilterSelect";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -279,6 +280,52 @@ function SponsorPlaceholder() {
   );
 }
 
+// ─── Filter controls ──────────────────────────────────────────────────────────
+
+const TAB_LABELS: Record<Tab, string> = {
+  upcoming: "Upcoming",
+  past: "Past",
+  all: "All",
+};
+
+const EVENT_TYPE_LABELS: Record<EventTypeFilter, string> = {
+  all: "All events",
+  fight: "Fight events",
+  general: "General events",
+};
+
+/** The segmented control shared by every filter, so the row reads as one strip. */
+function SegmentedBar({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">{children}</div>
+  );
+}
+
+function SegmentButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+        active
+          ? "bg-white text-purple-700 shadow-sm"
+          : "text-slate-600 hover:text-slate-800"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function EventsPage() {
@@ -413,56 +460,35 @@ export default function EventsPage() {
           )}
         </div>
 
-        {/* Martial art filter */}
-        <div className="flex flex-wrap gap-2">
-          {ART_FILTERS.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setArtFilter(f.key)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all ${
-                artFilter === f.key
-                  ? "border-purple-400 bg-purple-100 text-purple-700 shadow-sm"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-purple-300 hover:bg-purple-50"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+        {/* Filters. One segmented style across all three, so when-then-what
+            reads left to right as a single strip. */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <SegmentedBar>
+            {(["upcoming", "past", "all"] as Tab[]).map((t) => (
+              <SegmentButton key={t} active={tab === t} onClick={() => setTab(t)}>
+                {TAB_LABELS[t]}
+              </SegmentButton>
+            ))}
+          </SegmentedBar>
 
-        {/* Event type filter */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-slate-500 font-medium">Event type:</span>
-          {(["all", "fight", "general"] as EventTypeFilter[]).map((type) => (
-            <button
-              key={type}
-              onClick={() => setEventTypeFilter(type)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all ${
-                eventTypeFilter === type
-                  ? "border-purple-400 bg-purple-100 text-purple-700 shadow-sm"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-purple-300 hover:bg-purple-50"
-              }`}
-            >
-              {type === "all" ? "All events" : type === "fight" ? "Fight events" : "General events"}
-            </button>
-          ))}
-        </div>
+          <SegmentedBar>
+            {(["all", "fight", "general"] as EventTypeFilter[]).map((type) => (
+              <SegmentButton
+                key={type}
+                active={eventTypeFilter === type}
+                onClick={() => setEventTypeFilter(type)}
+              >
+                {EVENT_TYPE_LABELS[type]}
+              </SegmentButton>
+            ))}
+          </SegmentedBar>
 
-        {/* Tab toggle */}
-        <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">
-          {(["upcoming", "past", "all"] as Tab[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
-                tab === t
-                  ? "bg-white text-purple-700 shadow-sm"
-                  : "text-slate-600 hover:text-slate-800"
-              }`}
-            >
-              {t}
-            </button>
-          ))}
+          <FilterSelect
+            value={artFilter}
+            onChange={setArtFilter}
+            label="Filter by discipline"
+            options={ART_FILTERS.map((f) => ({ value: f.key, label: f.label }))}
+          />
         </div>
       </div>
 

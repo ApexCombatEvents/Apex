@@ -8,6 +8,7 @@ import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import { countryToFlagUrl } from "@/lib/countries";
 import { diffForSide, type Winner, type Side } from "@/lib/records";
 import FightCardPortrait from "@/components/events/FightCardPortrait";
+import GymLink from "@/components/profiles/GymLink";
 
 // --- TYPES ---
 type Event = {
@@ -977,12 +978,10 @@ function BoutCard({
                   {redNameBase}
                 </span>
                 {redGymHandle && (
-                  <Link
-                    href={`/profile/${redGymHandle}`}
+                  <GymLink
+                    handle={redGymHandle}
                     className="text-xs text-purple-700 hover:underline"
-                  >
-                    Gym: @{redGymHandle}
-                  </Link>
+                  />
                 )}
               </div>
             </div>
@@ -1043,12 +1042,10 @@ function BoutCard({
                   {blueNameBase}
                 </span>
                 {blueGymHandle && (
-                  <Link
-                    href={`/profile/${blueGymHandle}`}
+                  <GymLink
+                    handle={blueGymHandle}
                     className="text-xs text-purple-700 hover:underline"
-                  >
-                    Gym: @{blueGymHandle}
-                  </Link>
+                  />
                 )}
               </div>
             </div>

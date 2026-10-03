@@ -19,6 +19,7 @@ import OfferPaymentMessage from "@/components/events/OfferPaymentMessage";
 import ShareEventButton from "@/components/events/ShareEventButton";
 import ShareBoutButton from "@/components/events/ShareBoutButton";
 import FightCardPortrait from "@/components/events/FightCardPortrait";
+import GymLink from "@/components/profiles/GymLink";
 
 
 type Event = {
@@ -46,7 +47,7 @@ type GymProfileLite = {
   id: string;
   username?: string | null;
   full_name?: string | null;
-  avatar_url?: string | null;
+  banner_url?: string | null;
   country?: string | null;
 };
 
@@ -123,7 +124,7 @@ export default async function EventPage({
   const ownerId = event.owner_profile_id || event.profile_id;
   const { data: organiser } = await supabase
     .from("profiles")
-    .select("id, username, full_name, avatar_url, country")
+    .select("id, username, full_name, banner_url, country")
     .eq("id", ownerId)
     .single<GymProfileLite>();
 
@@ -224,6 +225,35 @@ export default async function EventPage({
           fightersById[f.id] = f;
         });
       }
+    }
+  }
+
+  // 5b) Resolve the real names of the gyms those fighters represent. Profiles
+  // only store the gym's handle, which reads poorly beside a fighter's name.
+  // One query covers every gym on the card.
+  const gymNamesByHandle: Record<string, string> = {};
+  const gymHandles = Array.from(
+    new Set(
+      Object.values(fightersById)
+        .map((f) => (f.social_links?.gym_username || "").trim().replace(/^@/, ""))
+        .filter((handle) => handle !== "")
+    )
+  );
+
+  if (gymHandles.length > 0) {
+    const { data: gymsData, error: gymsError } = await supabase
+      .from("profiles")
+      .select("username, full_name")
+      .in("username", gymHandles);
+
+    if (gymsError) {
+      console.error("Gyms for bouts error", gymsError);
+    } else if (gymsData) {
+      gymsData.forEach((gym: { username: string | null; full_name: string | null }) => {
+        if (gym.username && gym.full_name) {
+          gymNamesByHandle[gym.username.toLowerCase()] = gym.full_name;
+        }
+      });
     }
   }
 
@@ -457,17 +487,20 @@ export default async function EventPage({
           {organiser && (
             <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 px-5 py-4 flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-slate-200 overflow-hidden">
-                  {organiser.avatar_url && (
+                {/* Gyms and promotions are represented by their banner rather
+                    than a profile picture, so this is a wide crop. Hosts with
+                    no banner yet simply get no thumbnail. */}
+                {organiser.banner_url && (
+                  <div className="h-14 w-24 shrink-0 rounded-lg bg-slate-200 overflow-hidden">
                     <Image
-                      src={organiser.avatar_url}
+                      src={organiser.banner_url}
                       alt={organiser.full_name || "Organiser"}
-                      width={40}
-                      height={40}
+                      width={288}
+                      height={168}
                       className="h-full w-full object-cover"
                     />
-                  )}
-                </div>
+                  </div>
+                )}
                 <div className="flex flex-col">
                   <span className="text-base font-medium text-slate-900">
                     Hosted by{" "}
@@ -578,6 +611,7 @@ export default async function EventPage({
                       bout={bout}
                       label={`MAIN CARD • FIGHT ${fightNumber}`}
                       fightersById={fightersById}
+                      gymNamesByHandle={gymNamesByHandle}
                       eventId={event.id}
                       eventTitle={title}
                     />
@@ -599,6 +633,7 @@ export default async function EventPage({
                       bout={bout}
                       label={`UNDERCARD • FIGHT ${fightNumber}`}
                       fightersById={fightersById}
+                      gymNamesByHandle={gymNamesByHandle}
                       eventId={event.id}
                       eventTitle={title}
                     />
@@ -794,12 +829,14 @@ function BoutRow({
   bout,
   label,
   fightersById,
+  gymNamesByHandle,
   eventId,
   eventTitle,
 }: {
   bout: Bout;
   label: string;
   fightersById: Record<string, ProfileLite>;
+  gymNamesByHandle: Record<string, string>;
   eventId: string;
   eventTitle: string;
 }) {
@@ -902,12 +939,11 @@ function BoutRow({
               {redNameNode}
             </span>
             {redGymHandle && (
-              <Link
-                href={`/profile/${redGymHandle}`}
+              <GymLink
+                handle={redGymHandle}
+                name={gymNamesByHandle[redGymHandle.toLowerCase().replace(/^@/, "")]}
                 className="text-[9px] sm:text-[11px] text-purple-700 hover:underline break-words text-right"
-              >
-                Gym: @{redGymHandle}
-              </Link>
+              />
             )}
           </div>
 
@@ -922,7 +958,7 @@ function BoutRow({
             <div className="flex items-center gap-1">
               {redFlagUrl && (
                 <Image
-                  src={redFlagUrl.replace("/w20/", "/w40/")}
+                  src={redFlagUrl}
                   alt={redCountry || "Country flag"}
                   width={32}
                   height={24}
@@ -978,7 +1014,7 @@ function BoutRow({
             <div className="flex items-center gap-1">
               {blueFlagUrl && (
                 <Image
-                  src={blueFlagUrl.replace("/w20/", "/w40/")}
+                  src={blueFlagUrl}
                   alt={blueCountry || "Country flag"}
                   width={32}
                   height={24}
@@ -997,12 +1033,11 @@ function BoutRow({
               {blueNameNode}
             </span>
             {blueGymHandle && (
-              <Link
-                href={`/profile/${blueGymHandle}`}
+              <GymLink
+                handle={blueGymHandle}
+                name={gymNamesByHandle[blueGymHandle.toLowerCase().replace(/^@/, "")]}
                 className="text-[9px] sm:text-[11px] text-purple-700 hover:underline break-words"
-              >
-                Gym: @{blueGymHandle}
-              </Link>
+              />
             )}
           </div>
         </div>

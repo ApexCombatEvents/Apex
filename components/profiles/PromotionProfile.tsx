@@ -13,6 +13,7 @@ import PostImages from "@/components/social/PostImages";
 import PostContent from "@/components/social/PostContent";
 import BoutShareCard, { type BoutShareMetadata } from "@/components/social/BoutShareCard";
 import PromotionFighters from "@/components/promotions/PromotionFighters";
+import SocialPills from "@/components/profiles/SocialPills";
 
 type Profile = {
   id: string;
@@ -56,7 +57,6 @@ export default function PromotionProfile({
     id,
     full_name,
     username,
-    avatar_url,
     banner_url,
     bio,
     martial_arts,
@@ -137,16 +137,19 @@ export default function PromotionProfile({
 
   return (
     <div className="space-y-6">
-      {/* SECTION 1 – Banner / header */}
+      {/* SECTION 1 – Header: banner, identity, bio and links */}
       <section className="rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm">
-        {/* Banner */}
-        <div className="relative h-40 w-full bg-slate-200">
+        {/* Banner. Promotions have no profile picture, so this is the main
+            image and is given the height to carry the header on its own. */}
+        <div className="relative h-44 sm:h-56 lg:h-64 w-full bg-slate-200">
           {banner_url ? (
             <Image
               src={banner_url}
-              alt="Promotion banner"
+              alt={full_name ? `${full_name} banner` : "Promotion banner"}
               fill
+              sizes="(max-width: 1024px) 100vw, 1024px"
               className="object-cover"
+              priority
             />
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 px-4">
@@ -172,63 +175,50 @@ export default function PromotionProfile({
           )}
         </div>
 
-        <div className="px-5 pb-5 relative">
-          <div className="flex items-center gap-4">
-            {/* Avatar overlapping banner */}
-            <div className="-mt-14 md:-mt-16">
-              <div className="h-28 w-28 md:h-32 md:w-32 rounded-full border-4 border-white bg-slate-200 overflow-hidden">
-                {avatar_url && (
-                  <Image
-                    src={avatar_url}
-                    alt={full_name || "Promotion"}
-                    width={128}
-                    height={128}
-                    className="h-full w-full object-cover"
-                  />
-                )}
-              </div>
-            </div>
-
-            {/* Name + location + arts */}
-            <div className="flex-1">
-              <div className="flex flex-col md:flex-row md:items-center gap-3">
-                <div className="flex flex-col">
-                  <h1 className="text-lg md:text-xl font-semibold">
-                    {full_name || "Promotion name"}
-                  </h1>
-                  {username && (
-                    <Link
-                      href={`/profile/${username}`}
-                      className="mt-0.5 inline-flex items-center text-xs text-slate-600 hover:text-slate-900 hover:underline underline-offset-4"
-                    >
-                      @{username}
-                    </Link>
-                  )}
-                </div>
-                
-                  {arts.length > 0 &&
-                    arts.map((art) => (
-                      <span
-                        key={art}
-                        className="px-2 py-1 rounded-full bg-purple-50 text-purple-700"
-                      >
-                        {art}
-                      </span>
-                    ))}
-                </div>
-            </div>
+        <div className="p-5 sm:p-6 space-y-4">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+              {full_name || "Promotion name"}
+            </h1>
+            {username && (
+              <Link
+                href={`/profile/${username}`}
+                className="mt-0.5 inline-flex items-center text-xs text-slate-600 hover:text-slate-900 hover:underline underline-offset-4"
+              >
+                @{username}
+              </Link>
+            )}
           </div>
-        </div>
-      </section>
 
-      {/* SECTION 2 – Bio */}
-      <section className="card">
-        <div className="section-header mb-4">
-          <h2 className="section-title text-lg">Bio</h2>
+          {arts.length > 0 && (
+            <div className="flex flex-wrap gap-2 text-xs">
+              {arts.map((art) => (
+                <span
+                  key={art}
+                  className="px-2 py-1 rounded-full bg-purple-50 text-purple-700"
+                >
+                  {art}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Bio and links live in the header rather than in cards of their
+              own, so the top of the page reads as one introduction. */}
+          {bio ? (
+            <p className="max-w-3xl text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+              {bio}
+            </p>
+          ) : (
+            isMe && (
+              <p className="text-sm text-slate-400">
+                Describe your promotion and the type of events you run.
+              </p>
+            )
+          )}
+
+          <SocialPills socialLinks={social_links} />
         </div>
-        <p className="text-sm text-slate-700 leading-relaxed min-h-[60px]">
-          {bio || (isMe ? "Describe your promotion and the type of events you run." : "")}
-        </p>
       </section>
 
       {/* SECTION 3 – Fighters Roster */}
@@ -552,103 +542,8 @@ export default function PromotionProfile({
         )}
       </section>
 
-      {/* SECTION 6 – Social links */}
-      {((social_links?.instagram || social_links?.facebook || social_links?.twitter || social_links?.tiktok || social_links?.youtube) ||
-        (social_links?.websites && Array.isArray(social_links.websites) && social_links.websites.length > 0) ||
-        (social_links?.website)) && (
-        <section className="card">
-          <div className="section-header mb-4">
-            <h2 className="section-title text-lg">Social media links</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-            {social_links?.instagram && (
-              <PromoSocialRow label="Instagram" value={social_links.instagram} />
-            )}
-            {social_links?.facebook && (
-              <PromoSocialRow label="Facebook" value={social_links.facebook} />
-            )}
-            {social_links?.twitter && (
-              <PromoSocialRow label="Twitter / X" value={social_links.twitter} />
-            )}
-            {social_links?.tiktok && (
-              <PromoSocialRow label="TikTok" value={social_links.tiktok} />
-            )}
-            {social_links?.youtube && (
-              <PromoSocialRow label="YouTube" value={social_links.youtube} />
-            )}
-            {/* Multiple website links */}
-            {social_links?.websites && Array.isArray(social_links.websites) && social_links.websites.length > 0
-              ? social_links.websites.map((website: { name: string; url: string }, index: number) => (
-                  <PromoSocialRow key={index} label={website.name || "Website"} value={website.url} />
-                ))
-              : social_links?.website && (
-                  <PromoSocialRow label="Website" value={social_links.website} />
-                )}
-          </div>
-        </section>
-      )}
     </div>
   );
 }
 
-function PromoSocialRow({ label, value }: { label: string; value?: string }) {
-  if (!value) {
-    return null; // Don't render empty links
-  }
-
-  // Format URL for display and href
-  const formatUrl = (url: string): { display: string; href: string } => {
-    const trimmed = url.trim();
-    
-    // Handle @handles for social media
-    if (trimmed.startsWith("@")) {
-      const handle = trimmed.substring(1);
-      // Determine platform URL based on label
-      let baseUrl = "";
-      if (label.toLowerCase().includes("instagram")) {
-        baseUrl = "https://instagram.com/";
-      } else if (label.toLowerCase().includes("twitter") || label.toLowerCase().includes("x")) {
-        baseUrl = "https://twitter.com/";
-      } else if (label.toLowerCase().includes("tiktok")) {
-        baseUrl = "https://tiktok.com/@";
-      } else if (label.toLowerCase().includes("youtube")) {
-        baseUrl = "https://youtube.com/@";
-      } else if (label.toLowerCase().includes("facebook")) {
-        baseUrl = "https://facebook.com/";
-      }
-      return {
-        display: trimmed,
-        href: baseUrl ? `${baseUrl}${handle}` : trimmed,
-      };
-    }
-    
-    // If it already has http:// or https://, use as is
-    if (/^https?:\/\//i.test(trimmed)) {
-      return {
-        display: trimmed.replace(/^https?:\/\//, ""),
-        href: trimmed,
-      };
-    }
-    
-    // Otherwise, add https://
-    return {
-      display: trimmed,
-      href: `https://${trimmed}`,
-    };
-  };
-
-  const { display, href } = formatUrl(value);
-
-  return (
-    <Link
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-slate-700 text-xs hover:border-purple-400 hover:text-purple-700 transition-colors"
-    >
-      <span>{label}</span>
-      <span className="font-medium truncate max-w-[160px]">{display}</span>
-    </Link>
-  );
-}
 

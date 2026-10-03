@@ -5,13 +5,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
-import { countryToFlag } from "@/lib/countries";
+import { countryToFlagUrl } from "@/lib/countries";
 import { getCurrentLocation } from "@/lib/location";
 import SponsorshipBanner from "@/components/sponsors/SponsorshipBanner";
 import { getSponsorshipsForPlacement, type Sponsorship } from "@/lib/sponsorships";
 import ALogo from "@/components/logos/ALogo";
 import { useTranslation } from "@/hooks/useTranslation";
 import { DISCIPLINES } from "@/lib/disciplines";
+import FilterSelect from "@/components/ui/FilterSelect";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,6 +24,7 @@ type ProfileResult = {
   username: string | null;
   role: Role | null;
   avatar_url: string | null;
+  banner_url: string | null;
   country: string | null;
   martial_arts: string[] | null;
   social_links: any | null;
@@ -103,11 +105,6 @@ export default function SearchPage() {
     const roleFromUrl = parseRoleFromUrl();
     if (roleFromUrl) setRoleFilter(roleFromUrl);
   }, []);
-
-  // Auto-show advanced filters for fighters
-  useEffect(() => {
-    if (roleFilter === "fighter") setShowAdvanced(true);
-  }, [roleFilter]);
 
   const [levelFilter, setLevelFilter] = useState("");
   const [maxWeight, setMaxWeight] = useState("");
@@ -208,7 +205,7 @@ export default function SearchPage() {
     try {
       let profileQuery = supabase
         .from("profiles")
-        .select("id, full_name, username, role, avatar_url, country, martial_arts, social_links, record, rank, weight, weight_unit")
+        .select("id, full_name, username, role, avatar_url, banner_url, country, martial_arts, social_links, record, rank, weight, weight_unit")
         .not("role", "is", null);
 
       if (trimmed) {
@@ -308,40 +305,48 @@ export default function SearchPage() {
           />
           <div className="flex flex-wrap gap-3 items-center">
             <button type="submit" className="btn btn-primary">{t("Search.button")}</button>
-            <span className="text-xs text-slate-400 hidden sm:inline">{t("Search.alsoSearch")}</span>
-            {ROLE_FILTERS.filter((f) => f.key !== "all").map((f) => (
-              <button
-                key={f.key}
-                type="button"
-                onClick={() => setRoleFilter(f.key as Role)}
-                className={`px-4 py-2 rounded-full text-xs font-medium border-2 transition-all ${
-                  roleFilter === f.key
-                    ? "border-purple-400 bg-purple-100 text-purple-700 shadow-sm"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-purple-300 hover:bg-purple-50"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-            {roleFilter !== "all" && (
-              <button type="button" onClick={() => setRoleFilter("all")} className="px-2 py-1 text-xs text-slate-400 hover:text-slate-600">
-                All
-              </button>
-            )}
+            {/* Profile type. A dropdown rather than five pills, so the row
+                stays short and the reset no longer needs its own button. */}
+            <FilterSelect
+              value={roleFilter}
+              onChange={(value) => setRoleFilter(value as "all" | Role)}
+              label="Filter by profile type"
+              options={ROLE_FILTERS.map((f) => ({
+                value: f.key,
+                label: f.key === "all" ? "All profiles" : f.label,
+              }))}
+            />
           </div>
         </form>
 
-        {/* Advanced fighter filters */}
+        {/* Advanced fighter filters. Collapsed until asked for — most searches
+            never need level or weight, and the empty fields crowded the card. */}
         {roleFilter === "fighter" && (
           <div className="border-t border-slate-200 pt-4 mt-2">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-semibold text-slate-700">Advanced Fighter Filters</h3>
-              <button type="button" onClick={() => setShowAdvanced((v) => !v)} className="text-xs text-purple-700 hover:underline">
-                {showAdvanced ? "Hide" : "Show"}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowAdvanced((v) => !v)}
+              aria-expanded={showAdvanced}
+              className="flex items-center gap-1.5 text-xs font-semibold text-purple-700 hover:underline"
+            >
+              {showAdvanced ? "Hide advanced filters" : "Show advanced filters"}
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className={`h-3.5 w-3.5 transition-transform ${
+                  showAdvanced ? "rotate-180" : ""
+                }`}
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
             {showAdvanced && (
-              <div className="grid gap-3 md:grid-cols-3 text-xs text-slate-600">
+              <div className="mt-3 grid gap-3 md:grid-cols-3 text-xs text-slate-600">
                 <label className="space-y-1">
                   <span>Level</span>
                   <select
@@ -386,13 +391,15 @@ export default function SearchPage() {
         {/* Discipline + location filters */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center pt-2">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-slate-600">{t("Search.discipline")}</span>
-              <select className="rounded-xl border px-2 py-1 bg-white text-xs" value={artFilter} onChange={(e) => setArtFilter(e.target.value)}>
-                {ART_FILTERS.map((a) => <option key={a.key} value={a.key}>{a.label}</option>)}
-                <option value="Other">Other / mixed</option>
-              </select>
-            </div>
+            <FilterSelect
+              value={artFilter}
+              onChange={setArtFilter}
+              label={t("Search.discipline")}
+              options={[
+                ...ART_FILTERS.map((a) => ({ value: a.key, label: a.label })),
+                { value: "Other", label: "Other / mixed" },
+              ]}
+            />
             <div className="flex items-center gap-2 text-xs">
               <span className="text-slate-600">{t("Search.location")}</span>
               <input className="rounded-xl border px-2 py-1 bg-white text-xs w-40" placeholder="e.g. Edinburgh, Scotland" value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)} />
@@ -477,8 +484,13 @@ export default function SearchPage() {
 // ─── Profile card (larger, richer layout) ─────────────────────────────────────
 
 function ProfileCard({ profile }: { profile: ProfileResult }) {
-  const { full_name, username, role, avatar_url, country, martial_arts, social_links, record, rank, weight, weight_unit } = profile;
-  const flag = countryToFlag(country);
+  const { full_name, username, role, avatar_url, banner_url, country, martial_arts, social_links, record, rank, weight, weight_unit } = profile;
+  // An image rather than an emoji: Windows has no glyph for the UK home
+  // nations, so Scotland and England would otherwise fall back to a blank flag.
+  const flagUrl = countryToFlagUrl(country);
+  // Gyms and promotions are represented by their banner, not a profile
+  // picture, so their card gets a wide crop instead of a round avatar.
+  const usesBanner = role === "gym" || role === "promotion";
   const mainArts = martial_arts?.slice(0, 3).join(" · ");
   const gymHandle = typeof social_links === "object" && social_links?.gym_username ? social_links.gym_username : null;
   const nickname =
@@ -505,21 +517,35 @@ function ProfileCard({ profile }: { profile: ProfileResult }) {
         username ? "" : "pointer-events-none opacity-70"
       }`}
     >
-      {/* Avatar + name row */}
+      {/* Image + name row */}
       <div className="flex items-start gap-4 mb-4">
-        <div className="h-16 w-16 rounded-full bg-gradient-to-br from-purple-200 to-slate-200 overflow-hidden flex-shrink-0 shadow-sm flex items-center justify-center">
-          {avatar_url ? (
-            <Image
-              src={avatar_url}
-              alt={displayName}
-              width={64}
-              height={64}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <span className="text-xl font-bold text-purple-700 select-none">{initials}</span>
-          )}
-        </div>
+        {usesBanner ? (
+          banner_url && (
+            <div className="h-16 w-24 rounded-lg bg-slate-200 overflow-hidden flex-shrink-0 shadow-sm">
+              <Image
+                src={banner_url}
+                alt={displayName}
+                width={288}
+                height={192}
+                className="h-full w-full object-cover"
+              />
+            </div>
+          )
+        ) : (
+          <div className="h-16 w-16 rounded-full bg-gradient-to-br from-purple-200 to-slate-200 overflow-hidden flex-shrink-0 shadow-sm flex items-center justify-center">
+            {avatar_url ? (
+              <Image
+                src={avatar_url}
+                alt={displayName}
+                width={64}
+                height={64}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="text-xl font-bold text-purple-700 select-none">{initials}</span>
+            )}
+          </div>
+        )}
         <div className="flex-1 min-w-0 pt-0.5">
           <h3 className="text-base font-bold text-slate-900 leading-tight truncate">{displayName}</h3>
           {/* A nickname is how a fighter is actually known, so it takes the
@@ -606,8 +632,15 @@ function ProfileCard({ profile }: { profile: ProfileResult }) {
         {/* Country */}
         {country && (
           <div className="flex items-center gap-1.5">
-            {flag ? (
-              <span className="text-sm" aria-hidden="true">{flag}</span>
+            {flagUrl ? (
+              <Image
+                src={flagUrl}
+                alt=""
+                width={80}
+                height={60}
+                aria-hidden="true"
+                className="w-5 h-3.5 shrink-0 rounded-sm object-cover ring-1 ring-slate-200"
+              />
             ) : (
               <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" />

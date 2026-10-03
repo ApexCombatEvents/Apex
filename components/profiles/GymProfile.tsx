@@ -16,6 +16,7 @@ import BoutShareCard, { type BoutShareMetadata } from "@/components/social/BoutS
 import { useRouter, usePathname } from "next/navigation";
 import GymFighterBoutModal, { type GymFighterBout } from "@/components/gym/GymFighterBoutModal";
 import ALogo from "@/components/logos/ALogo";
+import SocialPills from "@/components/profiles/SocialPills";
 
 type Profile = {
   id: string;
@@ -89,7 +90,6 @@ export default function GymProfile({
     full_name,
     username,
     handle,
-    avatar_url,
     banner_url,
     bio,
     country,
@@ -431,16 +431,19 @@ export default function GymProfile({
 
   return (
     <div className="space-y-6">
-      {/* SECTION 1 – Banner / header */}
+      {/* SECTION 1 – Header: banner, identity, bio and links */}
       <section className="rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm">
-        {/* Banner */}
-        <div className="relative h-40 w-full bg-slate-200">
+        {/* Banner. Gyms have no profile picture, so this is the main image and
+            is given the height to carry the header on its own. */}
+        <div className="relative h-44 sm:h-56 lg:h-64 w-full bg-slate-200">
           {banner_url ? (
             <Image
               src={banner_url}
-              alt="Gym banner"
+              alt={full_name ? `${full_name} banner` : "Gym banner"}
               fill
+              sizes="(max-width: 1024px) 100vw, 1024px"
               className="object-cover"
+              priority
             />
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 px-4">
@@ -466,118 +469,94 @@ export default function GymProfile({
           )}
         </div>
 
-        <div className="px-5 pb-5 relative">
-          <div className="flex items-center gap-4">
-            {/* Avatar overlapping banner */}
-            <div className="-mt-14 md:-mt-16">
-              <div className="h-28 w-28 md:h-32 md:w-32 rounded-full border-4 border-white bg-slate-200 overflow-hidden">
-                {avatar_url && (
-                  <Image
-                    src={avatar_url}
-                    alt={full_name || "Gym"}
-                    width={128}
-                    height={128}
-                    className="h-full w-full object-cover"
-                  />
-                )}
-              </div>
+        <div className="p-5 sm:p-6 space-y-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+                {full_name || "Gym name"}
+              </h1>
+              {username && (
+                <Link
+                  href={`/profile/${username}`}
+                  className="mt-0.5 inline-flex items-center text-xs text-slate-600 hover:text-slate-900 hover:underline underline-offset-4"
+                >
+                  @{username}
+                </Link>
+              )}
             </div>
 
-            {/* Name + location / arts + follow stats + message */}
-            <div className="flex-1">
-              <div className="flex flex-col md:flex-row md:items-center gap-3">
-                {/* Left: name + username */}
-                <div className="flex flex-col">
-                  <h1 className="text-lg md:text-xl font-semibold">
-                    {full_name || "Gym name"}
-                  </h1>
-                  {username && (
-                    <Link
-                      href={`/profile/${username}`}
-                      className="mt-0.5 inline-flex items-center text-xs text-slate-600 hover:text-slate-900 hover:underline underline-offset-4"
-                    >
-                      @{username}
-                    </Link>
-                  )}
-                </div>
-
-                {/* Right: location + arts + follow stats + Message */}
-                <div className="flex flex-col md:ml-6 text-xs text-slate-600">
-                  {(locationText || arts.length > 0) && (
-                    <div className="flex flex-wrap gap-2">
-                      {locationText && (() => {
-                        const mapsUrl = getGoogleMapsUrl(locationText);
-                        return mapsUrl ? (
-                          <Link
-                            href={mapsUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-2 py-1 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors inline-flex items-center gap-1"
-                          >
-                            {locationText}
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-3 w-3"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                              />
-                            </svg>
-                          </Link>
-                        ) : (
-                          <span className="px-2 py-1 rounded-full bg-slate-100">
-                            {locationText}
-                          </span>
-                        );
-                      })()}
-
-                      {arts.length > 0 &&
-                        arts.map((art) => (
-                          <span
-                            key={art}
-                            className="px-2 py-1 rounded-full bg-purple-50 text-purple-700"
-                          >
-                            {art}
-                          </span>
-                        ))}
-                    </div>
-                  )}
-
-                  {/* Follow stats + Message button */}
-                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
-                    <FollowStats
-                      profileId={profile.id}
-                      username={profile.username}
-                    />
-
-                     {!isMe && (
-                      <MessageButton
-                        targetProfileId={profile.id}
-                        targetUsername={profileIdentifier}
-                      />
-                     )}
-                  </div>
-                </div>
-              </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 lg:shrink-0">
+              <FollowStats profileId={profile.id} username={profile.username} />
+              {!isMe && (
+                <MessageButton
+                  targetProfileId={profile.id}
+                  targetUsername={profileIdentifier}
+                />
+              )}
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* SECTION 2 – Bio */}
-      <section className="card">
-        <div className="section-header mb-4">
-          <h2 className="section-title text-lg">Bio</h2>
+          {(locationText || arts.length > 0) && (
+            <div className="flex flex-wrap gap-2 text-xs text-slate-600">
+              {locationText && (() => {
+                const mapsUrl = getGoogleMapsUrl(locationText);
+                return mapsUrl ? (
+                  <Link
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2 py-1 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors inline-flex items-center gap-1"
+                  >
+                    {locationText}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-3 w-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                      />
+                    </svg>
+                  </Link>
+                ) : (
+                  <span className="px-2 py-1 rounded-full bg-slate-100">
+                    {locationText}
+                  </span>
+                );
+              })()}
+
+              {arts.map((art) => (
+                <span
+                  key={art}
+                  className="px-2 py-1 rounded-full bg-purple-50 text-purple-700"
+                >
+                  {art}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Bio and links live in the header rather than in cards of their
+              own, so the top of the page reads as one introduction. */}
+          {bio ? (
+            <p className="max-w-3xl text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+              {bio}
+            </p>
+          ) : (
+            isMe && (
+              <p className="text-sm text-slate-400">
+                Describe your gym, philosophy, and fighters.
+              </p>
+            )
+          )}
+
+          <SocialPills socialLinks={social_links} />
         </div>
-        <p className="text-sm text-slate-700 leading-relaxed min-h-[60px]">
-          {bio || (isMe ? "Describe your gym, philosophy, and fighters." : "")}
-        </p>
       </section>
 
       {/* SECTION – Head coaches & fighters */}
@@ -1265,105 +1244,10 @@ export default function GymProfile({
         )}
       </section>
 
-      {/* SECTION – Social media links */}
-      {((social_links?.instagram || social_links?.facebook || social_links?.twitter || social_links?.tiktok || social_links?.youtube) ||
-        (social_links?.websites && Array.isArray(social_links.websites) && social_links.websites.length > 0) ||
-        (social_links?.website)) && (
-        <section className="card">
-          <div className="section-header mb-4">
-            <h2 className="section-title text-lg">Social media links</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-            {social_links?.instagram && (
-              <GymSocialRow label="Instagram" value={social_links.instagram} />
-            )}
-            {social_links?.facebook && (
-              <GymSocialRow label="Facebook" value={social_links.facebook} />
-            )}
-            {social_links?.twitter && (
-              <GymSocialRow label="Twitter / X" value={social_links.twitter} />
-            )}
-            {social_links?.tiktok && (
-              <GymSocialRow label="TikTok" value={social_links.tiktok} />
-            )}
-            {social_links?.youtube && (
-              <GymSocialRow label="YouTube" value={social_links.youtube} />
-            )}
-            {/* Multiple website links */}
-            {social_links?.websites && Array.isArray(social_links.websites) && social_links.websites.length > 0
-              ? social_links.websites.map((website: { name: string; url: string }, index: number) => (
-                  <GymSocialRow key={index} label={website.name || "Website"} value={website.url} />
-                ))
-              : social_links?.website && (
-                  <GymSocialRow label="Website" value={social_links.website} />
-                )}
-          </div>
-        </section>
-      )}
     </div>
   );
 }
 
-function GymSocialRow({ label, value }: { label: string; value?: string }) {
-  if (!value) {
-    return null; // Don't render empty links
-  }
-
-  // Format URL for display and href
-  const formatUrl = (url: string): { display: string; href: string } => {
-    const trimmed = url.trim();
-    
-    // Handle @handles for social media
-    if (trimmed.startsWith("@")) {
-      const handle = trimmed.substring(1);
-      // Determine platform URL based on label
-      let baseUrl = "";
-      if (label.toLowerCase().includes("instagram")) {
-        baseUrl = "https://instagram.com/";
-      } else if (label.toLowerCase().includes("twitter") || label.toLowerCase().includes("x")) {
-        baseUrl = "https://twitter.com/";
-      } else if (label.toLowerCase().includes("tiktok")) {
-        baseUrl = "https://tiktok.com/@";
-      } else if (label.toLowerCase().includes("youtube")) {
-        baseUrl = "https://youtube.com/@";
-      } else if (label.toLowerCase().includes("facebook")) {
-        baseUrl = "https://facebook.com/";
-      }
-      return {
-        display: trimmed,
-        href: baseUrl ? `${baseUrl}${handle}` : trimmed,
-      };
-    }
-    
-    // If it already has http:// or https://, use as is
-    if (/^https?:\/\//i.test(trimmed)) {
-      return {
-        display: trimmed.replace(/^https?:\/\//, ""),
-        href: trimmed,
-      };
-    }
-    
-    // Otherwise, add https://
-    return {
-      display: trimmed,
-      href: `https://${trimmed}`,
-    };
-  };
-
-  const { display, href } = formatUrl(value);
-
-  return (
-    <Link
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-slate-700 text-xs hover:border-purple-400 hover:text-purple-700 transition-colors"
-    >
-      <span>{label}</span>
-      <span className="font-medium truncate max-w-[160px]">{display}</span>
-    </Link>
-  );
-}
 
 
 

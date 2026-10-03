@@ -8,6 +8,7 @@ import Image from "next/image";
 import StreamPaymentForm from "./StreamPaymentForm";
 import { countryToFlagUrl } from "@/lib/countries";
 import FightCardPortrait from "./FightCardPortrait";
+import GymLink from "@/components/profiles/GymLink";
 
 type Fighter = {
   id: string;
@@ -355,9 +356,10 @@ export default function StreamContent({
                                     {redName}
                                   </span>
                                   {redGymHandle && (
-                                    <Link href={`/profile/${redGymHandle}`} className="text-[11px] text-slate-400 hover:text-slate-300 hover:underline">
-                                      @{redGymHandle}
-                                    </Link>
+                                    <GymLink
+                                      handle={redGymHandle}
+                                      className="text-[11px] text-slate-400 hover:text-slate-300 hover:underline"
+                                    />
                                   )}
                                 </div>
                                 <div className="flex flex-col items-center gap-1">
@@ -370,7 +372,7 @@ export default function StreamContent({
                                   <div className="flex items-center gap-1.5">
                                     {redFlagUrl && (
                                       <Image 
-                                        src={redFlagUrl.replace("/w20/", "/w40/")} 
+                                        src={redFlagUrl} 
                                         alt={redFighter?.country || ""} 
                                         width={32} 
                                         height={24} 
@@ -404,7 +406,7 @@ export default function StreamContent({
                                   <div className="flex items-center gap-1.5">
                                     {blueFlagUrl && (
                                       <Image 
-                                        src={blueFlagUrl.replace("/w20/", "/w40/")} 
+                                        src={blueFlagUrl} 
                                         alt={blueFighter?.country || ""} 
                                         width={32} 
                                         height={24} 
@@ -422,9 +424,10 @@ export default function StreamContent({
                                     {blueName}
                                   </span>
                                   {blueGymHandle && (
-                                    <Link href={`/profile/${blueGymHandle}`} className="text-[11px] text-slate-400 hover:text-slate-300 hover:underline">
-                                      @{blueGymHandle}
-                                    </Link>
+                                    <GymLink
+                                      handle={blueGymHandle}
+                                      className="text-[11px] text-slate-400 hover:text-slate-300 hover:underline"
+                                    />
                                   )}
                                 </div>
                               </div>
@@ -462,9 +465,10 @@ export default function StreamContent({
                                     {redName}
                                   </span>
                                   {redGymHandle && (
-                                    <Link href={`/profile/${redGymHandle}`} className="text-[11px] text-slate-400 hover:text-slate-300 hover:underline">
-                                      @{redGymHandle}
-                                    </Link>
+                                    <GymLink
+                                      handle={redGymHandle}
+                                      className="text-[11px] text-slate-400 hover:text-slate-300 hover:underline"
+                                    />
                                   )}
                                 </div>
                                 <div className="flex flex-col items-center gap-1">
@@ -479,7 +483,7 @@ export default function StreamContent({
                                   <div className="flex items-center gap-1.5">
                                     {redFlagUrl && (
                                       <Image 
-                                        src={redFlagUrl.replace("/w20/", "/w40/")} 
+                                        src={redFlagUrl} 
                                         alt={redFighter?.country || ""} 
                                         width={32} 
                                         height={24} 
@@ -515,7 +519,7 @@ export default function StreamContent({
                                   <div className="flex items-center gap-1.5">
                                     {blueFlagUrl && (
                                       <Image 
-                                        src={blueFlagUrl.replace("/w20/", "/w40/")} 
+                                        src={blueFlagUrl} 
                                         alt={blueFighter?.country || ""} 
                                         width={32} 
                                         height={24} 
@@ -533,9 +537,10 @@ export default function StreamContent({
                                     {blueName}
                                   </span>
                                   {blueGymHandle && (
-                                    <Link href={`/profile/${blueGymHandle}`} className="text-[11px] text-slate-400 hover:text-slate-300 hover:underline">
-                                      @{blueGymHandle}
-                                    </Link>
+                                    <GymLink
+                                      handle={blueGymHandle}
+                                      className="text-[11px] text-slate-400 hover:text-slate-300 hover:underline"
+                                    />
                                   )}
                                 </div>
                               </div>

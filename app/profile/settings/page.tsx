@@ -108,6 +108,9 @@ export default function ProfileSettingsPage() {
   const [interclubCount, setInterclubCount] = useState("");
 
   const isFighterOrCoach = role === "fighter" || role === "coach";
+  // Gyms and promotions are represented by their banner, so a profile picture
+  // would never be shown anywhere.
+  const usesBannerAsMainImage = role === "gym" || role === "promotion";
   const hasBjjInMartialArts = martialArts.some((entry) => isBjjDiscipline(entry));
 
   useEffect(() => {
@@ -601,39 +604,44 @@ async function handleRemoveFightCardIcon() {
   <p className="text-xs text-slate-600">
     {isFighterOrCoach
       ? "Upload a profile picture. On mobile this will let you choose from your camera roll or take a new photo."
+      : usesBannerAsMainImage
+      ? "Your banner is the main image on your profile, so pick something that represents you well. On mobile this will let you choose from your camera roll or take a new photo."
       : "Upload a profile picture and banner. On mobile this will let you choose from your camera roll or take a new photo."}
   </p>
 
   <MinorPhotoRules />
 
   <div className="grid md:grid-cols-2 gap-4">
-    {/* Avatar */}
-    <div className="flex items-center gap-3">
-      <div className="h-16 w-16 rounded-full bg-slate-200 overflow-hidden">
-        {avatarUrl && (
-          <Image
-            src={avatarUrl}
-            alt="Profile picture"
-            width={64}
-            height={64}
-            className="h-full w-full object-cover"
+    {/* Avatar. Gym and promotion profiles lead with their banner instead, so
+        there is nowhere for a profile picture to appear. */}
+    {!usesBannerAsMainImage && (
+      <div className="flex items-center gap-3">
+        <div className="h-16 w-16 rounded-full bg-slate-200 overflow-hidden">
+          {avatarUrl && (
+            <Image
+              src={avatarUrl}
+              alt="Profile picture"
+              width={64}
+              height={64}
+              className="h-full w-full object-cover"
+            />
+          )}
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-slate-600">Profile picture</span>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => handleImageUpload(e, "avatar")}
+            disabled={uploadingAvatar}
+            className="text-xs"
           />
-        )}
+          <span className="text-[10px] text-slate-500">
+            Recommended: 512×512px (1:1 ratio)
+          </span>
+        </div>
       </div>
-      <div className="flex flex-col gap-1">
-        <span className="text-xs text-slate-600">Profile picture</span>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => handleImageUpload(e, "avatar")}
-          disabled={uploadingAvatar}
-          className="text-xs"
-        />
-        <span className="text-[10px] text-slate-500">
-          Recommended: 512×512px (1:1 ratio)
-        </span>
-      </div>
-    </div>
+    )}
 
     {/* Banner. Fighter and coach profiles have no banner, so offering the
         upload would only produce an image that never appears anywhere. */}
@@ -659,7 +667,7 @@ async function handleRemoveFightCardIcon() {
           className="text-xs"
         />
         <span className="text-[10px] text-slate-500">
-          Recommended: 1600×560px (16:9 ratio)
+          Recommended: 1920×640px (3:1 ratio)
         </span>
       </div>
     )}
