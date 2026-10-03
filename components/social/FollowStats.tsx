@@ -7,6 +7,12 @@ import { createSupabaseBrowser } from "@/lib/supabase-browser";
 type FollowStatsProps = {
   profileId: string;
   username?: string | null;
+  /**
+   * Rendered beside the Follow button. Passing the Message button in here
+   * keeps the two actions on one line instead of letting them wrap apart in
+   * a narrow column.
+   */
+  actions?: React.ReactNode;
 };
 
 type FollowState = {
@@ -17,7 +23,11 @@ type FollowState = {
   loading: boolean;
 };
 
-export default function FollowStats({ profileId, username }: FollowStatsProps) {
+export default function FollowStats({
+  profileId,
+  username,
+  actions,
+}: FollowStatsProps) {
   const supabase = createSupabaseBrowser();
   const [state, setState] = useState<FollowState>({
     followers: 0,
@@ -258,20 +268,27 @@ export default function FollowStats({ profileId, username }: FollowStatsProps) {
           )}
         </div>
 
-        {/* Follow/Unfollow button */}
-        {!state.isOwnProfile && (
-          <button
-            type="button"
-            onClick={handleFollow}
-            disabled={state.loading}
-            className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-colors disabled:opacity-60 ${
-              state.isFollowing
-                ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                : "border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100"
-            }`}
-          >
-            {state.loading ? "…" : state.isFollowing ? "Following" : "Follow"}
-          </button>
+        {/* Follow/Unfollow button, with any caller-supplied action beside it.
+            Grouped so the pair wraps below the counts together rather than
+            splitting onto separate lines. */}
+        {(!state.isOwnProfile || actions) && (
+          <div className="flex items-center gap-2">
+            {!state.isOwnProfile && (
+              <button
+                type="button"
+                onClick={handleFollow}
+                disabled={state.loading}
+                className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-colors disabled:opacity-60 ${
+                  state.isFollowing
+                    ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    : "border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100"
+                }`}
+              >
+                {state.loading ? "…" : state.isFollowing ? "Following" : "Follow"}
+              </button>
+            )}
+            {actions}
+          </div>
         )}
       </div>
 

@@ -532,13 +532,16 @@ function ProfileCard({ profile }: { profile: ProfileResult }) {
             </div>
           )
         ) : (
-          <div className="h-16 w-16 rounded-full bg-gradient-to-br from-purple-200 to-slate-200 overflow-hidden flex-shrink-0 shadow-sm flex items-center justify-center">
+          /* A 3:4 portrait, matching the frame on the profile page, so an
+             action shot survives the crop the way a circle never did. */
+          <div className="w-14 aspect-[3/4] rounded-xl bg-gradient-to-br from-purple-200 to-slate-200 overflow-hidden flex-shrink-0 shadow-sm flex items-center justify-center">
             {avatar_url ? (
               <Image
                 src={avatar_url}
                 alt={displayName}
-                width={64}
-                height={64}
+                width={240}
+                height={320}
+                quality={90}
                 className="h-full w-full object-cover"
               />
             ) : (

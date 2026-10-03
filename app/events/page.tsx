@@ -460,16 +460,15 @@ export default function EventsPage() {
           )}
         </div>
 
-        {/* Filters. One segmented style across all three, so when-then-what
-            reads left to right as a single strip. */}
+        {/* Filters. One segmented style across all three, narrowing from
+            discipline to event type to timeframe as the strip reads across. */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <SegmentedBar>
-            {(["upcoming", "past", "all"] as Tab[]).map((t) => (
-              <SegmentButton key={t} active={tab === t} onClick={() => setTab(t)}>
-                {TAB_LABELS[t]}
-              </SegmentButton>
-            ))}
-          </SegmentedBar>
+          <FilterSelect
+            value={artFilter}
+            onChange={setArtFilter}
+            label="Filter by discipline"
+            options={ART_FILTERS.map((f) => ({ value: f.key, label: f.label }))}
+          />
 
           <SegmentedBar>
             {(["all", "fight", "general"] as EventTypeFilter[]).map((type) => (
@@ -483,12 +482,13 @@ export default function EventsPage() {
             ))}
           </SegmentedBar>
 
-          <FilterSelect
-            value={artFilter}
-            onChange={setArtFilter}
-            label="Filter by discipline"
-            options={ART_FILTERS.map((f) => ({ value: f.key, label: f.label }))}
-          />
+          <SegmentedBar>
+            {(["upcoming", "past", "all"] as Tab[]).map((t) => (
+              <SegmentButton key={t} active={tab === t} onClick={() => setTab(t)}>
+                {TAB_LABELS[t]}
+              </SegmentButton>
+            ))}
+          </SegmentedBar>
         </div>
       </div>
 

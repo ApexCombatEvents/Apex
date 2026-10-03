@@ -485,14 +485,19 @@ export default function GymProfile({
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 lg:shrink-0">
-              <FollowStats profileId={profile.id} username={profile.username} />
-              {!isMe && (
-                <MessageButton
-                  targetProfileId={profile.id}
-                  targetUsername={profileIdentifier}
-                />
-              )}
+            <div className="lg:shrink-0">
+              <FollowStats
+                profileId={profile.id}
+                username={profile.username}
+                actions={
+                  !isMe && (
+                    <MessageButton
+                      targetProfileId={profile.id}
+                      targetUsername={profileIdentifier}
+                    />
+                  )
+                }
+              />
             </div>
           </div>
 

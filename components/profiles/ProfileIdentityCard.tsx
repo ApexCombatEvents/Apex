@@ -75,6 +75,13 @@ export default function ProfileIdentityCard({
   const chipClass = "bg-purple-50 text-purple-700 border border-purple-100";
   const labelClass =
     "text-[10px] font-semibold uppercase tracking-wider text-slate-400";
+  // On phones the label sits left and the figure right, so each row spans the
+  // column instead of bunching against the photo and leaving the right half
+  // empty. It wraps when the pair will not fit, which on the narrowest screens
+  // drops the figure onto its own line rather than clipping it. Wide screens
+  // have the room to stack them.
+  const vitalRowClass =
+    "flex flex-wrap items-baseline justify-between gap-x-3 lg:block";
   // Full-width stacked rows on phones, an inline column with a divider from lg.
   const stackedColumnClass =
     "w-full min-w-0 space-y-3 border-t border-slate-200/70 pt-4 lg:w-auto lg:border-t-0 lg:pt-0";
@@ -84,7 +91,7 @@ export default function ProfileIdentityCard({
       <div className="relative flex flex-wrap gap-4 sm:gap-6 p-4 sm:p-6">
         {/* Portrait. Stretches to the row height so it fills the card rather
             than stopping partway down, with a floor so it is never squat. */}
-        <div className="w-32 sm:w-44 lg:w-48 shrink-0 self-stretch lg:order-1">
+        <div className="w-36 sm:w-44 lg:w-48 shrink-0 self-stretch lg:order-1">
           <div className="h-full min-h-[11rem] sm:min-h-[14rem] rounded-2xl overflow-hidden bg-slate-100">
             {avatar_url ? (
               <Image
@@ -114,7 +121,7 @@ export default function ProfileIdentityCard({
         <div className="flex-1 min-w-0 lg:order-3 lg:flex-1 lg:border-l lg:border-slate-200/70 lg:pl-6">
           <dl className="space-y-2.5">
             {shownVitals.map((vital) => (
-              <div key={vital.label}>
+              <div key={vital.label} className={vitalRowClass}>
                 <dt className={labelClass}>{vital.label}</dt>
                 <dd
                   className={`font-semibold text-slate-900 ${
@@ -129,9 +136,9 @@ export default function ProfileIdentityCard({
             ))}
 
             {country && (
-              <div>
+              <div className={vitalRowClass}>
                 <dt className={labelClass}>Country</dt>
-                <dd className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <dd className="flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-900">
                   {flagUrl && (
                     <Image
                       src={flagUrl}
@@ -202,12 +209,18 @@ export default function ProfileIdentityCard({
             </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <FollowStats profileId={profile.id} username={username} />
-            {!isMe && (
-              <MessageButton targetProfileId={profile.id} targetUsername={username} />
-            )}
-          </div>
+          <FollowStats
+            profileId={profile.id}
+            username={username}
+            actions={
+              !isMe && (
+                <MessageButton
+                  targetProfileId={profile.id}
+                  targetUsername={username}
+                />
+              )
+            }
+          />
 
           <SocialPills socialLinks={social_links} />
         </div>
